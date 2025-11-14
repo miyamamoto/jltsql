@@ -43,6 +43,17 @@ class DuckDBDatabase(BaseDatabase):
         self.read_only = config.get("read_only", False)
         self.memory_limit = config.get("memory_limit")
 
+    def _quote_identifier(self, identifier: str) -> str:
+        """Quote SQL identifier using double quotes (DuckDB style).
+
+        Args:
+            identifier: Column or table name to quote
+
+        Returns:
+            Quoted identifier string
+        """
+        return f'"{identifier}"'
+
     def connect(self) -> None:
         """Establish DuckDB database connection.
 

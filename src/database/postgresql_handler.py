@@ -68,6 +68,17 @@ class PostgreSQLDatabase(BaseDatabase):
         self.sslmode = config.get("sslmode", "prefer")
         self.connect_timeout = config.get("connect_timeout", 10)
 
+    def _quote_identifier(self, identifier: str) -> str:
+        """Quote SQL identifier using double quotes (PostgreSQL style).
+
+        Args:
+            identifier: Column or table name to quote
+
+        Returns:
+            Quoted identifier string
+        """
+        return f'"{identifier}"'
+
     def connect(self) -> None:
         """Establish PostgreSQL database connection.
 
