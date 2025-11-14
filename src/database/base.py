@@ -52,6 +52,20 @@ class BaseDatabase(ABC):
         self._cursor = None
         logger.info(f"{self.__class__.__name__} initialized")
 
+    def _quote_identifier(self, identifier: str) -> str:
+        """Quote SQL identifier (column/table name).
+
+        Default implementation uses backticks (SQLite-style).
+        Subclasses can override for database-specific quoting.
+
+        Args:
+            identifier: Column or table name to quote
+
+        Returns:
+            Quoted identifier string
+        """
+        return f"`{identifier}`"
+
     @abstractmethod
     def connect(self) -> None:
         """Establish database connection.
@@ -178,8 +192,8 @@ class BaseDatabase(ABC):
         columns = list(data.keys())
         values = list(data.values())
         placeholders = ", ".join(["?" for _ in columns])
-        # Quote column names with backticks to support names starting with digits
-        quoted_columns = [f"`{col}`" for col in columns]
+        # Quote column names using database-specific method
+        quoted_columns = [self._quote_identifier(col) for col in columns]
 
         sql = f"INSERT INTO {table_name} ({', '.join(quoted_columns)}) VALUES ({placeholders})"
 
@@ -204,8 +218,8 @@ class BaseDatabase(ABC):
         # Use first row to determine columns
         columns = list(data_list[0].keys())
         placeholders = ", ".join(["?" for _ in columns])
-        # Quote column names with backticks to support names starting with digits
-        quoted_columns = [f"`{col}`" for col in columns]
+        # Quote column names using database-specific method
+        quoted_columns = [self._quote_identifier(col) for col in columns]
 
         sql = f"INSERT INTO {table_name} ({', '.join(quoted_columns)}) VALUES ({placeholders})"
 
