@@ -20,13 +20,14 @@ class BatchProcessor:
 
     Coordinates fetching, parsing, and importing of JV-Data in batches.
 
+    Note:
+        Service key must be configured in JRA-VAN DataLab application
+        before using this class.
+
     Examples:
         >>> from src.database.sqlite_handler import SQLiteDatabase
         >>> db = SQLiteDatabase({"path": "./keiba.db"})
-        >>> processor = BatchProcessor(
-        ...     service_key="YOUR_KEY",
-        ...     database=db,
-        ... )
+        >>> processor = BatchProcessor(database=db)
         >>> with db:
         ...     processor.process_date_range(
         ...         data_spec="RACE",
@@ -37,23 +38,25 @@ class BatchProcessor:
 
     def __init__(
         self,
-        service_key: str,
         database: BaseDatabase,
         batch_size: int = 1000,
+        sid: str = "UNKNOWN",
     ):
         """Initialize batch processor.
 
         Args:
-            service_key: JRA-VAN service key
             database: Database handler instance
             batch_size: Records per batch
+            sid: Session ID for JV-Link API (default: "UNKNOWN")
+                 Note: This is NOT the service key. Service key must be
+                 configured in JRA-VAN DataLab application.
         """
-        self.fetcher = HistoricalFetcher(service_key)
+        self.fetcher = HistoricalFetcher(sid)
         self.importer = DataImporter(database, batch_size)
         self.database = database
         self.schema_manager = SchemaManager(database)
 
-        logger.info("BatchProcessor initialized")
+        logger.info("BatchProcessor initialized", sid=sid)
 
     def process_date_range(
         self,
@@ -76,7 +79,7 @@ class BatchProcessor:
             Dictionary with processing statistics
 
         Examples:
-            >>> processor = BatchProcessor("KEY", db)
+            >>> processor = BatchProcessor(database=db)
             >>> stats = processor.process_date_range("RACE", "20240601", "20240630")
             >>> print(f"Imported {stats['records_imported']} records")
         """
@@ -133,7 +136,7 @@ class BatchProcessor:
             Dictionary with processing statistics
 
         Examples:
-            >>> processor = BatchProcessor("KEY", db)
+            >>> processor = BatchProcessor(database=db)
             >>> stats = processor.process_month(2024, 6, "RACE")
         """
         # Calculate date range
@@ -169,7 +172,7 @@ class BatchProcessor:
             Dictionary with processing statistics
 
         Examples:
-            >>> processor = BatchProcessor("KEY", db)
+            >>> processor = BatchProcessor(database=db)
             >>> stats = processor.process_year(2024, "RACE")
         """
         from_date = f"{year}0101"
@@ -198,7 +201,7 @@ class BatchProcessor:
             Dictionary mapping data_spec to statistics
 
         Examples:
-            >>> processor = BatchProcessor("KEY", db)
+            >>> processor = BatchProcessor(database=db)
             >>> specs = ["RACE", "DIFF"]
             >>> results = processor.process_multiple_specs(
             ...     specs, "20240601", "20240630"

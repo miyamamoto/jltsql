@@ -43,8 +43,13 @@ class JVLinkWrapper:
     This class provides a Pythonic interface to the JV-Link COM API,
     handling Windows COM object creation and method calls.
 
+    Important:
+        - Service key must be configured in JRA-VAN DataLab application
+        - JV-Link service must be running on Windows
+        - Session ID (sid) is used for API tracking, not authentication
+
     Examples:
-        >>> wrapper = JVLinkWrapper(service_key="YOUR_KEY")
+        >>> wrapper = JVLinkWrapper()  # Uses default sid="UNKNOWN"
         >>> wrapper.jv_init()
         0
         >>> result, count = wrapper.jv_open("RACE", "20240101", "20241231")
@@ -56,16 +61,19 @@ class JVLinkWrapper:
         >>> wrapper.jv_close()
     """
 
-    def __init__(self, service_key: str):
+    def __init__(self, sid: str = "UNKNOWN"):
         """Initialize JVLinkWrapper.
 
         Args:
-            service_key: JRA-VAN service key
+            sid: Session ID for JV-Link API (default: "UNKNOWN")
+                 Common values: "UNKNOWN", "Test"
+                 Note: This is NOT the service key. Service key must be
+                 configured separately in JRA-VAN DataLab application.
 
         Raises:
             JVLinkError: If COM object creation fails
         """
-        self.service_key = service_key
+        self.sid = sid
         self._jvlink = None
         self._is_open = False
 
@@ -73,7 +81,7 @@ class JVLinkWrapper:
             import win32com.client
 
             self._jvlink = win32com.client.Dispatch("JVDTLab.JVLink")
-            logger.info("JV-Link COM object created")
+            logger.info("JV-Link COM object created", sid=sid)
         except Exception as e:
             raise JVLinkError(f"Failed to create JV-Link COM object: {e}")
 
@@ -82,23 +90,28 @@ class JVLinkWrapper:
 
         Must be called before any other JV-Link operations.
 
+        Note:
+            Service key must be configured in JRA-VAN DataLab application
+            before calling this method. This method only initializes the
+            API connection using the session ID (sid).
+
         Returns:
-            Result code (0 = success, -1 = error)
+            Result code (0 = success, non-zero = error)
 
         Raises:
             JVLinkError: If initialization fails
 
         Examples:
-            >>> wrapper = JVLinkWrapper("YOUR_KEY")
+            >>> wrapper = JVLinkWrapper()  # sid="UNKNOWN"
             >>> result = wrapper.jv_init()
             >>> assert result == 0
         """
         try:
-            result = self._jvlink.JVInit(self.service_key)
+            result = self._jvlink.JVInit(self.sid)
             if result == JV_RT_SUCCESS:
-                logger.info("JV-Link initialized successfully")
+                logger.info("JV-Link initialized successfully", sid=self.sid)
             else:
-                logger.error("JV-Link initialization failed", error_code=result)
+                logger.error("JV-Link initialization failed", error_code=result, sid=self.sid)
                 raise JVLinkError("JV-Link initialization failed", error_code=result)
             return result
         except Exception as e:
@@ -109,57 +122,82 @@ class JVLinkWrapper:
     def jv_open(
         self,
         data_spec: str,
-        from_date: str,
-        to_date: str,
+        fromtime: str,
         option: int = 0,
-    ) -> Tuple[int, int]:
+    ) -> Tuple[int, int, int, str]:
         """Open JV-Link data stream for historical data.
 
         Args:
             data_spec: Data specification code (e.g., "RACE", "DIFF")
-            from_date: Start date in YYYYMMDD format
-            to_date: End date in YYYYMMDD format
+            fromtime: Start time in YYYYMMDDhhmmss format or date range
+                     Single: "20241103000000"
+                     Range: "20241103000000-20241103235959"
             option: Option flag (0=normal, 1=setup, 2=update)
 
         Returns:
-            Tuple of (result_code, read_count)
+            Tuple of (result_code, read_count, download_count, last_file_timestamp)
             - result_code: 0=success, negative=error
-            - read_count: Number of records to read (for setup mode)
+            - read_count: Number of records to read
+            - download_count: Number of records to download
+            - last_file_timestamp: Last file timestamp
 
         Raises:
             JVLinkError: If open operation fails
 
         Examples:
-            >>> wrapper = JVLinkWrapper("YOUR_KEY")
+            >>> wrapper = JVLinkWrapper()
             >>> wrapper.jv_init()
-            >>> result, count = wrapper.jv_open("RACE", "20240101", "20241231")
-            >>> print(f"Will read {count} records")
+            >>> result, read_count, dl_count, timestamp = wrapper.jv_open(
+            ...     "RACE", "20240101000000-20241231235959")
+            >>> print(f"Will read {read_count} records")
         """
         try:
-            result = self._jvlink.JVOpen(data_spec, from_date, to_date, option)
+            # JVOpen signature: (dataspec, fromtime, option, ref readCount, ref downloadCount, out lastFileTimestamp)
+            # pywin32: COM methods with ref/out parameters return them as tuple
+            # Call with only IN parameters (dataspec, fromtime, option)
+            jv_result = self._jvlink.JVOpen(data_spec, fromtime, option)
+
+            # Debug: log the actual return value
+            logger.debug(
+                "JVOpen raw result",
+                jv_result=jv_result,
+                type=type(jv_result).__name__,
+                length=len(jv_result) if isinstance(jv_result, tuple) else "N/A",
+            )
+
+            # Handle return value
+            if isinstance(jv_result, tuple):
+                if len(jv_result) == 4:
+                    result, read_count, download_count, last_file_timestamp = jv_result
+                else:
+                    raise ValueError(f"Unexpected JVOpen return tuple length: {len(jv_result)}, expected 4")
+            else:
+                # Unexpected single value
+                raise ValueError(f"Unexpected JVOpen return type: {type(jv_result)}, expected tuple")
 
             if result < 0:
                 logger.error(
                     "JVOpen failed",
                     data_spec=data_spec,
-                    from_date=from_date,
-                    to_date=to_date,
+                    fromtime=fromtime,
+                    option=option,
                     error_code=result,
                 )
                 raise JVLinkError("JVOpen failed", error_code=result)
 
-            read_count = result
             self._is_open = True
 
             logger.info(
                 "JVOpen successful",
                 data_spec=data_spec,
-                from_date=from_date,
-                to_date=to_date,
+                fromtime=fromtime,
+                option=option,
                 read_count=read_count,
+                download_count=download_count,
+                last_file_timestamp=last_file_timestamp,
             )
 
-            return JV_RT_SUCCESS, read_count
+            return result, read_count, download_count, last_file_timestamp
 
         except Exception as e:
             if isinstance(e, JVLinkError):
@@ -185,13 +223,21 @@ class JVLinkWrapper:
             >>> result, count = wrapper.jv_rt_open("0B12")  # Race results
         """
         try:
-            result = self._jvlink.JVRTOpen(data_spec, key)
+            # JVRTOpen returns (return_code, read_count) as a tuple in pywin32
+            jv_result = self._jvlink.JVRTOpen(data_spec, key)
+
+            # Handle both tuple and single value returns
+            if isinstance(jv_result, tuple):
+                result, read_count = jv_result
+            else:
+                # Single value means the read count (success case)
+                result = JV_RT_SUCCESS
+                read_count = jv_result
 
             if result < 0:
                 logger.error("JVRTOpen failed", data_spec=data_spec, error_code=result)
                 raise JVLinkError("JVRTOpen failed", error_code=result)
 
-            read_count = result
             self._is_open = True
 
             logger.info(
@@ -200,7 +246,7 @@ class JVLinkWrapper:
                 read_count=read_count,
             )
 
-            return JV_RT_SUCCESS, read_count
+            return result, read_count
 
         except Exception as e:
             if isinstance(e, JVLinkError):

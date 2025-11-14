@@ -18,8 +18,12 @@ class HistoricalFetcher(BaseFetcher):
     Fetches accumulated (蓄積) data from JV-Link for a specified date range
     and data specification.
 
+    Note:
+        Service key must be configured in JRA-VAN DataLab application
+        before using this class.
+
     Examples:
-        >>> fetcher = HistoricalFetcher(service_key="YOUR_KEY")
+        >>> fetcher = HistoricalFetcher()  # Uses default sid="UNKNOWN"
         >>> for record in fetcher.fetch(
         ...     data_spec="RACE",
         ...     from_date="20240101",
@@ -50,7 +54,7 @@ class HistoricalFetcher(BaseFetcher):
             FetcherError: If fetching fails
 
         Examples:
-            >>> fetcher = HistoricalFetcher("YOUR_KEY")
+            >>> fetcher = HistoricalFetcher()  # Uses default sid="UNKNOWN"
             >>> for record in fetcher.fetch("RACE", "20240601", "20240630"):
             ...     # Process record
             ...     pass
@@ -60,25 +64,33 @@ class HistoricalFetcher(BaseFetcher):
             logger.info("Initializing JV-Link")
             self.jvlink.jv_init()
 
+            # Convert dates to fromtime format
+            # fromtime format: "YYYYMMDDhhmmss-YYYYMMDDhhmmss"
+            fromtime_start = f"{from_date}000000"
+            fromtime_end = f"{to_date}235959"
+            fromtime = f"{fromtime_start}-{fromtime_end}"
+
             # Open data stream
             logger.info(
                 "Opening data stream",
                 data_spec=data_spec,
                 from_date=from_date,
                 to_date=to_date,
+                fromtime=fromtime,
                 option=option,
             )
 
-            result, count = self.jvlink.jv_open(
+            result, read_count, download_count, last_file_timestamp = self.jvlink.jv_open(
                 data_spec,
-                from_date,
-                to_date,
+                fromtime,
                 option,
             )
 
             logger.info(
-                f"Data stream opened",
-                expected_count=count,
+                "Data stream opened",
+                read_count=read_count,
+                download_count=download_count,
+                last_file_timestamp=last_file_timestamp,
             )
 
             # Reset statistics
@@ -128,7 +140,7 @@ class HistoricalFetcher(BaseFetcher):
 
         Examples:
             >>> from datetime import datetime
-            >>> fetcher = HistoricalFetcher("YOUR_KEY")
+            >>> fetcher = HistoricalFetcher()
             >>> start = datetime(2024, 6, 1)
             >>> end = datetime(2024, 6, 30)
             >>> for record in fetcher.fetch_with_date_range("RACE", start, end):

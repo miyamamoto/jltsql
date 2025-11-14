@@ -21,9 +21,9 @@ class TestJVLinkWrapper:
         mock_com = MagicMock()
         mock_dispatch.return_value = mock_com
 
-        wrapper = JVLinkWrapper(service_key="TEST_KEY")
+        wrapper = JVLinkWrapper(sid="TEST")
 
-        assert wrapper.service_key == "TEST_KEY"
+        assert wrapper.sid == "TEST"
         assert wrapper._jvlink == mock_com
         assert not wrapper.is_open()
         mock_dispatch.assert_called_once_with("JVDTLab.JVLink")
@@ -34,7 +34,7 @@ class TestJVLinkWrapper:
         mock_dispatch.side_effect = Exception("COM object creation failed")
 
         with pytest.raises(JVLinkError) as exc_info:
-            JVLinkWrapper(service_key="TEST_KEY")
+            JVLinkWrapper(sid="TEST")
 
         assert "Failed to create JV-Link COM object" in str(exc_info.value)
 
@@ -45,11 +45,11 @@ class TestJVLinkWrapper:
         mock_com.JVInit.return_value = JV_RT_SUCCESS
         mock_dispatch.return_value = mock_com
 
-        wrapper = JVLinkWrapper(service_key="TEST_KEY")
+        wrapper = JVLinkWrapper(sid="TEST")
         result = wrapper.jv_init()
 
         assert result == JV_RT_SUCCESS
-        mock_com.JVInit.assert_called_once_with("TEST_KEY")
+        mock_com.JVInit.assert_called_once_with("TEST")
 
     @patch("win32com.client.Dispatch")
     def test_jv_init_failure(self, mock_dispatch):
@@ -58,7 +58,7 @@ class TestJVLinkWrapper:
         mock_com.JVInit.return_value = JV_RT_ERROR
         mock_dispatch.return_value = mock_com
 
-        wrapper = JVLinkWrapper(service_key="TEST_KEY")
+        wrapper = JVLinkWrapper(sid="TEST")
 
         with pytest.raises(JVLinkError) as exc_info:
             wrapper.jv_init()
@@ -72,7 +72,7 @@ class TestJVLinkWrapper:
         mock_com.JVOpen.return_value = 1000  # 1000 records to read
         mock_dispatch.return_value = mock_com
 
-        wrapper = JVLinkWrapper(service_key="TEST_KEY")
+        wrapper = JVLinkWrapper(sid="TEST")
         result, count = wrapper.jv_open("RACE", "20240101", "20241231")
 
         assert result == JV_RT_SUCCESS
@@ -87,7 +87,7 @@ class TestJVLinkWrapper:
         mock_com.JVOpen.return_value = 500
         mock_dispatch.return_value = mock_com
 
-        wrapper = JVLinkWrapper(service_key="TEST_KEY")
+        wrapper = JVLinkWrapper(sid="TEST")
         result, count = wrapper.jv_open("DIFF", "20240101", "20241231", option=1)
 
         assert result == JV_RT_SUCCESS
@@ -101,7 +101,7 @@ class TestJVLinkWrapper:
         mock_com.JVOpen.return_value = JV_RT_ERROR
         mock_dispatch.return_value = mock_com
 
-        wrapper = JVLinkWrapper(service_key="TEST_KEY")
+        wrapper = JVLinkWrapper(sid="TEST")
 
         with pytest.raises(JVLinkError) as exc_info:
             wrapper.jv_open("RACE", "20240101", "20241231")
@@ -115,7 +115,7 @@ class TestJVLinkWrapper:
         mock_com.JVRTOpen.return_value = 10
         mock_dispatch.return_value = mock_com
 
-        wrapper = JVLinkWrapper(service_key="TEST_KEY")
+        wrapper = JVLinkWrapper(sid="TEST")
         result, count = wrapper.jv_rt_open("0B12")
 
         assert result == JV_RT_SUCCESS
@@ -130,7 +130,7 @@ class TestJVLinkWrapper:
         mock_com.JVRTOpen.return_value = JV_RT_ERROR
         mock_dispatch.return_value = mock_com
 
-        wrapper = JVLinkWrapper(service_key="TEST_KEY")
+        wrapper = JVLinkWrapper(sid="TEST")
 
         with pytest.raises(JVLinkError) as exc_info:
             wrapper.jv_rt_open("0B12")
@@ -145,7 +145,7 @@ class TestJVLinkWrapper:
         mock_com.JVRead.return_value = JV_READ_SUCCESS
         mock_dispatch.return_value = mock_com
 
-        wrapper = JVLinkWrapper(service_key="TEST_KEY")
+        wrapper = JVLinkWrapper(sid="TEST")
         wrapper.jv_open("RACE", "20240101", "20241231")
 
         # Mock pythoncom module inside the jv_read method
@@ -177,7 +177,7 @@ class TestJVLinkWrapper:
         mock_com.JVRead.return_value = JV_READ_NO_MORE_DATA
         mock_dispatch.return_value = mock_com
 
-        wrapper = JVLinkWrapper(service_key="TEST_KEY")
+        wrapper = JVLinkWrapper(sid="TEST")
         wrapper.jv_open("RACE", "20240101", "20241231")
 
         # Mock pythoncom module
@@ -200,7 +200,7 @@ class TestJVLinkWrapper:
         mock_com = MagicMock()
         mock_dispatch.return_value = mock_com
 
-        wrapper = JVLinkWrapper(service_key="TEST_KEY")
+        wrapper = JVLinkWrapper(sid="TEST")
 
         with pytest.raises(JVLinkError) as exc_info:
             wrapper.jv_read()
@@ -215,7 +215,7 @@ class TestJVLinkWrapper:
         mock_com.JVClose.return_value = JV_RT_SUCCESS
         mock_dispatch.return_value = mock_com
 
-        wrapper = JVLinkWrapper(service_key="TEST_KEY")
+        wrapper = JVLinkWrapper(sid="TEST")
         wrapper.jv_open("RACE", "20240101", "20241231")
 
         assert wrapper.is_open()
@@ -233,7 +233,7 @@ class TestJVLinkWrapper:
         mock_com.JVStatus.return_value = 0
         mock_dispatch.return_value = mock_com
 
-        wrapper = JVLinkWrapper(service_key="TEST_KEY")
+        wrapper = JVLinkWrapper(sid="TEST")
         status = wrapper.jv_status()
 
         assert status == 0
@@ -248,7 +248,7 @@ class TestJVLinkWrapper:
         mock_com.JVClose.return_value = JV_RT_SUCCESS
         mock_dispatch.return_value = mock_com
 
-        with JVLinkWrapper(service_key="TEST_KEY") as wrapper:
+        with JVLinkWrapper(sid="TEST") as wrapper:
             wrapper.jv_open("RACE", "20240101", "20241231")
             assert wrapper.is_open()
 
@@ -261,7 +261,7 @@ class TestJVLinkWrapper:
         mock_com = MagicMock()
         mock_dispatch.return_value = mock_com
 
-        wrapper = JVLinkWrapper(service_key="TEST_KEY")
+        wrapper = JVLinkWrapper(sid="TEST")
         repr_str = repr(wrapper)
 
         assert "JVLinkWrapper" in repr_str
