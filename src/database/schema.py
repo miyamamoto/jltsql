@@ -1735,7 +1735,20 @@ SCHEMAS = {
 
 
 class SchemaManager:
-    """Schema manager for database tables."""
+    """Schema manager for database tables.
+
+    Provides methods to create tables and optionally their indexes.
+
+    Examples:
+        >>> from src.database.sqlite_handler import SQLiteDatabase
+        >>> from src.database.schema import SchemaManager
+        >>>
+        >>> db = SQLiteDatabase({"path": "./keiba.db"})
+        >>> with db:
+        ...     schema_mgr = SchemaManager(db)
+        ...     # Create tables with indexes
+        ...     schema_mgr.create_all_tables(with_indexes=True)
+    """
 
     def __init__(self, database: BaseDatabase):
         """Initialize schema manager.
@@ -1746,11 +1759,12 @@ class SchemaManager:
         self.database = database
         logger.info("SchemaManager initialized")
 
-    def create_table(self, table_name: str) -> bool:
+    def create_table(self, table_name: str, with_indexes: bool = False) -> bool:
         """Create a single table.
 
         Args:
             table_name: Name of table to create
+            with_indexes: If True, also create indexes for the table
 
         Returns:
             True if successful, False otherwise
@@ -1762,23 +1776,39 @@ class SchemaManager:
         try:
             self.database.execute(SCHEMAS[table_name])
             logger.info(f"Created table: {table_name}")
+
+            # Create indexes if requested
+            if with_indexes:
+                try:
+                    from src.database.indexes import IndexManager
+                    index_mgr = IndexManager(self.database)
+                    index_mgr.create_indexes(table_name)
+                except Exception as e:
+                    logger.warning(f"Failed to create indexes for {table_name}: {e}")
+
             return True
         except Exception as e:
             logger.error(f"Failed to create table {table_name}: {e}")
             return False
 
-    def create_all_tables(self) -> Dict[str, bool]:
+    def create_all_tables(self, with_indexes: bool = False) -> Dict[str, bool]:
         """Create all tables.
+
+        Args:
+            with_indexes: If True, also create indexes for all tables
 
         Returns:
             Dictionary mapping table names to creation status
         """
         results = {}
         for table_name in SCHEMAS.keys():
-            results[table_name] = self.create_table(table_name)
+            results[table_name] = self.create_table(table_name, with_indexes=with_indexes)
 
         created_count = sum(1 for success in results.values() if success)
         logger.info(f"Created {created_count}/{len(SCHEMAS)} tables", results=results)
+
+        if with_indexes:
+            logger.info("Indexes created for all tables")
 
         return results
 

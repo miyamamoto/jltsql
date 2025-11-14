@@ -1,0 +1,453 @@
+"""Database index definitions for JLTSQL.
+
+This module provides optimized index definitions for all tables
+to improve query performance for common search patterns in horse racing data analysis.
+
+Index Design Principles:
+1. Date range searches (開催年月日, データ作成年月日)
+2. Venue/Race searches (競馬場コード, レース番号)
+3. Horse/Jockey/Trainer searches (血統登録番号, 騎手コード, 調教師コード)
+4. Composite indexes for common JOIN patterns
+5. Covering indexes for frequently queried columns
+"""
+
+from typing import Dict, List
+
+from src.database.base import BaseDatabase
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+# Index definitions for each table
+# Format: table_name -> list of CREATE INDEX statements
+INDEXES = {
+    # ============================================================================
+    # NL_* Tables (Accumulated Data) - 23 working tables
+    # ============================================================================
+
+    "NL_RA": [
+        # レース詳細 (Race Details) - Most frequently queried table
+        "CREATE INDEX IF NOT EXISTS idx_nl_ra_date ON NL_RA(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_ra_venue ON NL_RA(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_ra_race ON NL_RA(レース番号)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_ra_grade ON NL_RA(グレードコード)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_ra_distance ON NL_RA(距離)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_ra_track ON NL_RA(トラックコード)",
+        # Composite index for common queries
+        "CREATE INDEX IF NOT EXISTS idx_nl_ra_venue_date ON NL_RA(競馬場コード, 開催年, 開催月日)",
+    ],
+
+    "NL_AV": [
+        # 場外発売情報 (Off-track Betting)
+        "CREATE INDEX IF NOT EXISTS idx_nl_av_date ON NL_AV(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_av_venue ON NL_AV(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_av_race ON NL_AV(レース番号)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_av_horse ON NL_AV(馬番)",
+    ],
+
+    "NL_BN": [
+        # 馬主マスタ (Owner Master)
+        "CREATE INDEX IF NOT EXISTS idx_nl_bn_name ON NL_BN(馬主名法人格無)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_bn_date ON NL_BN(データ作成年月日)",
+    ],
+
+    "NL_BR": [
+        # 生産者マスタ (Breeder Master)
+        "CREATE INDEX IF NOT EXISTS idx_nl_br_name ON NL_BR(生産者名法人格無)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_br_location ON NL_BR(生産者住所自治省名)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_br_date ON NL_BR(データ作成年月日)",
+    ],
+
+    "NL_BT": [
+        # 系統情報 (Bloodline)
+        "CREATE INDEX IF NOT EXISTS idx_nl_bt_system ON NL_BT(系統ID)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_bt_name ON NL_BT(系統名)",
+    ],
+
+    "NL_CC": [
+        # 競走馬成績 (Horse Performance)
+        "CREATE INDEX IF NOT EXISTS idx_nl_cc_date ON NL_CC(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_cc_venue ON NL_CC(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_cc_race ON NL_CC(レース番号)",
+    ],
+
+    "NL_CH": [
+        # 繁殖馬マスタ (Broodmare Master)
+        "CREATE INDEX IF NOT EXISTS idx_nl_ch_date ON NL_CH(データ作成年月日)",
+    ],
+
+    "NL_CS": [
+        # 成績変更・取消情報 (Result Change/Cancellation)
+        "CREATE INDEX IF NOT EXISTS idx_nl_cs_date ON NL_CS(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_cs_venue ON NL_CS(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_cs_race ON NL_CS(レース番号)",
+    ],
+
+    "NL_DM": [
+        # データマイニング (Data Mining - Time Type)
+        "CREATE INDEX IF NOT EXISTS idx_nl_dm_date ON NL_DM(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_dm_venue ON NL_DM(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_dm_race ON NL_DM(レース番号)",
+    ],
+
+    "NL_HS": [
+        # 馬成績 (Horse Results)
+        "CREATE INDEX IF NOT EXISTS idx_nl_hs_date ON NL_HS(データ作成年月日)",
+    ],
+
+    "NL_HY": [
+        # 配当 (Dividend/Payout)
+        "CREATE INDEX IF NOT EXISTS idx_nl_hy_date ON NL_HY(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_hy_venue ON NL_HY(競馬場コード)",
+    ],
+
+    "NL_JG": [
+        # 重賞レース (Graded Stakes Race)
+        "CREATE INDEX IF NOT EXISTS idx_nl_jg_date ON NL_JG(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_jg_venue ON NL_JG(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_jg_grade ON NL_JG(グレードコード)",
+    ],
+
+    "NL_KS": [
+        # 騎手マスタ (Jockey Master)
+        "CREATE INDEX IF NOT EXISTS idx_nl_ks_name ON NL_KS(騎手名)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_ks_date ON NL_KS(データ作成年月日)",
+    ],
+
+    "NL_O1": [
+        # オッズ (単勝・複勝) (Odds - Win/Place)
+        "CREATE INDEX IF NOT EXISTS idx_nl_o1_date ON NL_O1(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_o1_venue ON NL_O1(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_o1_race ON NL_O1(レース番号)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_o1_time ON NL_O1(発表月日時分)",
+    ],
+
+    "NL_O2": [
+        # オッズ (枠連) (Odds - Bracket Quinella)
+        "CREATE INDEX IF NOT EXISTS idx_nl_o2_date ON NL_O2(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_o2_venue ON NL_O2(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_o2_race ON NL_O2(レース番号)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_o2_time ON NL_O2(発表月日時分)",
+    ],
+
+    "NL_O3": [
+        # オッズ (馬連) (Odds - Quinella)
+        "CREATE INDEX IF NOT EXISTS idx_nl_o3_date ON NL_O3(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_o3_venue ON NL_O3(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_o3_race ON NL_O3(レース番号)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_o3_time ON NL_O3(発表月日時分)",
+    ],
+
+    "NL_O4": [
+        # オッズ (ワイド) (Odds - Wide)
+        "CREATE INDEX IF NOT EXISTS idx_nl_o4_date ON NL_O4(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_o4_venue ON NL_O4(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_o4_race ON NL_O4(レース番号)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_o4_time ON NL_O4(発表月日時分)",
+    ],
+
+    "NL_RC": [
+        # レースコード (Race Code)
+        "CREATE INDEX IF NOT EXISTS idx_nl_rc_date ON NL_RC(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_rc_venue ON NL_RC(競馬場コード)",
+    ],
+
+    "NL_TC": [
+        # 調教師成績 (Trainer Performance)
+        "CREATE INDEX IF NOT EXISTS idx_nl_tc_date ON NL_TC(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_tc_venue ON NL_TC(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_tc_race ON NL_TC(レース番号)",
+    ],
+
+    "NL_TK": [
+        # 特別登録馬 (Special Registration Horse)
+        "CREATE INDEX IF NOT EXISTS idx_nl_tk_date ON NL_TK(データ作成年月日)",
+    ],
+
+    "NL_TM": [
+        # データマイニング (対戦型) (Data Mining - Match Type)
+        "CREATE INDEX IF NOT EXISTS idx_nl_tm_date ON NL_TM(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_tm_venue ON NL_TM(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_tm_race ON NL_TM(レース番号)",
+    ],
+
+    "NL_WH": [
+        # 馬体重 (Horse Weight)
+        "CREATE INDEX IF NOT EXISTS idx_nl_wh_date ON NL_WH(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_wh_venue ON NL_WH(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_wh_race ON NL_WH(レース番号)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_wh_time ON NL_WH(発表月日時分)",
+    ],
+
+    "NL_YS": [
+        # 開催スケジュール (Event Schedule)
+        "CREATE INDEX IF NOT EXISTS idx_nl_ys_year ON NL_YS(開催年)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_ys_date ON NL_YS(開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_ys_venue ON NL_YS(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_ys_day ON NL_YS(曜日コード)",
+    ],
+
+    # ============================================================================
+    # RT_* Tables (Real-Time Data) - 11 working tables
+    # ============================================================================
+
+    "RT_RA": [
+        # リアルタイム: レース詳細
+        "CREATE INDEX IF NOT EXISTS idx_rt_ra_date ON RT_RA(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_ra_venue ON RT_RA(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_ra_race ON RT_RA(レース番号)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_ra_time ON RT_RA(発表月日時分)",
+        # Real-time specific: recent data queries
+        "CREATE INDEX IF NOT EXISTS idx_rt_ra_venue_time ON RT_RA(競馬場コード, 発表月日時分)",
+    ],
+
+    "RT_AV": [
+        # リアルタイム: 場外発売
+        "CREATE INDEX IF NOT EXISTS idx_rt_av_date ON RT_AV(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_av_venue ON RT_AV(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_av_race ON RT_AV(レース番号)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_av_time ON RT_AV(発表月日時分)",
+    ],
+
+    "RT_CC": [
+        # リアルタイム: 競走馬成績
+        "CREATE INDEX IF NOT EXISTS idx_rt_cc_date ON RT_CC(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_cc_venue ON RT_CC(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_cc_race ON RT_CC(レース番号)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_cc_time ON RT_CC(発表月日時分)",
+    ],
+
+    "RT_DM": [
+        # リアルタイム: データマイニング
+        "CREATE INDEX IF NOT EXISTS idx_rt_dm_date ON RT_DM(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_dm_venue ON RT_DM(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_dm_race ON RT_DM(レース番号)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_dm_time ON RT_DM(発表月日時分)",
+    ],
+
+    "RT_O1": [
+        # リアルタイム: オッズ (単勝・複勝)
+        "CREATE INDEX IF NOT EXISTS idx_rt_o1_date ON RT_O1(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_o1_venue ON RT_O1(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_o1_race ON RT_O1(レース番号)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_o1_time ON RT_O1(発表月日時分)",
+        # Real-time odds tracking
+        "CREATE INDEX IF NOT EXISTS idx_rt_o1_race_time ON RT_O1(レース番号, 発表月日時分)",
+    ],
+
+    "RT_O2": [
+        # リアルタイム: オッズ (枠連)
+        "CREATE INDEX IF NOT EXISTS idx_rt_o2_date ON RT_O2(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_o2_venue ON RT_O2(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_o2_race ON RT_O2(レース番号)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_o2_time ON RT_O2(発表月日時分)",
+    ],
+
+    "RT_O3": [
+        # リアルタイム: オッズ (馬連)
+        "CREATE INDEX IF NOT EXISTS idx_rt_o3_date ON RT_O3(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_o3_venue ON RT_O3(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_o3_race ON RT_O3(レース番号)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_o3_time ON RT_O3(発表月日時分)",
+    ],
+
+    "RT_O4": [
+        # リアルタイム: オッズ (ワイド)
+        "CREATE INDEX IF NOT EXISTS idx_rt_o4_date ON RT_O4(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_o4_venue ON RT_O4(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_o4_race ON RT_O4(レース番号)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_o4_time ON RT_O4(発表月日時分)",
+    ],
+
+    "RT_TC": [
+        # リアルタイム: 調教師成績
+        "CREATE INDEX IF NOT EXISTS idx_rt_tc_date ON RT_TC(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_tc_venue ON RT_TC(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_tc_race ON RT_TC(レース番号)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_tc_time ON RT_TC(発表月日時分)",
+    ],
+
+    "RT_TM": [
+        # リアルタイム: データマイニング (対戦型)
+        "CREATE INDEX IF NOT EXISTS idx_rt_tm_date ON RT_TM(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_tm_venue ON RT_TM(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_tm_race ON RT_TM(レース番号)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_tm_time ON RT_TM(発表月日時分)",
+    ],
+
+    "RT_WH": [
+        # リアルタイム: 馬体重
+        "CREATE INDEX IF NOT EXISTS idx_rt_wh_date ON RT_WH(開催年, 開催月日)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_wh_venue ON RT_WH(競馬場コード)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_wh_race ON RT_WH(レース番号)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_wh_time ON RT_WH(発表月日時分)",
+    ],
+}
+
+
+class IndexManager:
+    """Index management for database tables.
+
+    Creates and manages indexes for optimized query performance.
+
+    Examples:
+        >>> from src.database.sqlite_handler import SQLiteDatabase
+        >>> from src.database.indexes import IndexManager
+        >>>
+        >>> db = SQLiteDatabase({"path": "./keiba.db"})
+        >>> with db:
+        ...     index_mgr = IndexManager(db)
+        ...     results = index_mgr.create_all_indexes()
+        ...     print(f"Created {sum(results.values())} indexes")
+    """
+
+    def __init__(self, database: BaseDatabase):
+        """Initialize index manager.
+
+        Args:
+            database: Database handler instance
+        """
+        self.database = database
+        logger.info("IndexManager initialized")
+
+    def create_indexes(self, table_name: str) -> bool:
+        """Create all indexes for a specific table.
+
+        Args:
+            table_name: Name of the table
+
+        Returns:
+            True if all indexes created successfully, False otherwise
+        """
+        if table_name not in INDEXES:
+            logger.warning(f"No index definitions for table: {table_name}")
+            return False
+
+        try:
+            index_statements = INDEXES[table_name]
+            for statement in index_statements:
+                self.database.execute(statement)
+
+            logger.info(f"Created {len(index_statements)} indexes for {table_name}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to create indexes for {table_name}: {e}")
+            return False
+
+    def create_all_indexes(self) -> Dict[str, int]:
+        """Create all indexes for all tables.
+
+        Returns:
+            Dictionary mapping table names to number of indexes created
+        """
+        results = {}
+
+        for table_name in INDEXES.keys():
+            try:
+                index_statements = INDEXES[table_name]
+                success_count = 0
+
+                for statement in index_statements:
+                    try:
+                        self.database.execute(statement)
+                        success_count += 1
+                    except Exception as e:
+                        logger.error(f"Failed to create index: {e}")
+
+                results[table_name] = success_count
+
+                if success_count == len(index_statements):
+                    logger.info(f"Created {success_count} indexes for {table_name}")
+                else:
+                    logger.warning(
+                        f"Created {success_count}/{len(index_statements)} indexes for {table_name}"
+                    )
+
+            except Exception as e:
+                logger.error(f"Failed to create indexes for {table_name}: {e}")
+                results[table_name] = 0
+
+        total_indexes = sum(results.values())
+        logger.info(f"Created {total_indexes} total indexes across {len(results)} tables")
+
+        return results
+
+    def drop_indexes(self, table_name: str) -> bool:
+        """Drop all indexes for a specific table.
+
+        Args:
+            table_name: Name of the table
+
+        Returns:
+            True if all indexes dropped successfully, False otherwise
+
+        Note:
+            This will NOT drop the PRIMARY KEY constraint, only additional indexes.
+        """
+        if table_name not in INDEXES:
+            logger.warning(f"No index definitions for table: {table_name}")
+            return False
+
+        try:
+            index_statements = INDEXES[table_name]
+
+            for statement in index_statements:
+                # Extract index name from CREATE INDEX statement
+                # Format: "CREATE INDEX IF NOT EXISTS idx_name ON table_name(...)"
+                parts = statement.split()
+
+                # Find INDEX keyword position
+                try:
+                    idx_pos = parts.index("INDEX")
+                except ValueError:
+                    continue
+
+                # Check if IF NOT EXISTS follows INDEX
+                if idx_pos + 3 < len(parts) and parts[idx_pos + 1] == "IF":
+                    # Format: CREATE INDEX IF NOT EXISTS idx_name
+                    index_name = parts[idx_pos + 4]
+                elif idx_pos + 1 < len(parts):
+                    # Format: CREATE INDEX idx_name
+                    index_name = parts[idx_pos + 1]
+                else:
+                    continue
+
+                # Drop index
+                drop_sql = f"DROP INDEX IF EXISTS {index_name}"
+                self.database.execute(drop_sql)
+
+            logger.info(f"Dropped {len(index_statements)} indexes from {table_name}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to drop indexes from {table_name}: {e}")
+            return False
+
+    def get_index_count(self, table_name: str) -> int:
+        """Get the number of index definitions for a table.
+
+        Args:
+            table_name: Name of the table
+
+        Returns:
+            Number of indexes defined for the table
+        """
+        return len(INDEXES.get(table_name, []))
+
+    def get_all_index_count(self) -> int:
+        """Get the total number of index definitions across all tables.
+
+        Returns:
+            Total number of indexes defined
+        """
+        return sum(len(indexes) for indexes in INDEXES.values())
+
+    def list_tables_with_indexes(self) -> List[str]:
+        """Get list of table names that have index definitions.
+
+        Returns:
+            List of table names
+        """
+        return list(INDEXES.keys())

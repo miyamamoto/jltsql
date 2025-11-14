@@ -495,5 +495,117 @@ def create_tables(ctx, db, create_all, nl_only, rt_only):
         sys.exit(1)
 
 
+@cli.command()
+@click.option("--db", type=click.Choice(["sqlite", "duckdb", "postgresql"]), default=None, help="Database type (default: from config)")
+@click.option("--table", help="Create indexes for specific table only")
+@click.pass_context
+def create_indexes(ctx, db, table):
+    """Create database indexes for improved query performance.
+
+    \b
+    Creates optimized indexes on frequently queried columns:
+    - Date fields (開催年月日, データ作成年月日)
+    - Venue/Race fields (競馬場コード, レース番号)
+    - Real-time fields (発表月日時分)
+    - Composite indexes for JOIN optimization
+
+    \b
+    Examples:
+      jltsql create-indexes                    # Create all indexes
+      jltsql create-indexes --db sqlite        # Create indexes in SQLite
+      jltsql create-indexes --table NL_RA      # Create indexes for NL_RA only
+    """
+    from rich.progress import Progress, SpinnerColumn, TextColumn
+    from src.database.indexes import IndexManager
+    from src.database.sqlite_handler import SQLiteDatabase
+    from src.database.duckdb_handler import DuckDBDatabase
+    from src.database.postgresql_handler import PostgreSQLDatabase
+
+    config = ctx.obj.get("config")
+    if not config and not db:
+        console.print("[red]Error:[/red] No configuration found. Run 'jltsql init' first or use --db option.")
+        sys.exit(1)
+
+    # Determine database type
+    if db:
+        db_type = db
+    else:
+        db_type = config.database.get("type", "sqlite")
+
+    console.print(f"[bold cyan]Creating database indexes ({db_type})...[/bold cyan]\n")
+
+    try:
+        # Initialize database
+        if db_type == "sqlite":
+            db_config = config.database if config else {"path": "data/keiba.db"}
+            database = SQLiteDatabase(db_config)
+        elif db_type == "duckdb":
+            db_config = config.database if config else {"path": "data/keiba.duckdb"}
+            database = DuckDBDatabase(db_config)
+        elif db_type == "postgresql":
+            if not config:
+                console.print("[red]Error:[/red] PostgreSQL requires configuration file.")
+                sys.exit(1)
+            database = PostgreSQLDatabase(config.database)
+        else:
+            console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
+            sys.exit(1)
+
+        # Connect to database
+        with database:
+            index_manager = IndexManager(database)
+
+            # Create indexes for specific table or all tables
+            if table:
+                console.print(f"Creating indexes for table: {table}")
+                result = index_manager.create_indexes(table)
+
+                if result:
+                    index_count = index_manager.get_index_count(table)
+                    console.print(f"[green]✓[/green] Created {index_count} indexes for {table}")
+                else:
+                    console.print(f"[red]✗[/red] Failed to create indexes for {table}")
+                    sys.exit(1)
+            else:
+                console.print("Creating indexes for all tables...")
+
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    console=console
+                ) as progress:
+                    task = progress.add_task("[cyan]Creating indexes...", total=None)
+
+                    results = index_manager.create_all_indexes()
+
+                    progress.update(task, description="[green]Indexes created!")
+
+                # Show results
+                total_indexes = sum(results.values())
+                total_tables = len(results)
+
+                console.print()
+                console.print(f"[green]✓[/green] Created {total_indexes} indexes across {total_tables} tables")
+
+                # Show breakdown
+                console.print()
+                console.print("[bold]Index Statistics:[/bold]")
+                nl_indexes = sum(count for table, count in results.items() if table.startswith("NL_"))
+                rt_indexes = sum(count for table, count in results.items() if table.startswith("RT_"))
+
+                console.print(f"  NL_* tables: {nl_indexes} indexes")
+                console.print(f"  RT_* tables: {rt_indexes} indexes")
+                console.print(f"  Total:       {total_indexes} indexes")
+
+                console.print()
+                console.print("[dim]Note: Indexes improve query performance for date ranges,")
+                console.print("      venue/race searches, and real-time data queries.[/dim]")
+
+    except Exception as e:
+        console.print(f"\n[red]Error:[/red] {e}", style="bold")
+        logger.error("Failed to create indexes", error=str(e), exc_info=True)
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     cli(obj={})
