@@ -5,8 +5,20 @@ This module provides PostgreSQL database operations for JLTSQL.
 
 from typing import Any, Dict, List, Optional
 
-import psycopg
-from psycopg.rows import dict_row
+try:
+    import pg8000.native
+    DRIVER = "pg8000"
+except ImportError:
+    try:
+        import psycopg
+        from psycopg.rows import dict_row
+        DRIVER = "psycopg"
+    except ImportError:
+        raise ImportError(
+            "No PostgreSQL driver available. "
+            "Install pg8000 (pure Python, works on Win32): pip install pg8000 "
+            "Or install psycopg (requires libpq): pip install psycopg"
+        )
 
 from src.database.base import BaseDatabase, DatabaseError
 from src.utils.logger import get_logger
@@ -63,28 +75,41 @@ class PostgreSQLDatabase(BaseDatabase):
             DatabaseError: If connection fails
         """
         try:
-            # Build connection string
-            conn_str = (
-                f"host={self.host} "
-                f"port={self.port} "
-                f"dbname={self.database} "
-                f"user={self.user} "
-                f"password={self.password} "
-                f"sslmode={self.sslmode} "
-                f"connect_timeout={self.connect_timeout}"
-            )
+            if DRIVER == "pg8000":
+                # pg8000.native returns dict-like results by default
+                self._connection = pg8000.native.Connection(
+                    user=self.user,
+                    password=self.password,
+                    host=self.host,
+                    port=self.port,
+                    database=self.database,
+                )
+                self._cursor = None  # pg8000.native doesn't use cursors
 
-            self._connection = psycopg.connect(
-                conn_str,
-                row_factory=dict_row,
-            )
-            self._cursor = self._connection.cursor()
+            else:  # psycopg
+                # Build connection string
+                conn_str = (
+                    f"host={self.host} "
+                    f"port={self.port} "
+                    f"dbname={self.database} "
+                    f"user={self.user} "
+                    f"password={self.password} "
+                    f"sslmode={self.sslmode} "
+                    f"connect_timeout={self.connect_timeout}"
+                )
+
+                self._connection = psycopg.connect(
+                    conn_str,
+                    row_factory=dict_row,
+                )
+                self._cursor = self._connection.cursor()
 
             logger.info(
-                f"Connected to PostgreSQL database: {self.host}:{self.port}/{self.database}"
+                f"Connected to PostgreSQL database: {self.host}:{self.port}/{self.database}",
+                driver=DRIVER
             )
 
-        except psycopg.Error as e:
+        except Exception as e:
             raise DatabaseError(f"Failed to connect to PostgreSQL database: {e}")
 
     def disconnect(self) -> None:
@@ -112,18 +137,22 @@ class PostgreSQLDatabase(BaseDatabase):
         Raises:
             DatabaseError: If execution fails
         """
-        if not self._cursor:
+        if not self._connection:
             raise DatabaseError("Database not connected")
 
         try:
-            if parameters:
-                self._cursor.execute(sql, parameters)
-            else:
-                self._cursor.execute(sql)
+            if DRIVER == "pg8000":
+                # pg8000.native uses connection.run() for execution
+                self._connection.run(sql, parameters or ())
+                return self._connection.row_count
+            else:  # psycopg
+                if parameters:
+                    self._cursor.execute(sql, parameters)
+                else:
+                    self._cursor.execute(sql)
+                return self._cursor.rowcount
 
-            return self._cursor.rowcount
-
-        except psycopg.Error as e:
+        except Exception as e:
             logger.error(f"SQL execution failed: {sql[:100]}", error=str(e))
             raise DatabaseError(f"SQL execution failed: {e}")
 
@@ -140,14 +169,22 @@ class PostgreSQLDatabase(BaseDatabase):
         Raises:
             DatabaseError: If execution fails
         """
-        if not self._cursor:
+        if not self._connection:
             raise DatabaseError("Database not connected")
 
         try:
-            self._cursor.executemany(sql, parameters_list)
-            return self._cursor.rowcount
+            if DRIVER == "pg8000":
+                # pg8000 doesn't have executemany, execute individually
+                total_rows = 0
+                for params in parameters_list:
+                    self._connection.run(sql, params)
+                    total_rows += self._connection.row_count
+                return total_rows
+            else:  # psycopg
+                self._cursor.executemany(sql, parameters_list)
+                return self._cursor.rowcount
 
-        except psycopg.Error as e:
+        except Exception as e:
             logger.error(f"SQL executemany failed: {sql[:100]}", error=str(e))
             raise DatabaseError(f"SQL executemany failed: {e}")
 
@@ -164,19 +201,23 @@ class PostgreSQLDatabase(BaseDatabase):
         Raises:
             DatabaseError: If query fails
         """
-        if not self._cursor:
+        if not self._connection:
             raise DatabaseError("Database not connected")
 
         try:
-            if parameters:
-                self._cursor.execute(sql, parameters)
-            else:
-                self._cursor.execute(sql)
+            if DRIVER == "pg8000":
+                # pg8000.native returns list of dicts
+                rows = self._connection.run(sql, parameters or ())
+                return rows[0] if rows else None
+            else:  # psycopg
+                if parameters:
+                    self._cursor.execute(sql, parameters)
+                else:
+                    self._cursor.execute(sql)
+                row = self._cursor.fetchone()
+                return row if row else None
 
-            row = self._cursor.fetchone()
-            return row if row else None
-
-        except psycopg.Error as e:
+        except Exception as e:
             logger.error(f"SQL query failed: {sql[:100]}", error=str(e))
             raise DatabaseError(f"SQL query failed: {e}")
 
@@ -193,19 +234,23 @@ class PostgreSQLDatabase(BaseDatabase):
         Raises:
             DatabaseError: If query fails
         """
-        if not self._cursor:
+        if not self._connection:
             raise DatabaseError("Database not connected")
 
         try:
-            if parameters:
-                self._cursor.execute(sql, parameters)
-            else:
-                self._cursor.execute(sql)
+            if DRIVER == "pg8000":
+                # pg8000.native returns list of dicts directly
+                rows = self._connection.run(sql, parameters or ())
+                return rows if rows else []
+            else:  # psycopg
+                if parameters:
+                    self._cursor.execute(sql, parameters)
+                else:
+                    self._cursor.execute(sql)
+                rows = self._cursor.fetchall()
+                return rows if rows else []
 
-            rows = self._cursor.fetchall()
-            return rows if rows else []
-
-        except psycopg.Error as e:
+        except Exception as e:
             logger.error(f"SQL query failed: {sql[:100]}", error=str(e))
             raise DatabaseError(f"SQL query failed: {e}")
 
@@ -302,17 +347,26 @@ class PostgreSQLDatabase(BaseDatabase):
         """
         try:
             # Vacuum requires autocommit mode
-            old_autocommit = self._connection.autocommit
-            self._connection.autocommit = True
+            if DRIVER == "pg8000":
+                # pg8000.native is always in autocommit mode
+                if table_name:
+                    self.execute(f"VACUUM {table_name}")
+                    logger.info(f"Vacuumed table: {table_name}")
+                else:
+                    self.execute("VACUUM")
+                    logger.info("Vacuumed all tables")
+            else:  # psycopg
+                old_autocommit = self._connection.autocommit
+                self._connection.autocommit = True
 
-            if table_name:
-                self.execute(f"VACUUM {table_name}")
-                logger.info(f"Vacuumed table: {table_name}")
-            else:
-                self.execute("VACUUM")
-                logger.info("Vacuumed all tables")
+                if table_name:
+                    self.execute(f"VACUUM {table_name}")
+                    logger.info(f"Vacuumed table: {table_name}")
+                else:
+                    self.execute("VACUUM")
+                    logger.info("Vacuumed all tables")
 
-            self._connection.autocommit = old_autocommit
+                self._connection.autocommit = old_autocommit
 
         except DatabaseError:
             raise
