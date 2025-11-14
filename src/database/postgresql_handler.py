@@ -69,15 +69,53 @@ class PostgreSQLDatabase(BaseDatabase):
         self.connect_timeout = config.get("connect_timeout", 10)
 
     def _quote_identifier(self, identifier: str) -> str:
-        """Quote SQL identifier using double quotes (PostgreSQL style).
+        """Convert identifier to PostgreSQL-compatible form (lowercase, unquoted).
+
+        PostgreSQL lowercases unquoted identifiers. To ensure compatibility
+        with schemas that don't quote column names, we use lowercase unquoted
+        identifiers instead of quoting them.
 
         Args:
-            identifier: Column or table name to quote
+            identifier: Column or table name
 
         Returns:
-            Quoted identifier string
+            Lowercase identifier (unquoted)
         """
-        return f'"{identifier}"'
+        return identifier.lower()
+
+    def _convert_placeholders_and_params(self, sql: str, parameters: Optional[tuple] = None):
+        """Convert ? placeholders and parameters for PostgreSQL driver compatibility.
+
+        pg8000.native uses :param1, :param2, :param3 named parameters with dict.
+        psycopg uses %s placeholders with tuple.
+
+        Args:
+            sql: SQL string with ? placeholders
+            parameters: Optional parameters tuple
+
+        Returns:
+            Tuple of (converted_sql, converted_parameters)
+        """
+        if DRIVER == "pg8000":
+            # Convert ? to :param1, :param2, :param3, ... for pg8000.native
+            parts = sql.split("?")
+            if len(parts) == 1:
+                return (sql, parameters or ())  # No placeholders
+
+            result = parts[0]
+            for i in range(1, len(parts)):
+                result += f":param{i}" + parts[i]
+
+            # Convert tuple to dict
+            if parameters:
+                params_dict = {f"param{i+1}": val for i, val in enumerate(parameters)}
+                return (result, params_dict)
+            else:
+                return (result, {})
+        else:  # psycopg
+            # Convert ? to %s for psycopg
+            converted_sql = sql.replace("?", "%s")
+            return (converted_sql, parameters or ())
 
     def connect(self) -> None:
         """Establish PostgreSQL database connection.
@@ -152,13 +190,16 @@ class PostgreSQLDatabase(BaseDatabase):
             raise DatabaseError("Database not connected")
 
         try:
+            # Convert SQL and parameters for PostgreSQL driver compatibility
+            sql, params = self._convert_placeholders_and_params(sql, parameters)
+
             if DRIVER == "pg8000":
-                # pg8000.native uses connection.run() for execution
-                self._connection.run(sql, parameters or ())
+                # pg8000.native uses connection.run() for execution with dict params
+                self._connection.run(sql, **params) if isinstance(params, dict) else self._connection.run(sql)
                 return self._connection.row_count
             else:  # psycopg
-                if parameters:
-                    self._cursor.execute(sql, parameters)
+                if params:
+                    self._cursor.execute(sql, params)
                 else:
                     self._cursor.execute(sql)
                 return self._cursor.rowcount
@@ -188,11 +229,18 @@ class PostgreSQLDatabase(BaseDatabase):
                 # pg8000 doesn't have executemany, execute individually
                 total_rows = 0
                 for params in parameters_list:
-                    self._connection.run(sql, params)
+                    # Convert SQL and parameters for each execution
+                    converted_sql, converted_params = self._convert_placeholders_and_params(sql, params)
+                    if isinstance(converted_params, dict):
+                        self._connection.run(converted_sql, **converted_params)
+                    else:
+                        self._connection.run(converted_sql)
                     total_rows += self._connection.row_count
                 return total_rows
             else:  # psycopg
-                self._cursor.executemany(sql, parameters_list)
+                # Convert once for psycopg
+                converted_sql, _ = self._convert_placeholders_and_params(sql, ())
+                self._cursor.executemany(converted_sql, parameters_list)
                 return self._cursor.rowcount
 
         except Exception as e:
@@ -216,13 +264,19 @@ class PostgreSQLDatabase(BaseDatabase):
             raise DatabaseError("Database not connected")
 
         try:
+            # Convert SQL and parameters for PostgreSQL driver compatibility
+            sql, params = self._convert_placeholders_and_params(sql, parameters)
+
             if DRIVER == "pg8000":
                 # pg8000.native returns list of dicts
-                rows = self._connection.run(sql, parameters or ())
+                if isinstance(params, dict):
+                    rows = self._connection.run(sql, **params)
+                else:
+                    rows = self._connection.run(sql)
                 return rows[0] if rows else None
             else:  # psycopg
-                if parameters:
-                    self._cursor.execute(sql, parameters)
+                if params:
+                    self._cursor.execute(sql, params)
                 else:
                     self._cursor.execute(sql)
                 row = self._cursor.fetchone()
@@ -249,13 +303,19 @@ class PostgreSQLDatabase(BaseDatabase):
             raise DatabaseError("Database not connected")
 
         try:
+            # Convert SQL and parameters for PostgreSQL driver compatibility
+            sql, params = self._convert_placeholders_and_params(sql, parameters)
+
             if DRIVER == "pg8000":
                 # pg8000.native returns list of dicts directly
-                rows = self._connection.run(sql, parameters or ())
+                if isinstance(params, dict):
+                    rows = self._connection.run(sql, **params)
+                else:
+                    rows = self._connection.run(sql)
                 return rows if rows else []
             else:  # psycopg
-                if parameters:
-                    self._cursor.execute(sql, parameters)
+                if params:
+                    self._cursor.execute(sql, params)
                 else:
                     self._cursor.execute(sql)
                 rows = self._cursor.fetchall()
@@ -381,3 +441,49 @@ class PostgreSQLDatabase(BaseDatabase):
 
         except DatabaseError:
             raise
+
+    def commit(self) -> None:
+        """Commit current transaction.
+
+        pg8000.native is always in autocommit mode and doesn't require explicit commits.
+        psycopg requires explicit commits.
+
+        Raises:
+            DatabaseError: If commit fails
+        """
+        if not self._connection:
+            raise DatabaseError("Database not connected")
+
+        try:
+            if DRIVER == "pg8000":
+                # pg8000.native is in autocommit mode, no commit needed
+                pass
+            else:  # psycopg
+                self._connection.commit()
+                logger.debug("Transaction committed")
+
+        except Exception as e:
+            raise DatabaseError(f"Failed to commit transaction: {e}")
+
+    def rollback(self) -> None:
+        """Rollback current transaction.
+
+        pg8000.native is always in autocommit mode and doesn't support rollback.
+        psycopg supports rollback.
+
+        Raises:
+            DatabaseError: If rollback fails
+        """
+        if not self._connection:
+            raise DatabaseError("Database not connected")
+
+        try:
+            if DRIVER == "pg8000":
+                # pg8000.native is in autocommit mode, no rollback possible
+                logger.warning("pg8000.native doesn't support rollback (autocommit mode)")
+            else:  # psycopg
+                self._connection.rollback()
+                logger.debug("Transaction rolled back")
+
+        except Exception as e:
+            raise DatabaseError(f"Failed to rollback transaction: {e}")

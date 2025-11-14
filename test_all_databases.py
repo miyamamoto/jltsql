@@ -251,12 +251,13 @@ def main():
     print("\n\n3/3: PostgreSQL テスト開始...")
 
     # PostgreSQL設定を環境変数から取得
+    load_dotenv()  # .envファイルを再度読み込み
     pg_config = {
         'host': os.getenv('POSTGRES_HOST', 'localhost'),
         'port': int(os.getenv('POSTGRES_PORT', '5432')),
         'database': os.getenv('POSTGRES_DB', 'keiba_test'),
-        'user': os.getenv('POSTGRES_USER', 'postgres'),
-        'password': os.getenv('POSTGRES_PASSWORD', 'postgres')
+        'user': os.getenv('POSTGRES_USER', 'jltsql'),
+        'password': os.getenv('POSTGRES_PASSWORD', 'jltsql_pass')
     }
 
     postgresql_tester = DatabaseTester("postgresql", pg_config)
