@@ -1,211 +1,357 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Tests for real-time monitoring."""
+"""Tests for realtime data fetching and monitoring."""
 
 import unittest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import Mock, MagicMock, patch, call
+import threading
+import time
 
-from src.realtime.monitor import RealtimeMonitor
-from src.realtime.updater import RealtimeUpdater
-
-
-class TestRealtimeUpdater(unittest.TestCase):
-    """Test cases for RealtimeUpdater."""
-
-    def setUp(self):
-        """Set up test fixtures."""
-        self.mock_db = MagicMock()
-        self.updater = RealtimeUpdater(self.mock_db)
-
-    def test_init(self):
-        """Test RealtimeUpdater initialization."""
-        self.assertEqual(self.updater.database, self.mock_db)
-        self.assertIsNotNone(self.updater.parser_factory)
-
-    def test_process_record_new(self):
-        """Test processing new record (headDataKubun=1)."""
-        # Mock parsed data with headDataKubun=1 (new)
-        test_record = "RA11202406010603"
-
-        with patch.object(self.updater.parser_factory, 'parse') as mock_parse:
-            mock_parse.return_value = {
-                "RecordSpec": "RA",
-                "headDataKubun": "1",
-                "idYear": "2024",
-                "idJyoCD": "06",
-                "idRaceNum": "01",
-                "RaceName": "Test Race",
-            }
-
-            result = self.updater.process_record(test_record)
-
-            self.assertIsNotNone(result)
-            self.assertEqual(result["operation"], "insert")
-            self.assertEqual(result["table"], "RT_RA")
-            self.assertTrue(result["success"])
-            self.mock_db.insert.assert_called_once()
-
-    def test_process_record_update(self):
-        """Test processing update record (headDataKubun=2)."""
-        test_record = "RA21202406010603"
-
-        with patch.object(self.updater.parser_factory, 'parse') as mock_parse:
-            mock_parse.return_value = {
-                "RecordSpec": "RA",
-                "headDataKubun": "2",
-                "idYear": "2024",
-                "idJyoCD": "06",
-                "idRaceNum": "01",
-                "RaceName": "Updated Race",
-            }
-
-            result = self.updater.process_record(test_record)
-
-            self.assertIsNotNone(result)
-            self.assertEqual(result["operation"], "update")
-            self.assertEqual(result["table"], "RT_RA")
-
-    def test_process_record_delete(self):
-        """Test processing delete record (headDataKubun=3)."""
-        test_record = "RA31202406010603"
-
-        with patch.object(self.updater.parser_factory, 'parse') as mock_parse:
-            mock_parse.return_value = {
-                "RecordSpec": "RA",
-                "headDataKubun": "3",
-                "idYear": "2024",
-                "idJyoCD": "06",
-                "idRaceNum": "01",
-            }
-
-            result = self.updater.process_record(test_record)
-
-            self.assertIsNotNone(result)
-            self.assertEqual(result["operation"], "delete")
-            self.assertEqual(result["table"], "RT_RA")
-
-    def test_process_record_invalid(self):
-        """Test processing invalid record."""
-        test_record = "INVALID"
-
-        with patch.object(self.updater.parser_factory, 'parse') as mock_parse:
-            mock_parse.return_value = None
-
-            result = self.updater.process_record(test_record)
-
-            self.assertIsNone(result)
-
-    def test_handle_new_record_se(self):
-        """Test handling new SE (horse race) record."""
-        test_record = "SE11202406010603"
-
-        with patch.object(self.updater.parser_factory, 'parse') as mock_parse:
-            mock_parse.return_value = {
-                "RecordSpec": "SE",
-                "headDataKubun": "1",
-                "idYear": "2024",
-                "idBangou": "1",
-                "UmaName": "Test Horse",
-                "Kishu": "Test Jockey",
-            }
-
-            result = self.updater.process_record(test_record)
-
-            self.assertEqual(result["table"], "RT_SE")
-
-    def test_handle_new_record_hr(self):
-        """Test handling new HR (payout) record."""
-        test_record = "HR11202406010603"
-
-        with patch.object(self.updater.parser_factory, 'parse') as mock_parse:
-            mock_parse.return_value = {
-                "RecordSpec": "HR",
-                "headDataKubun": "1",
-                "idYear": "2024",
-                "TansyoPay1": "500",
-                "FukusyoPay1": "200",
-            }
-
-            result = self.updater.process_record(test_record)
-
-            self.assertEqual(result["table"], "RT_HR")
+from src.fetcher.realtime import RealtimeFetcher
+from src.services.realtime_monitor import RealtimeMonitor, MonitorStatus
+from src.jvlink.constants import JV_RT_SUCCESS, JV_READ_SUCCESS
 
 
-class TestRealtimeMonitor(unittest.TestCase):
-    """Test cases for RealtimeMonitor."""
+class TestRealtimeFetcher(unittest.TestCase):
+    """Test RealtimeFetcher class."""
 
     def setUp(self):
         """Set up test fixtures."""
-        self.mock_db = MagicMock()
+        self.sid = "TEST_SID"
 
-    @patch('src.realtime.monitor.JVLinkWrapper')
-    @patch('src.realtime.monitor.RealtimeUpdater')
-    def test_init(self, mock_updater_class, mock_jvlink_class):
-        """Test RealtimeMonitor initialization."""
-        monitor = RealtimeMonitor(
-            database=self.mock_db,
-            data_spec="RACE",
-            polling_interval=30
-        )
+    @patch('src.fetcher.base.JVLinkWrapper')
+    @patch('src.fetcher.base.ParserFactory')
+    def test_initialization(self, mock_factory, mock_jvlink):
+        """Test RealtimeFetcher initialization."""
+        fetcher = RealtimeFetcher(sid=self.sid)
 
-        self.assertEqual(monitor.database, self.mock_db)
-        self.assertEqual(monitor.data_spec, "RACE")
-        self.assertEqual(monitor.polling_interval, 30)
-        self.assertFalse(monitor._running)
+        self.assertEqual(fetcher.sid, self.sid)
+        self.assertFalse(fetcher._stream_open)
 
-    @patch('src.realtime.monitor.JVLinkWrapper')
-    @patch('src.realtime.monitor.RealtimeUpdater')
-    @patch('src.realtime.monitor.signal.signal')
-    def test_start_and_stop(self, mock_signal, mock_updater_class, mock_jvlink_class):
-        """Test monitor start and stop."""
+    def test_list_data_specs(self):
+        """Test listing available data specs."""
+        specs = RealtimeFetcher.list_data_specs()
+
+        # Should return dict of specs
+        self.assertIsInstance(specs, dict)
+        self.assertGreater(len(specs), 0)
+
+        # Check some known specs
+        self.assertIn("0B12", specs)  # Race results
+        self.assertIn("0B15", specs)  # Payouts
+        self.assertIn("0B31", specs)  # Odds
+
+    @patch('src.fetcher.base.ParserFactory')
+    @patch('src.fetcher.base.JVLinkWrapper')
+    def test_fetch_single_batch(self, mock_jvlink_class, mock_factory):
+        """Test fetching in single batch mode."""
+        # Setup mocks
         mock_jvlink = MagicMock()
-        mock_jvlink.jv_init.return_value = 0
-        mock_jvlink.jv_rt_open.return_value = 0
-        mock_jvlink.jv_read.return_value = (0, "", "")  # Complete immediately
         mock_jvlink_class.return_value = mock_jvlink
 
-        monitor = RealtimeMonitor(
-            database=self.mock_db,
-            data_spec="RACE",
-            polling_interval=1
-        )
+        mock_jvlink.jv_init.return_value = JV_RT_SUCCESS
+        mock_jvlink.jv_rt_open.return_value = (JV_RT_SUCCESS, 10)
 
-        # Start monitor in daemon mode
-        monitor.start(daemon=True)
-        self.assertTrue(monitor._running)
+        # Mock JVRead responses
+        mock_jvlink.jv_read.side_effect = [
+            (JV_READ_SUCCESS, b"RA20240101...", "test.txt"),
+            (JV_READ_SUCCESS, b"RA20240102...", "test.txt"),
+            (0, b"", ""),  # End of data
+        ]
 
-        # Stop monitor
-        monitor.stop()
-        self.assertFalse(monitor._running)
+        # Mock parser
+        mock_parser = MagicMock()
+        mock_parser.parse.side_effect = [
+            {"レコード種別ID": "RA", "data": "test1"},
+            {"レコード種別ID": "RA", "data": "test2"},
+        ]
+        mock_factory_instance = MagicMock()
+        mock_factory_instance.parse = mock_parser.parse
+        mock_factory.return_value = mock_factory_instance
+
+        # Create fetcher and fetch
+        fetcher = RealtimeFetcher(sid=self.sid)
+        records = list(fetcher.fetch(data_spec="0B12", continuous=False))
+
+        # Verify results
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[0]["レコード種別ID"], "RA")
+        self.assertEqual(records[1]["レコード種別ID"], "RA")
+
+        # Verify JV-Link calls
+        mock_jvlink.jv_init.assert_called_once()
+        mock_jvlink.jv_rt_open.assert_called_once_with("0B12", "")
         mock_jvlink.jv_close.assert_called_once()
 
-    @patch('src.realtime.monitor.JVLinkWrapper')
-    @patch('src.realtime.monitor.RealtimeUpdater')
-    def test_get_status(self, mock_updater_class, mock_jvlink_class):
-        """Test get_status method."""
-        monitor = RealtimeMonitor(
-            database=self.mock_db,
-            data_spec="RACE"
-        )
+    @patch('src.fetcher.base.JVLinkWrapper')
+    @patch('src.fetcher.base.ParserFactory')
+    def test_fetch_invalid_spec_warning(self, mock_factory, mock_jvlink_class):
+        """Test warning for unknown data spec."""
+        mock_jvlink = MagicMock()
+        mock_jvlink_class.return_value = mock_jvlink
 
-        status = monitor.get_status()
+        mock_jvlink.jv_init.return_value = JV_RT_SUCCESS
+        mock_jvlink.jv_rt_open.return_value = (JV_RT_SUCCESS, 0)
+        mock_jvlink.jv_read.return_value = (0, b"", "")
 
-        self.assertFalse(status["running"])
-        self.assertEqual(status["data_spec"], "RACE")
-        self.assertEqual(status["records_processed"], 0)
+        fetcher = RealtimeFetcher(sid=self.sid)
 
-    @patch('src.realtime.monitor.JVLinkWrapper')
-    @patch('src.realtime.monitor.RealtimeUpdater')
-    def test_context_manager(self, mock_updater_class, mock_jvlink_class):
+        # Should proceed despite warning
+        with patch('src.fetcher.realtime.logger') as mock_logger:
+            list(fetcher.fetch(data_spec="INVALID", continuous=False))
+            mock_logger.warning.assert_called()
+
+    @patch('src.fetcher.base.JVLinkWrapper')
+    @patch('src.fetcher.base.ParserFactory')
+    def test_context_manager(self, mock_factory, mock_jvlink_class):
         """Test context manager protocol."""
         mock_jvlink = MagicMock()
         mock_jvlink_class.return_value = mock_jvlink
 
-        with RealtimeMonitor(database=self.mock_db) as monitor:
-            self.assertIsNotNone(monitor)
+        with RealtimeFetcher(sid=self.sid) as fetcher:
+            self.assertIsNotNone(fetcher)
 
-        # Monitor should be stopped after exiting context
-        # (if it was started)
+        # Context manager exit should not raise
+
+
+class TestMonitorStatus(unittest.TestCase):
+    """Test MonitorStatus class."""
+
+    def test_initialization(self):
+        """Test MonitorStatus initialization."""
+        status = MonitorStatus()
+
+        self.assertIsNone(status.started_at)
+        self.assertIsNone(status.stopped_at)
+        self.assertFalse(status.is_running)
+        self.assertEqual(status.records_imported, 0)
+        self.assertEqual(status.records_failed, 0)
+        self.assertEqual(len(status.errors), 0)
+        self.assertEqual(len(status.monitored_specs), 0)
+
+    def test_to_dict(self):
+        """Test status conversion to dict."""
+        from datetime import datetime
+
+        status = MonitorStatus()
+        status.is_running = True
+        status.started_at = datetime.now()
+        status.records_imported = 100
+        status.monitored_specs = {"0B12", "0B15"}
+
+        status_dict = status.to_dict()
+
+        self.assertTrue(status_dict["is_running"])
+        self.assertIsNotNone(status_dict["started_at"])
+        self.assertEqual(status_dict["records_imported"], 100)
+        self.assertIn("0B12", status_dict["monitored_specs"])
+        self.assertIn("0B15", status_dict["monitored_specs"])
+
+
+class TestRealtimeMonitor(unittest.TestCase):
+    """Test RealtimeMonitor class."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.mock_db = MagicMock()
+        self.mock_db._connection = MagicMock()
+
+    def test_initialization(self):
+        """Test RealtimeMonitor initialization."""
+        monitor = RealtimeMonitor(
+            database=self.mock_db,
+            data_specs=["0B12", "0B15"],
+            sid="TEST_SID",
+            batch_size=50
+        )
+
+        self.assertEqual(monitor.database, self.mock_db)
+        self.assertEqual(monitor.data_specs, ["0B12", "0B15"])
+        self.assertEqual(monitor.sid, "TEST_SID")
+        self.assertEqual(monitor.batch_size, 50)
+        self.assertFalse(monitor.status.is_running)
+        self.assertEqual(monitor.status.monitored_specs, {"0B12", "0B15"})
+
+    def test_default_initialization(self):
+        """Test RealtimeMonitor with default values."""
+        monitor = RealtimeMonitor(database=self.mock_db)
+
+        self.assertEqual(monitor.data_specs, ["0B12"])
+        self.assertEqual(monitor.sid, "JLTSQL")
+        self.assertEqual(monitor.batch_size, 100)
+        self.assertTrue(monitor.auto_create_tables)
+
+    @patch('src.database.schema.SchemaManager')
+    @patch('src.services.realtime_monitor.threading.Thread')
+    def test_start(self, mock_thread, mock_schema_mgr):
+        """Test starting monitor."""
+        monitor = RealtimeMonitor(
+            database=self.mock_db,
+            data_specs=["0B12"]
+        )
+
+        # Mock schema manager
+        mock_mgr_instance = MagicMock()
+        mock_mgr_instance.get_missing_tables.return_value = []
+        mock_schema_mgr.return_value = mock_mgr_instance
+
+        # Mock thread
+        mock_thread_instance = MagicMock()
+        mock_thread.return_value = mock_thread_instance
+
+        result = monitor.start()
+
+        self.assertTrue(result)
+        self.assertTrue(monitor.status.is_running)
+        self.assertIsNotNone(monitor.status.started_at)
+
+        # Verify thread was created and started
+        mock_thread.assert_called()
+        mock_thread_instance.start.assert_called()
+
+    def test_start_already_running(self):
+        """Test starting monitor when already running."""
+        monitor = RealtimeMonitor(database=self.mock_db)
+        monitor.status.is_running = True
+
+        result = monitor.start()
+
+        self.assertFalse(result)
+
+    @patch('src.services.realtime_monitor.threading.Thread')
+    def test_stop(self, mock_thread):
+        """Test stopping monitor."""
+        monitor = RealtimeMonitor(database=self.mock_db)
+
+        # Simulate running state
+        monitor.status.is_running = True
+        mock_thread_instance = MagicMock()
+        monitor._threads = [mock_thread_instance]
+
+        result = monitor.stop()
+
+        self.assertTrue(result)
+        self.assertFalse(monitor.status.is_running)
+        self.assertIsNotNone(monitor.status.stopped_at)
+
+        # Verify thread was joined
+        mock_thread_instance.join.assert_called()
+
+    def test_stop_not_running(self):
+        """Test stopping monitor when not running."""
+        monitor = RealtimeMonitor(database=self.mock_db)
+
+        result = monitor.stop()
+
+        self.assertFalse(result)
+
+    def test_get_status(self):
+        """Test getting monitor status."""
+        monitor = RealtimeMonitor(
+            database=self.mock_db,
+            data_specs=["0B12"]
+        )
+
+        status = monitor.get_status()
+
+        self.assertIsInstance(status, dict)
+        self.assertFalse(status["is_running"])
+        self.assertEqual(status["records_imported"], 0)
+        self.assertIn("0B12", status["monitored_specs"])
+
+    @patch('src.services.realtime_monitor.threading.Thread')
+    def test_add_data_spec(self, mock_thread):
+        """Test adding data spec to running monitor."""
+        monitor = RealtimeMonitor(
+            database=self.mock_db,
+            data_specs=["0B12"]
+        )
+        monitor.status.is_running = True
+
+        # Mock thread
+        mock_thread_instance = MagicMock()
+        mock_thread.return_value = mock_thread_instance
+
+        result = monitor.add_data_spec("0B15")
+
+        self.assertTrue(result)
+        self.assertIn("0B15", monitor.status.monitored_specs)
+
+        # Verify thread was created
+        mock_thread.assert_called()
+        mock_thread_instance.start.assert_called()
+
+    def test_add_data_spec_not_running(self):
+        """Test adding data spec when monitor not running."""
+        monitor = RealtimeMonitor(database=self.mock_db)
+
+        result = monitor.add_data_spec("0B15")
+
+        self.assertFalse(result)
+
+    def test_add_data_spec_already_monitored(self):
+        """Test adding already monitored data spec."""
+        monitor = RealtimeMonitor(
+            database=self.mock_db,
+            data_specs=["0B12"]
+        )
+        monitor.status.is_running = True
+
+        result = monitor.add_data_spec("0B12")
+
+        self.assertFalse(result)
+
+    def test_context_manager(self):
+        """Test context manager protocol."""
+        with patch.object(RealtimeMonitor, 'start') as mock_start, \
+             patch.object(RealtimeMonitor, 'stop') as mock_stop:
+
+            with RealtimeMonitor(database=self.mock_db) as monitor:
+                self.assertIsNotNone(monitor)
+
+            mock_start.assert_called_once()
+            mock_stop.assert_called_once()
+
+    @patch('src.database.schema.SchemaManager')
+    def test_ensure_tables(self, mock_schema_mgr):
+        """Test automatic table creation."""
+        monitor = RealtimeMonitor(
+            database=self.mock_db,
+            auto_create_tables=True
+        )
+
+        # Mock schema manager
+        mock_mgr_instance = MagicMock()
+        mock_mgr_instance.get_missing_tables.return_value = ["NL_RA", "NL_SE"]
+        mock_schema_mgr.return_value = mock_mgr_instance
+
+        monitor._ensure_tables()
+
+        # Verify tables were created
+        mock_mgr_instance.get_missing_tables.assert_called_once()
+        mock_mgr_instance.create_all_tables.assert_called_once()
+
+    def test_add_error(self):
+        """Test error tracking."""
+        monitor = RealtimeMonitor(database=self.mock_db)
+
+        monitor._add_error("0B12", "Test error")
+
+        self.assertEqual(len(monitor.status.errors), 1)
+        self.assertEqual(monitor.status.errors[0]["context"], "0B12")
+        self.assertEqual(monitor.status.errors[0]["error"], "Test error")
+
+    def test_error_limit(self):
+        """Test error list size limit."""
+        monitor = RealtimeMonitor(database=self.mock_db)
+
+        # Add 150 errors
+        for i in range(150):
+            monitor._add_error("test", f"Error {i}")
+
+        # Should keep only last 100
+        self.assertEqual(len(monitor.status.errors), 100)
+        self.assertEqual(monitor.status.errors[-1]["error"], "Error 149")
 
 
 if __name__ == "__main__":
