@@ -1,6 +1,7 @@
 """Database schema manager for JLTSQL.
 
 This module provides schema definitions and table creation management.
+Auto-generated from JV-Data format definitions.
 """
 
 from typing import Dict, List
@@ -13,314 +14,2340 @@ logger = get_logger(__name__)
 
 # Table schema definitions based on JV-Data specification
 SCHEMAS = {
-    "NL_RA_RACE": """
-        CREATE TABLE IF NOT EXISTS NL_RA_RACE (
-            -- レコードヘッダー
-            headRecordSpec TEXT,
-            headDataKubun TEXT,
-            headMakeDate TEXT,
+    "NL_AV": """
+        CREATE TABLE IF NOT EXISTS NL_AV (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            馬番 TEXT,  -- 馬番
+            馬名 TEXT,  -- 馬名
+            事由区分 TEXT,  -- 事由区分
+            レコード区切 TEXT,  -- レコード区切
 
-            -- レース識別情報（主キー）
-            idYear TEXT NOT NULL,
-            idMonthDay TEXT NOT NULL,
-            idJyoCD TEXT NOT NULL,
-            idKaiji TEXT NOT NULL,
-            idNichiji TEXT NOT NULL,
-            idRaceNum TEXT NOT NULL,
-
-            -- レース名称
-            RaceNameShort TEXT,
-            RaceNameShort6 TEXT,
-            RaceNameShort3 TEXT,
-            RaceName TEXT,
-            RaceNameKana TEXT,
-            RaceNameEng TEXT,
-            RaceNameFukudai TEXT,
-            RaceNameKakko TEXT,
-            GradeCD TEXT,
-            Jyoken5 TEXT,
-            Jyoken4 TEXT,
-            Jyoken3 TEXT,
-            Jyoken2 TEXT,
-
-            -- コース情報
-            Kyori TEXT,
-            TrackCD TEXT,
-            CourseKubunCD TEXT,
-
-            -- 賞金情報
-            HondaiSyogaku1 TEXT,
-            HondaiSyogaku2 TEXT,
-            HondaiSyogaku3 TEXT,
-            HondaiSyogaku4 TEXT,
-            HondaiSyogaku5 TEXT,
-            FukaSyogaku1 TEXT,
-            FukaSyogaku2 TEXT,
-            FukaSyogaku3 TEXT,
-
-            -- レース状況
-            HassoTime TEXT,
-            TorokuTosu TEXT,
-            SyussoTosu TEXT,
-            NyusenTosu TEXT,
-            TenkoCD TEXT,
-            SibaBabaCD TEXT,
-            DirtBabaCD TEXT,
-
-            -- ラップタイム（200m×25区間）
-            LapTime01 TEXT, LapTime02 TEXT, LapTime03 TEXT, LapTime04 TEXT, LapTime05 TEXT,
-            LapTime06 TEXT, LapTime07 TEXT, LapTime08 TEXT, LapTime09 TEXT, LapTime10 TEXT,
-            LapTime11 TEXT, LapTime12 TEXT, LapTime13 TEXT, LapTime14 TEXT, LapTime15 TEXT,
-            LapTime16 TEXT, LapTime17 TEXT, LapTime18 TEXT, LapTime19 TEXT, LapTime20 TEXT,
-            LapTime21 TEXT, LapTime22 TEXT, LapTime23 TEXT, LapTime24 TEXT, LapTime25 TEXT,
-
-            -- コーナー通過順位
-            CornerInfo1 TEXT,
-            CornerInfo2 TEXT,
-            CornerInfo3 TEXT,
-            CornerInfo4 TEXT,
-
-            -- その他
-            RecordUpKubun TEXT,
-
-            PRIMARY KEY (idYear, idMonthDay, idJyoCD, idKaiji, idNichiji, idRaceNum)
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号, 馬番)
         )
     """,
-    "NL_SE_RACE_UMA": """
-        CREATE TABLE IF NOT EXISTS NL_SE_RACE_UMA (
-            -- レコードヘッダー
-            headRecordSpec TEXT,
-            headDataKubun TEXT,
-            headMakeDate TEXT,
+    "NL_BN": """
+        CREATE TABLE IF NOT EXISTS NL_BN (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            馬主コード TEXT,  -- 馬主コード
+            馬主名法人格有 TEXT,  -- 馬主名(法人格有)
+            馬主名法人格無 TEXT,  -- 馬主名(法人格無)
+            馬主名半角ｶﾅ TEXT,  -- 馬主名半角ｶﾅ
+            馬主名欧字 TEXT,  -- 馬主名欧字
+            服色標示 TEXT,  -- 服色標示
+            本年累計成績情報 TEXT,  -- <本年･累計成績情報>
+            レコード区切 TEXT,  -- レコード区切
 
-            -- レース識別情報
-            idYear TEXT NOT NULL,
-            idMonthDay TEXT NOT NULL,
-            idJyoCD TEXT NOT NULL,
-            idKaiji TEXT NOT NULL,
-            idNichiji TEXT NOT NULL,
-            idRaceNum TEXT NOT NULL,
-
-            -- 馬識別情報
-            KettoNum TEXT NOT NULL,
-            Bamei TEXT,
-
-            -- 馬基本情報
-            UmaKigoCD TEXT,
-            SexCD TEXT,
-            Barei TEXT,
-            TozaiCD TEXT,
-            ChokyosiCode TEXT,
-            ChokyosiRyakusyo TEXT,
-            BanusiCode TEXT,
-            BanusiName TEXT,
-            KeiroCD TEXT,
-
-            -- 出走情報
-            Wakuban TEXT,
-            Umaban TEXT,
-            Futan TEXT,
-            BlinkerCD TEXT,
-
-            -- 騎手情報
-            KisyuCode TEXT,
-            KisyuRyakusyo TEXT,
-            MinaraiCD TEXT,
-
-            -- レース成績
-            KakuteiJyuni TEXT,
-            Time TEXT,
-            Tyakusa TEXT,
-            CornerJyuni1 TEXT,
-            CornerJyuni2 TEXT,
-            CornerJyuni3 TEXT,
-            CornerJyuni4 TEXT,
-
-            -- オッズ・人気
-            Odds TEXT,
-            Ninki TEXT,
-
-            -- 馬体情報
-            Bataiju TEXT,
-            BataijuZoka TEXT,
-
-            -- 賞金
-            HondaiSyogaku TEXT,
-            FukaSyogaku TEXT,
-
-            -- その他
-            Jyuni TEXT,
-            IjyoKubun TEXT,
-            TimeDiff TEXT,
-
-            PRIMARY KEY (idYear, idMonthDay, idJyoCD, idKaiji, idNichiji, idRaceNum, KettoNum)
+            PRIMARY KEY (馬主コード)
         )
     """,
-    "NL_HR_PAY": """
-        CREATE TABLE IF NOT EXISTS NL_HR_PAY (
-            -- レコードヘッダー
-            headRecordSpec TEXT,
-            headDataKubun TEXT,
-            headMakeDate TEXT,
+    "NL_BR": """
+        CREATE TABLE IF NOT EXISTS NL_BR (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            生産者コード TEXT,  -- 生産者コード
+            生産者名法人格有 TEXT,  -- 生産者名(法人格有)
+            生産者名法人格無 TEXT,  -- 生産者名(法人格無)
+            生産者名半角ｶﾅ TEXT,  -- 生産者名半角ｶﾅ
+            生産者名欧字 TEXT,  -- 生産者名欧字
+            生産者住所自治省名 TEXT,  -- 生産者住所自治省名
+            本年累計成績情報 TEXT,  -- <本年･累計成績情報>
+            レコード区切 TEXT,  -- レコード区切
 
-            -- レース識別情報
-            idYear TEXT NOT NULL,
-            idMonthDay TEXT NOT NULL,
-            idJyoCD TEXT NOT NULL,
-            idKaiji TEXT NOT NULL,
-            idNichiji TEXT NOT NULL,
-            idRaceNum TEXT NOT NULL,
+            PRIMARY KEY (生産者コード)
+        )
+    """,
+    "NL_BT": """
+        CREATE TABLE IF NOT EXISTS NL_BT (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            繁殖登録番号 TEXT,  -- 繁殖登録番号
+            系統ID TEXT,  -- 系統ID
+            系統名 TEXT,  -- 系統名
+            系統説明 TEXT,  -- 系統説明
+            レコード区切 TEXT,  -- レコード区切
 
-            -- 単勝
-            TansyoUmaban1 TEXT,
-            TansyoHaraimodosi1 TEXT,
-            TansyoNinki1 TEXT,
+            PRIMARY KEY (繁殖登録番号)
+        )
+    """,
+    "NL_CC": """
+        CREATE TABLE IF NOT EXISTS NL_CC (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            変更後_距離 TEXT,  -- 変更後 距離
+            変更後_トラックコード TEXT,  -- 変更後 トラックコード
+            変更前_距離 TEXT,  -- 変更前 距離
+            変更前_トラックコード TEXT,  -- 変更前 トラックコード
+            事由区分 TEXT,  -- 事由区分
+            レコード区切 TEXT,  -- レコード区切
 
-            -- 複勝
-            FukusyoUmaban1 TEXT,
-            FukusyoHaraimodosi1 TEXT,
-            FukusyoNinki1 TEXT,
-            FukusyoUmaban2 TEXT,
-            FukusyoHaraimodosi2 TEXT,
-            FukusyoNinki2 TEXT,
-            FukusyoUmaban3 TEXT,
-            FukusyoHaraimodosi3 TEXT,
-            FukusyoNinki3 TEXT,
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "NL_CH": """
+        CREATE TABLE IF NOT EXISTS NL_CH (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            調教師コード TEXT,  -- 調教師コード
+            調教師抹消区分 TEXT,  -- 調教師抹消区分
+            調教師免許交付年月日 TEXT,  -- 調教師免許交付年月日
+            調教師免許抹消年月日 TEXT,  -- 調教師免許抹消年月日
+            生年月日 TEXT,  -- 生年月日
+            調教師名 TEXT,  -- 調教師名
+            調教師名半角ｶﾅ TEXT,  -- 調教師名半角ｶﾅ
+            調教師名略称 TEXT,  -- 調教師名略称
+            調教師名欧字 TEXT,  -- 調教師名欧字
+            性別区分 TEXT,  -- 性別区分
+            調教師東西所属コード TEXT,  -- 調教師東西所属コード
+            招待地域名 TEXT,  -- 招待地域名
+            最近重賞勝利情報 TEXT,  -- <最近重賞勝利情報>
+            本年前年累計成績情報 TEXT,  -- <本年･前年･累計成績情報>
+            レコード区切 TEXT,  -- レコード区切
 
-            -- 枠連
-            WakurenWakuban1_1 TEXT,
-            WakurenWakuban1_2 TEXT,
-            WakurenHaraimodosi1 TEXT,
-            WakurenNinki1 TEXT,
+            PRIMARY KEY (調教師コード)
+        )
+    """,
+    "NL_CK": """
+        CREATE TABLE IF NOT EXISTS NL_CK (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            血統登録番号 TEXT,  -- 血統登録番号
+            馬名 TEXT,  -- 馬名
+            平地本賞金累計 TEXT,  -- 平地本賞金累計
+            障害本賞金累計 TEXT,  -- 障害本賞金累計
+            平地付加賞金累計 TEXT,  -- 平地付加賞金累計
+            障害付加賞金累計 TEXT,  -- 障害付加賞金累計
+            平地収得賞金累計 TEXT,  -- 平地収得賞金累計
+            障害収得賞金累計 TEXT,  -- 障害収得賞金累計
+            総合着回数 TEXT,  -- 総合着回数
+            中央合計着回数 TEXT,  -- 中央合計着回数
+            芝直着回数 TEXT,  -- 芝直・着回数
+            芝右着回数 TEXT,  -- 芝右・着回数
+            芝左着回数 TEXT,  -- 芝左・着回数
+            ダ直着回数 TEXT,  -- ダ直・着回数
+            ダ右着回数 TEXT,  -- ダ右・着回数
+            ダ左着回数 TEXT,  -- ダ左・着回数
+            障害着回数 TEXT,  -- 障害・着回数
+            芝良着回数 TEXT,  -- 芝良・着回数
+            芝稍着回数 TEXT,  -- 芝稍・着回数
+            芝重着回数 TEXT,  -- 芝重・着回数
+            芝不着回数 TEXT,  -- 芝不・着回数
+            ダ良着回数 TEXT,  -- ダ良・着回数
+            ダ稍着回数 TEXT,  -- ダ稍・着回数
+            ダ重着回数 TEXT,  -- ダ重・着回数
+            ダ不着回数 TEXT,  -- ダ不・着回数
+            障良着回数 TEXT,  -- 障良・着回数
+            障稍着回数 TEXT,  -- 障稍・着回数
+            障重着回数 TEXT,  -- 障重・着回数
+            障不着回数 TEXT,  -- 障不・着回数
+            芝1200以下着回数 TEXT,  -- 芝1200以下・着回数
+            芝1201_1400着回数 TEXT,  -- 芝1201-1400・着回数
+            芝1401_1600着回数 TEXT,  -- 芝1401-1600・着回数
+            芝1601_1800着回数 TEXT,  -- 芝1601-1800・着回数
+            芝1801_2000着回数 TEXT,  -- 芝1801-2000・着回数
+            芝2001_2200着回数 TEXT,  -- 芝2001-2200・着回数
+            芝2201_2400着回数 TEXT,  -- 芝2201-2400・着回数
+            芝2401_2800着回数 TEXT,  -- 芝2401-2800・着回数
+            芝2801以上着回数 TEXT,  -- 芝2801以上・着回数
+            ダ1200以下着回数 TEXT,  -- ダ1200以下・着回数
+            ダ1201_1400着回数 TEXT,  -- ダ1201-1400・着回数
+            ダ1401_1600着回数 TEXT,  -- ダ1401-1600・着回数
+            ダ1601_1800着回数 TEXT,  -- ダ1601-1800・着回数
+            ダ1801_2000着回数 TEXT,  -- ダ1801-2000・着回数
+            ダ2001_2200着回数 TEXT,  -- ダ2001-2200・着回数
+            ダ2201_2400着回数 TEXT,  -- ダ2201-2400・着回数
+            ダ2401_2800着回数 TEXT,  -- ダ2401-2800・着回数
+            ダ2801以上着回数 TEXT,  -- ダ2801以上・着回数
+            札幌芝着回数 TEXT,  -- 札幌芝・着回数
+            函館芝着回数 TEXT,  -- 函館芝・着回数
+            福島芝着回数 TEXT,  -- 福島芝・着回数
+            新潟芝着回数 TEXT,  -- 新潟芝・着回数
+            東京芝着回数 TEXT,  -- 東京芝・着回数
+            中山芝着回数 TEXT,  -- 中山芝・着回数
+            中京芝着回数 TEXT,  -- 中京芝・着回数
+            京都芝着回数 TEXT,  -- 京都芝・着回数
+            阪神芝着回数 TEXT,  -- 阪神芝・着回数
+            小倉芝着回数 TEXT,  -- 小倉芝・着回数
+            札幌ダ着回数 TEXT,  -- 札幌ダ・着回数
+            函館ダ着回数 TEXT,  -- 函館ダ・着回数
+            福島ダ着回数 TEXT,  -- 福島ダ・着回数
+            新潟ダ着回数 TEXT,  -- 新潟ダ・着回数
+            東京ダ着回数 TEXT,  -- 東京ダ・着回数
+            中山ダ着回数 TEXT,  -- 中山ダ・着回数
+            中京ダ着回数 TEXT,  -- 中京ダ・着回数
+            京都ダ着回数 TEXT,  -- 京都ダ・着回数
+            阪神ダ着回数 TEXT,  -- 阪神ダ・着回数
+            小倉ダ着回数 TEXT,  -- 小倉ダ・着回数
+            札幌障着回数 TEXT,  -- 札幌障・着回数
+            函館障着回数 TEXT,  -- 函館障・着回数
+            福島障着回数 TEXT,  -- 福島障・着回数
+            新潟障着回数 TEXT,  -- 新潟障・着回数
+            東京障着回数 TEXT,  -- 東京障・着回数
+            中山障着回数 TEXT,  -- 中山障・着回数
+            中京障着回数 TEXT,  -- 中京障・着回数
+            京都障着回数 TEXT,  -- 京都障・着回数
+            阪神障着回数 TEXT,  -- 阪神障・着回数
+            小倉障着回数 TEXT,  -- 小倉障・着回数
+            脚質傾向 TEXT,  -- 脚質傾向
+            登録レース数 TEXT,  -- 登録レース数
+            騎手コード TEXT,  -- 騎手コード
+            騎手名 TEXT,  -- 騎手名
+            騎手本年累計成績情報 TEXT,  -- <騎手本年･累計成績情報>
+            調教師コード TEXT,  -- 調教師コード
+            調教師名 TEXT,  -- 調教師名
+            調教師本年累計成績情報 TEXT,  -- <調教師本年･累計成績情報>
+            馬主コード TEXT,  -- 馬主コード
+            馬主名法人格有 TEXT,  -- 馬主名(法人格有)
+            馬主名法人格無 TEXT,  -- 馬主名(法人格無)
+            本年累計成績情報 TEXT,  -- <本年･累計成績情報>
+            生産者コード TEXT,  -- 生産者コード
+            生産者名法人格有 TEXT,  -- 生産者名(法人格有)
+            生産者名法人格無 TEXT,  -- 生産者名(法人格無)
+            本年累計成績情報 TEXT,  -- <本年･累計成績情報>
+            レコード区切 TEXT,  -- レコード区切
 
-            -- 馬連
-            UmarenUmaban1_1 TEXT,
-            UmarenUmaban1_2 TEXT,
-            UmarenHaraimodosi1 TEXT,
-            UmarenNinki1 TEXT,
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号, 血統登録番号)
+        )
+    """,
+    "NL_CS": """
+        CREATE TABLE IF NOT EXISTS NL_CS (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            競馬場コード TEXT,  -- 競馬場コード
+            距離 TEXT,  -- 距離
+            トラックコード TEXT,  -- トラックコード
+            コース改修年月日 TEXT,  -- コース改修年月日
+            コース説明 TEXT,  -- コース説明
+            レコード区切 TEXT,  -- レコード区切
 
-            -- ワイド
-            WideUmaban1_1 TEXT,
-            WideUmaban1_2 TEXT,
-            WideHaraimodosi1 TEXT,
-            WideNinki1 TEXT,
+            PRIMARY KEY (競馬場コード, 距離, トラックコード, コース改修年月日)
+        )
+    """,
+    "NL_DM": """
+        CREATE TABLE IF NOT EXISTS NL_DM (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            データ作成時分 TEXT,  -- データ作成時分
+            マイニング予想 TEXT,  -- <マイニング予想>
+            レコード区切 TEXT,  -- レコード区切
 
-            -- 馬単
-            UmatanUmaban1_1 TEXT,
-            UmatanUmaban1_2 TEXT,
-            UmatanHaraimodosi1 TEXT,
-            UmatanNinki1 TEXT,
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "NL_H1": """
+        CREATE TABLE IF NOT EXISTS NL_H1 (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            発売フラグ単勝 TEXT,  -- 発売フラグ　単勝
+            発売フラグ複勝 TEXT,  -- 発売フラグ　複勝
+            発売フラグ枠連 TEXT,  -- 発売フラグ　枠連
+            発売フラグ馬連 TEXT,  -- 発売フラグ　馬連
+            発売フラグワイド TEXT,  -- 発売フラグ　ワイド
+            発売フラグ馬単 TEXT,  -- 発売フラグ　馬単
+            発売フラグ3連複 TEXT,  -- 発売フラグ　3連複
+            複勝着払キー TEXT,  -- 複勝着払キー
+            返還馬番情報馬番0128 TEXT,  -- 返還馬番情報(馬番01～28)
+            返還枠番情報枠番18 TEXT,  -- 返還枠番情報(枠番1～8)
+            返還同枠情報枠番18 TEXT,  -- 返還同枠情報(枠番1～8)
+            単勝票数 TEXT,  -- <単勝票数>
+            複勝票数 TEXT,  -- <複勝票数>
+            枠連票数 TEXT,  -- <枠連票数>
+            馬連票数 TEXT,  -- <馬連票数>
+            ワイド票数 TEXT,  -- <ワイド票数>
+            馬単票数 TEXT,  -- <馬単票数>
+            3連複票数 TEXT,  -- <3連複票数>
+            単勝票数合計 TEXT,  -- 単勝票数合計
+            複勝票数合計 TEXT,  -- 複勝票数合計
+            枠連票数合計 TEXT,  -- 枠連票数合計
+            馬連票数合計 TEXT,  -- 馬連票数合計
+            ワイド票数合計 TEXT,  -- ワイド票数合計
+            馬単票数合計 TEXT,  -- 馬単票数合計
+            3連複票数合計 TEXT,  -- 3連複票数合計
+            単勝返還票数合計 TEXT,  -- 単勝返還票数合計
+            複勝返還票数合計 TEXT,  -- 複勝返還票数合計
+            枠連返還票数合計 TEXT,  -- 枠連返還票数合計
+            馬連返還票数合計 TEXT,  -- 馬連返還票数合計
+            ワイド返還票数合計 TEXT,  -- ワイド返還票数合計
+            馬単返還票数合計 TEXT,  -- 馬単返還票数合計
+            3連複返還票数合計 TEXT,  -- 3連複返還票数合計
+            レコード区切 TEXT,  -- レコード区切
 
-            -- 3連複
-            Sanrenpuku3Umaban1_1 TEXT,
-            Sanrenpuku3Umaban1_2 TEXT,
-            Sanrenpuku3Umaban1_3 TEXT,
-            Sanrenpuku3Haraimodosi1 TEXT,
-            Sanrenpuku3Ninki1 TEXT,
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "NL_H6": """
+        CREATE TABLE IF NOT EXISTS NL_H6 (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            発売フラグ3連単 TEXT,  -- 発売フラグ　3連単
+            返還馬番情報馬番0118 TEXT,  -- 返還馬番情報(馬番01～18)
+            3連単票数 TEXT,  -- <3連単票数>
+            3連単票数合計 TEXT,  -- 3連単票数合計
+            3連単返還票数合計 TEXT,  -- 3連単返還票数合計
+            レコード区切 TEXT,  -- レコード区切
 
-            -- 3連単
-            Sanrentan3Umaban1_1 TEXT,
-            Sanrentan3Umaban1_2 TEXT,
-            Sanrentan3Umaban1_3 TEXT,
-            Sanrentan3Haraimodosi1 TEXT,
-            Sanrentan3Ninki1 TEXT,
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "NL_HC": """
+        CREATE TABLE IF NOT EXISTS NL_HC (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            トレセン区分 TEXT,  -- トレセン区分
+            調教年月日 TEXT,  -- 調教年月日
+            調教時刻 TEXT,  -- 調教時刻
+            血統登録番号 TEXT,  -- 血統登録番号
+            4ハロンタイム合計800M0M TEXT,  -- 4ハロンタイム合計(800M～0M)
+            ラップタイム800M600M TEXT,  -- ラップタイム(800M～600M)
+            3ハロンタイム合計600M0M TEXT,  -- 3ハロンタイム合計(600M～0M)
+            ラップタイム600M400M TEXT,  -- ラップタイム(600M～400M)
+            2ハロンタイム合計400M0M TEXT,  -- 2ハロンタイム合計(400M～0M)
+            ラップタイム400M200M TEXT,  -- ラップタイム(400M～200M)
+            ラップタイム200M0M TEXT,  -- ラップタイム(200M～0M)
+            レコード区切 TEXT,  -- レコード区切
 
-            PRIMARY KEY (idYear, idMonthDay, idJyoCD, idKaiji, idNichiji, idRaceNum)
+            PRIMARY KEY (トレセン区分, 調教年月日, 調教時刻, 血統登録番号)
+        )
+    """,
+    "NL_HN": """
+        CREATE TABLE IF NOT EXISTS NL_HN (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            繁殖登録番号 TEXT,  -- 繁殖登録番号
+            予備 TEXT,  -- 予備
+            血統登録番号 TEXT,  -- 血統登録番号
+            予備 TEXT,  -- 予備
+            馬名 TEXT,  -- 馬名
+            馬名半角ｶﾅ TEXT,  -- 馬名半角ｶﾅ
+            馬名欧字 TEXT,  -- 馬名欧字
+            生年 TEXT,  -- 生年
+            性別コード TEXT,  -- 性別コード
+            品種コード TEXT,  -- 品種コード
+            毛色コード TEXT,  -- 毛色コード
+            繁殖馬持込区分 TEXT,  -- 繁殖馬持込区分
+            輸入年 TEXT,  -- 輸入年
+            産地名 TEXT,  -- 産地名
+            父馬繁殖登録番号 TEXT,  -- 父馬繁殖登録番号
+            母馬繁殖登録番号 TEXT,  -- 母馬繁殖登録番号
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (繁殖登録番号)
+        )
+    """,
+    "NL_HR": """
+        CREATE TABLE IF NOT EXISTS NL_HR (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            不成立フラグ単勝 TEXT,  -- 不成立フラグ　単勝
+            不成立フラグ複勝 TEXT,  -- 不成立フラグ　複勝
+            不成立フラグ枠連 TEXT,  -- 不成立フラグ　枠連
+            不成立フラグ馬連 TEXT,  -- 不成立フラグ　馬連
+            不成立フラグワイド TEXT,  -- 不成立フラグ　ワイド
+            予備 TEXT,  -- 予備
+            不成立フラグ馬単 TEXT,  -- 不成立フラグ　馬単
+            不成立フラグ3連複 TEXT,  -- 不成立フラグ　3連複
+            不成立フラグ3連単 TEXT,  -- 不成立フラグ　3連単
+            特払フラグ単勝 TEXT,  -- 特払フラグ　単勝
+            特払フラグ複勝 TEXT,  -- 特払フラグ　複勝
+            特払フラグ枠連 TEXT,  -- 特払フラグ　枠連
+            特払フラグ馬連 TEXT,  -- 特払フラグ　馬連
+            特払フラグワイド TEXT,  -- 特払フラグ　ワイド
+            予備 TEXT,  -- 予備
+            特払フラグ馬単 TEXT,  -- 特払フラグ　馬単
+            特払フラグ3連複 TEXT,  -- 特払フラグ　3連複
+            特払フラグ3連単 TEXT,  -- 特払フラグ　3連単
+            返還フラグ単勝 TEXT,  -- 返還フラグ　単勝
+            返還フラグ複勝 TEXT,  -- 返還フラグ　複勝
+            返還フラグ枠連 TEXT,  -- 返還フラグ　枠連
+            返還フラグ馬連 TEXT,  -- 返還フラグ　馬連
+            返還フラグワイド TEXT,  -- 返還フラグ　ワイド
+            予備 TEXT,  -- 予備
+            返還フラグ馬単 TEXT,  -- 返還フラグ　馬単
+            返還フラグ3連複 TEXT,  -- 返還フラグ　3連複
+            返還フラグ3連単 TEXT,  -- 返還フラグ　3連単
+            返還馬番情報馬番0128 TEXT,  -- 返還馬番情報(馬番01～28)
+            返還枠番情報枠番18 TEXT,  -- 返還枠番情報(枠番1～8)
+            返還同枠情報枠番18 TEXT,  -- 返還同枠情報(枠番1～8)
+            単勝払戻 TEXT,  -- <単勝払戻>
+            複勝払戻 TEXT,  -- <複勝払戻>
+            枠連払戻 TEXT,  -- <枠連払戻>
+            馬連払戻 TEXT,  -- <馬連払戻>
+            ワイド払戻 TEXT,  -- <ワイド払戻>
+            予備 TEXT,  -- <予備>
+            馬単払戻 TEXT,  -- <馬単払戻>
+            3連複払戻 TEXT,  -- <3連複払戻>
+            3連単払戻 TEXT,  -- <3連単払戻>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "NL_HS": """
+        CREATE TABLE IF NOT EXISTS NL_HS (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            血統登録番号 TEXT,  -- 血統登録番号
+            父馬_繁殖登録番号 TEXT,  -- 父馬 繁殖登録番号
+            母馬_繁殖登録番号 TEXT,  -- 母馬 繁殖登録番号
+            生年 TEXT,  -- 生年
+            主催者市場コード TEXT,  -- 主催者・市場コード
+            主催者名称 TEXT,  -- 主催者名称
+            市場の名称 TEXT,  -- 市場の名称
+            市場の開催期間開始日 TEXT,  -- 市場の開催期間(開始日)
+            市場の開催期間終了日 TEXT,  -- 市場の開催期間(終了日)
+            取引時の競走馬の年齢 TEXT,  -- 取引時の競走馬の年齢
+            取引価格 TEXT,  -- 取引価格
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (血統登録番号, 主催者市場コード, 市場の開催期間開始日)
+        )
+    """,
+    "NL_HY": """
+        CREATE TABLE IF NOT EXISTS NL_HY (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            血統登録番号 TEXT,  -- 血統登録番号
+            馬名 TEXT,  -- 馬名
+            馬名の意味由来 TEXT,  -- 馬名の意味由来
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (血統登録番号)
+        )
+    """,
+    "NL_JC": """
+        CREATE TABLE IF NOT EXISTS NL_JC (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            馬番 TEXT,  -- 馬番
+            馬名 TEXT,  -- 馬名
+            負担重量 TEXT,  -- 負担重量
+            騎手コード TEXT,  -- 騎手コード
+            騎手名 TEXT,  -- 騎手名
+            騎手見習コード TEXT,  -- 騎手見習コード
+            負担重量 TEXT,  -- 負担重量
+            騎手コード TEXT,  -- 騎手コード
+            騎手名 TEXT,  -- 騎手名
+            騎手見習コード TEXT,  -- 騎手見習コード
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号, 発表月日時分, 馬番)
+        )
+    """,
+    "NL_JG": """
+        CREATE TABLE IF NOT EXISTS NL_JG (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            血統登録番号 TEXT,  -- 血統登録番号
+            馬名 TEXT,  -- 馬名
+            出馬投票受付順番 TEXT,  -- 出馬投票受付順番
+            出走区分 TEXT,  -- 出走区分
+            除外状態区分 TEXT,  -- 除外状態区分
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号, 血統登録番号, 出馬投票受付順番)
+        )
+    """,
+    "NL_KS": """
+        CREATE TABLE IF NOT EXISTS NL_KS (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            騎手コード TEXT,  -- 騎手コード
+            騎手抹消区分 TEXT,  -- 騎手抹消区分
+            騎手免許交付年月日 TEXT,  -- 騎手免許交付年月日
+            騎手免許抹消年月日 TEXT,  -- 騎手免許抹消年月日
+            生年月日 TEXT,  -- 生年月日
+            騎手名 TEXT,  -- 騎手名
+            予備 TEXT,  -- 予備
+            騎手名半角ｶﾅ TEXT,  -- 騎手名半角ｶﾅ
+            騎手名略称 TEXT,  -- 騎手名略称
+            騎手名欧字 TEXT,  -- 騎手名欧字
+            性別区分 TEXT,  -- 性別区分
+            騎乗資格コード TEXT,  -- 騎乗資格コード
+            騎手見習コード TEXT,  -- 騎手見習コード
+            騎手東西所属コード TEXT,  -- 騎手東西所属コード
+            招待地域名 TEXT,  -- 招待地域名
+            所属調教師コード TEXT,  -- 所属調教師コード
+            所属調教師名略称 TEXT,  -- 所属調教師名略称
+            初騎乗情報 TEXT,  -- <初騎乗情報>
+            初勝利情報 TEXT,  -- <初勝利情報>
+            最近重賞勝利情報 TEXT,  -- <最近重賞勝利情報>
+            本年前年累計成績情報 TEXT,  -- <本年･前年･累計成績情報>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (騎手コード)
+        )
+    """,
+    "NL_O1": """
+        CREATE TABLE IF NOT EXISTS NL_O1 (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            発売フラグ単勝 TEXT,  -- 発売フラグ　単勝
+            発売フラグ複勝 TEXT,  -- 発売フラグ　複勝
+            発売フラグ枠連 TEXT,  -- 発売フラグ　枠連
+            複勝着払キー TEXT,  -- 複勝着払キー
+            単勝オッズ TEXT,  -- <単勝オッズ>
+            複勝オッズ TEXT,  -- <複勝オッズ>
+            枠連オッズ TEXT,  -- <枠連オッズ>
+            単勝票数合計 TEXT,  -- 単勝票数合計
+            複勝票数合計 TEXT,  -- 複勝票数合計
+            枠連票数合計 TEXT,  -- 枠連票数合計
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "NL_O2": """
+        CREATE TABLE IF NOT EXISTS NL_O2 (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            発売フラグ馬連 TEXT,  -- 発売フラグ　馬連
+            馬連オッズ TEXT,  -- <馬連オッズ>
+            馬連票数合計 TEXT,  -- 馬連票数合計
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "NL_O3": """
+        CREATE TABLE IF NOT EXISTS NL_O3 (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            発売フラグワイド TEXT,  -- 発売フラグ　ワイド
+            ワイドオッズ TEXT,  -- <ワイドオッズ>
+            ワイド票数合計 TEXT,  -- ワイド票数合計
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "NL_O4": """
+        CREATE TABLE IF NOT EXISTS NL_O4 (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            発売フラグ馬単 TEXT,  -- 発売フラグ　馬単
+            馬単オッズ TEXT,  -- <馬単オッズ>
+            馬単票数合計 TEXT,  -- 馬単票数合計
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "NL_O5": """
+        CREATE TABLE IF NOT EXISTS NL_O5 (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            発売フラグ3連複 TEXT,  -- 発売フラグ　3連複
+            3連複オッズ TEXT,  -- <3連複オッズ>
+            3連複票数合計 TEXT,  -- 3連複票数合計
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "NL_O6": """
+        CREATE TABLE IF NOT EXISTS NL_O6 (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            発売フラグ3連単 TEXT,  -- 発売フラグ　3連単
+            3連単オッズ TEXT,  -- <3連単オッズ>
+            3連単票数合計 TEXT,  -- 3連単票数合計
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "NL_RA": """
+        CREATE TABLE IF NOT EXISTS NL_RA (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            曜日コード TEXT,  -- 曜日コード
+            特別競走番号 TEXT,  -- 特別競走番号
+            競走名本題 TEXT,  -- 競走名本題
+            競走名副題 TEXT,  -- 競走名副題
+            競走名カッコ内 TEXT,  -- 競走名カッコ内
+            競走名本題欧字 TEXT,  -- 競走名本題欧字
+            競走名副題欧字 TEXT,  -- 競走名副題欧字
+            競走名カッコ内欧字 TEXT,  -- 競走名カッコ内欧字
+            競走名略称10文字 TEXT,  -- 競走名略称10文字
+            競走名略称6文字 TEXT,  -- 競走名略称6文字
+            競走名略称3文字 TEXT,  -- 競走名略称3文字
+            競走名区分 TEXT,  -- 競走名区分
+            重賞回次第N回 TEXT,  -- 重賞回次[第N回]
+            グレードコード TEXT,  -- グレードコード
+            変更前グレードコード TEXT,  -- 変更前グレードコード
+            競走種別コード TEXT,  -- 競走種別コード
+            競走記号コード TEXT,  -- 競走記号コード
+            重量種別コード TEXT,  -- 重量種別コード
+            競走条件コード_2歳条件 TEXT,  -- 競走条件コード 2歳条件
+            競走条件コード_3歳条件 TEXT,  -- 競走条件コード 3歳条件
+            競走条件コード_4歳条件 TEXT,  -- 競走条件コード 4歳条件
+            競走条件コード_5歳以上条件 TEXT,  -- 競走条件コード 5歳以上条件
+            競走条件コード_最若年条件 TEXT,  -- 競走条件コード 最若年条件
+            競走条件名称 TEXT,  -- 競走条件名称
+            距離 TEXT,  -- 距離
+            変更前距離 TEXT,  -- 変更前距離
+            トラックコード TEXT,  -- トラックコード
+            変更前トラックコード TEXT,  -- 変更前トラックコード
+            コース区分 TEXT,  -- コース区分
+            変更前コース区分 TEXT,  -- 変更前コース区分
+            本賞金 TEXT,  -- 本賞金
+            変更前本賞金 TEXT,  -- 変更前本賞金
+            付加賞金 TEXT,  -- 付加賞金
+            変更前付加賞金 TEXT,  -- 変更前付加賞金
+            発走時刻 TEXT,  -- 発走時刻
+            変更前発走時刻 TEXT,  -- 変更前発走時刻
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            入線頭数 TEXT,  -- 入線頭数
+            天候コード TEXT,  -- 天候コード
+            芝馬場状態コード TEXT,  -- 芝馬場状態コード
+            ダート馬場状態コード TEXT,  -- ダート馬場状態コード
+            ラップタイム TEXT,  -- ラップタイム
+            障害マイルタイム TEXT,  -- 障害マイルタイム
+            前3ハロン TEXT,  -- 前3ハロン
+            前4ハロン TEXT,  -- 前4ハロン
+            後3ハロン TEXT,  -- 後3ハロン
+            後4ハロン TEXT,  -- 後4ハロン
+            コーナー通過順位 TEXT,  -- <コーナー通過順位>
+            レコード更新区分 TEXT,  -- レコード更新区分
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "NL_RC": """
+        CREATE TABLE IF NOT EXISTS NL_RC (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            レコード識別区分 TEXT,  -- レコード識別区分
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            特別競走番号 TEXT,  -- 特別競走番号
+            競走名本題 TEXT,  -- 競走名本題
+            グレードコード TEXT,  -- グレードコード
+            競走種別コード TEXT,  -- 競走種別コード
+            距離 TEXT,  -- 距離
+            トラックコード TEXT,  -- トラックコード
+            レコード区分 TEXT,  -- レコード区分
+            レコードタイム TEXT,  -- レコードタイム
+            天候コード TEXT,  -- 天候コード
+            芝馬場状態コード TEXT,  -- 芝馬場状態コード
+            ダート馬場状態コード TEXT,  -- ダート馬場状態コード
+            レコード保持馬情報 TEXT,  -- <レコード保持馬情報>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (レコード識別区分, 開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号, 特別競走番号, 競走種別コード, 距離, トラックコード)
+        )
+    """,
+    "NL_SE": """
+        CREATE TABLE IF NOT EXISTS NL_SE (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            枠番 TEXT,  -- 枠番
+            馬番 TEXT,  -- 馬番
+            血統登録番号 TEXT,  -- 血統登録番号
+            馬名 TEXT,  -- 馬名
+            馬記号コード TEXT,  -- 馬記号コード
+            性別コード TEXT,  -- 性別コード
+            品種コード TEXT,  -- 品種コード
+            毛色コード TEXT,  -- 毛色コード
+            馬齢 TEXT,  -- 馬齢
+            東西所属コード TEXT,  -- 東西所属コード
+            調教師コード TEXT,  -- 調教師コード
+            調教師名略称 TEXT,  -- 調教師名略称
+            馬主コード TEXT,  -- 馬主コード
+            馬主名法人格無 TEXT,  -- 馬主名(法人格無)
+            服色標示 TEXT,  -- 服色標示
+            予備 TEXT,  -- 予備
+            負担重量 TEXT,  -- 負担重量
+            変更前負担重量 TEXT,  -- 変更前負担重量
+            ブリンカー使用区分 TEXT,  -- ブリンカー使用区分
+            予備 TEXT,  -- 予備
+            騎手コード TEXT,  -- 騎手コード
+            変更前騎手コード TEXT,  -- 変更前騎手コード
+            騎手名略称 TEXT,  -- 騎手名略称
+            変更前騎手名略称 TEXT,  -- 変更前騎手名略称
+            騎手見習コード TEXT,  -- 騎手見習コード
+            変更前騎手見習コード TEXT,  -- 変更前騎手見習コード
+            馬体重 TEXT,  -- 馬体重
+            増減符号 TEXT,  -- 増減符号
+            増減差 TEXT,  -- 増減差
+            異常区分コード TEXT,  -- 異常区分コード
+            入線順位 TEXT,  -- 入線順位
+            確定着順 TEXT,  -- 確定着順
+            同着区分 TEXT,  -- 同着区分
+            同着頭数 TEXT,  -- 同着頭数
+            走破タイム TEXT,  -- 走破タイム
+            着差コード TEXT,  -- 着差コード
+            着差コード TEXT,  -- ＋着差コード
+            着差コード TEXT,  -- ＋＋着差コード
+            1コーナーでの順位 TEXT,  -- 1コーナーでの順位
+            2コーナーでの順位 TEXT,  -- 2コーナーでの順位
+            3コーナーでの順位 TEXT,  -- 3コーナーでの順位
+            4コーナーでの順位 TEXT,  -- 4コーナーでの順位
+            単勝オッズ TEXT,  -- 単勝オッズ
+            単勝人気順 TEXT,  -- 単勝人気順
+            獲得本賞金 TEXT,  -- 獲得本賞金
+            獲得付加賞金 TEXT,  -- 獲得付加賞金
+            予備 TEXT,  -- 予備
+            予備 TEXT,  -- 予備
+            後4ハロンタイム TEXT,  -- 後4ハロンタイム
+            後3ハロンタイム TEXT,  -- 後3ハロンタイム
+            1着馬相手馬情報 TEXT,  -- <1着馬(相手馬)情報>
+            タイム差 TEXT,  -- タイム差
+            レコード更新区分 TEXT,  -- レコード更新区分
+            マイニング区分 TEXT,  -- マイニング区分
+            マイニング予想走破タイム TEXT,  -- マイニング予想走破タイム
+            マイニング予想誤差信頼度 TEXT,  -- マイニング予想誤差(信頼度)＋
+            マイニング予想誤差信頼度 TEXT,  -- マイニング予想誤差(信頼度)－
+            マイニング予想順位 TEXT,  -- マイニング予想順位
+            今回レース脚質判定 TEXT,  -- 今回レース脚質判定
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号, 馬番, 血統登録番号)
+        )
+    """,
+    "NL_SK": """
+        CREATE TABLE IF NOT EXISTS NL_SK (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            血統登録番号 TEXT,  -- 血統登録番号
+            生年月日 TEXT,  -- 生年月日
+            性別コード TEXT,  -- 性別コード
+            品種コード TEXT,  -- 品種コード
+            毛色コード TEXT,  -- 毛色コード
+            産駒持込区分 TEXT,  -- 産駒持込区分
+            輸入年 TEXT,  -- 輸入年
+            生産者コード TEXT,  -- 生産者コード
+            産地名 TEXT,  -- 産地名
+            3代血統_繁殖登録番号 TEXT,  -- 3代血統 繁殖登録番号
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (血統登録番号)
+        )
+    """,
+    "NL_TC": """
+        CREATE TABLE IF NOT EXISTS NL_TC (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            変更後_発走時刻 TEXT,  -- 変更後 発走時刻
+            変更前_発走時刻 TEXT,  -- 変更前 発走時刻
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "NL_TK": """
+        CREATE TABLE IF NOT EXISTS NL_TK (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            曜日コード TEXT,  -- 曜日コード
+            特別競走番号 TEXT,  -- 特別競走番号
+            競走名本題 TEXT,  -- 競走名本題
+            競走名副題 TEXT,  -- 競走名副題
+            競走名カッコ内 TEXT,  -- 競走名カッコ内
+            競走名本題欧字 TEXT,  -- 競走名本題欧字
+            競走名副題欧字 TEXT,  -- 競走名副題欧字
+            競走名カッコ内欧字 TEXT,  -- 競走名カッコ内欧字
+            競走名略称10文字 TEXT,  -- 競走名略称10文字
+            競走名略称6文字 TEXT,  -- 競走名略称6文字
+            競走名略称3文字 TEXT,  -- 競走名略称3文字
+            競走名区分 TEXT,  -- 競走名区分
+            重賞回次第N回 TEXT,  -- 重賞回次[第N回]
+            グレードコード TEXT,  -- グレードコード
+            競走種別コード TEXT,  -- 競走種別コード
+            競走記号コード TEXT,  -- 競走記号コード
+            重量種別コード TEXT,  -- 重量種別コード
+            競走条件コード_2歳条件 TEXT,  -- 競走条件コード 2歳条件
+            競走条件コード_3歳条件 TEXT,  -- 競走条件コード 3歳条件
+            競走条件コード_4歳条件 TEXT,  -- 競走条件コード 4歳条件
+            競走条件コード_5歳以上条件 TEXT,  -- 競走条件コード 5歳以上条件
+            競走条件コード_最若年条件 TEXT,  -- 競走条件コード 最若年条件
+            距離 TEXT,  -- 距離
+            トラックコード TEXT,  -- トラックコード
+            コース区分 TEXT,  -- コース区分
+            ハンデ発表日 TEXT,  -- ハンデ発表日
+            登録頭数 TEXT,  -- 登録頭数
+            登録馬毎情報 TEXT,  -- <登録馬毎情報>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "NL_TM": """
+        CREATE TABLE IF NOT EXISTS NL_TM (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            データ作成時分 TEXT,  -- データ作成時分
+            マイニング予想 TEXT,  -- <マイニング予想>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "NL_UM": """
+        CREATE TABLE IF NOT EXISTS NL_UM (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            血統登録番号 TEXT,  -- 血統登録番号
+            競走馬抹消区分 TEXT,  -- 競走馬抹消区分
+            競走馬登録年月日 TEXT,  -- 競走馬登録年月日
+            競走馬抹消年月日 TEXT,  -- 競走馬抹消年月日
+            生年月日 TEXT,  -- 生年月日
+            馬名 TEXT,  -- 馬名
+            馬名半角ｶﾅ TEXT,  -- 馬名半角ｶﾅ
+            馬名欧字 TEXT,  -- 馬名欧字
+            JRA施設在きゅうフラグ TEXT,  -- JRA施設在きゅうフラグ
+            予備 TEXT,  -- 予備
+            馬記号コード TEXT,  -- 馬記号コード
+            性別コード TEXT,  -- 性別コード
+            品種コード TEXT,  -- 品種コード
+            毛色コード TEXT,  -- 毛色コード
+            3代血統情報 TEXT,  -- <3代血統情報>
+            東西所属コード TEXT,  -- 東西所属コード
+            調教師コード TEXT,  -- 調教師コード
+            調教師名略称 TEXT,  -- 調教師名略称
+            招待地域名 TEXT,  -- 招待地域名
+            生産者コード TEXT,  -- 生産者コード
+            生産者名法人格無 TEXT,  -- 生産者名(法人格無)
+            産地名 TEXT,  -- 産地名
+            馬主コード TEXT,  -- 馬主コード
+            馬主名法人格無 TEXT,  -- 馬主名(法人格無)
+            平地本賞金累計 TEXT,  -- 平地本賞金累計
+            障害本賞金累計 TEXT,  -- 障害本賞金累計
+            平地付加賞金累計 TEXT,  -- 平地付加賞金累計
+            障害付加賞金累計 TEXT,  -- 障害付加賞金累計
+            平地収得賞金累計 TEXT,  -- 平地収得賞金累計
+            障害収得賞金累計 TEXT,  -- 障害収得賞金累計
+            総合着回数 TEXT,  -- 総合着回数
+            中央合計着回数 TEXT,  -- 中央合計着回数
+            芝直着回数 TEXT,  -- 芝直・着回数
+            芝右着回数 TEXT,  -- 芝右・着回数
+            芝左着回数 TEXT,  -- 芝左・着回数
+            ダ直着回数 TEXT,  -- ダ直・着回数
+            ダ右着回数 TEXT,  -- ダ右・着回数
+            ダ左着回数 TEXT,  -- ダ左・着回数
+            障害着回数 TEXT,  -- 障害・着回数
+            芝良着回数 TEXT,  -- 芝良・着回数
+            芝稍着回数 TEXT,  -- 芝稍・着回数
+            芝重着回数 TEXT,  -- 芝重・着回数
+            芝不着回数 TEXT,  -- 芝不・着回数
+            ダ良着回数 TEXT,  -- ダ良・着回数
+            ダ稍着回数 TEXT,  -- ダ稍・着回数
+            ダ重着回数 TEXT,  -- ダ重・着回数
+            ダ不着回数 TEXT,  -- ダ不・着回数
+            障良着回数 TEXT,  -- 障良・着回数
+            障稍着回数 TEXT,  -- 障稍・着回数
+            障重着回数 TEXT,  -- 障重・着回数
+            障不着回数 TEXT,  -- 障不・着回数
+            芝16下着回数 TEXT,  -- 芝16下・着回数
+            芝22下着回数 TEXT,  -- 芝22下・着回数
+            芝22超着回数 TEXT,  -- 芝22超・着回数
+            ダ16下着回数 TEXT,  -- ダ16下・着回数
+            ダ22下着回数 TEXT,  -- ダ22下・着回数
+            ダ22超着回数 TEXT,  -- ダ22超・着回数
+            脚質傾向 TEXT,  -- 脚質傾向
+            登録レース数 TEXT,  -- 登録レース数
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (血統登録番号)
+        )
+    """,
+    "NL_WC": """
+        CREATE TABLE IF NOT EXISTS NL_WC (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            トレセン区分 TEXT,  -- トレセン区分
+            調教年月日 TEXT,  -- 調教年月日
+            調教時刻 TEXT,  -- 調教時刻
+            血統登録番号 TEXT,  -- 血統登録番号
+            コース TEXT,  -- コース
+            馬場周り TEXT,  -- 馬場周り
+            予備 TEXT,  -- 予備
+            10ハロンタイム合計2000M0M TEXT,  -- 10ハロンタイム合計(2000M～0M)
+            ラップタイム2000M1800M TEXT,  -- ラップタイム(2000M～1800M)
+            9ハロンタイム合計1800M0M TEXT,  -- 9ハロンタイム合計(1800M～0M)
+            ラップタイム1800M1600M TEXT,  -- ラップタイム(1800M～1600M)
+            8ロンタイム合計1600M0M TEXT,  -- 8ロンタイム合計(1600M～0M)
+            ラップタイム1600M1400M TEXT,  -- ラップタイム(1600M～1400M)
+            7ハロンタイム合計1400M0M TEXT,  -- 7ハロンタイム合計(1400M～0M)
+            ラップタイム1400M1200M TEXT,  -- ラップタイム(1400M～1200M)
+            6ハロンタイム合計1200M0M TEXT,  -- 6ハロンタイム合計(1200M～0M)
+            ラップタイム1200M1000M TEXT,  -- ラップタイム(1200M～1000M)
+            5ハロンタイム合計1000M0M TEXT,  -- 5ハロンタイム合計(1000M～0M)
+            ラップタイム1000M800M TEXT,  -- ラップタイム(1000M～800M)
+            4ハロンタイム合計800M0M TEXT,  -- 4ハロンタイム合計(800M～0M)
+            ラップタイム800M600M TEXT,  -- ラップタイム(800M～600M)
+            3ハロンタイム合計600M0M TEXT,  -- 3ハロンタイム合計(600M～0M)
+            ラップタイム600M400M TEXT,  -- ラップタイム(600M～400M)
+            2ハロンタイム合計400M0M TEXT,  -- 2ハロンタイム合計(400M～0M)
+            ラップタイム400M200M TEXT,  -- ラップタイム(400M～200M)
+            ラップタイム200M0M TEXT,  -- ラップタイム(200M～0M)
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (トレセン区分, 調教年月日, 調教時刻, 血統登録番号)
+        )
+    """,
+    "NL_WE": """
+        CREATE TABLE IF NOT EXISTS NL_WE (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            発表月日時分 TEXT,  -- 発表月日時分
+            変更識別 TEXT,  -- 変更識別
+            天候状態 TEXT,  -- 天候状態
+            馬場状態芝 TEXT,  -- 馬場状態・芝
+            馬場状態ダート TEXT,  -- 馬場状態・ダート
+            天候状態 TEXT,  -- 天候状態
+            馬場状態芝 TEXT,  -- 馬場状態・芝
+            馬場状態ダート TEXT,  -- 馬場状態・ダート
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, 発表月日時分, 変更識別)
+        )
+    """,
+    "NL_WF": """
+        CREATE TABLE IF NOT EXISTS NL_WF (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            予備 TEXT,  -- 予備
+            重勝式対象レース情報 TEXT,  -- <重勝式対象レース情報>
+            予備 TEXT,  -- 予備
+            重勝式発売票数 TEXT,  -- 重勝式発売票数
+            有効票数情報 TEXT,  -- <有効票数情報>
+            返還フラグ TEXT,  -- 返還フラグ
+            不成立フラグ TEXT,  -- 不成立フラグ
+            的中無フラグ TEXT,  -- 的中無フラグ
+            キャリーオーバー金額初期 TEXT,  -- キャリーオーバー金額初期
+            キャリーオーバー金額残高 TEXT,  -- キャリーオーバー金額残高
+            重勝式払戻情報 TEXT,  -- <重勝式払戻情報>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日)
+        )
+    """,
+    "NL_WH": """
+        CREATE TABLE IF NOT EXISTS NL_WH (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            馬体重情報 TEXT,  -- <馬体重情報>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "NL_YS": """
+        CREATE TABLE IF NOT EXISTS NL_YS (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            曜日コード TEXT,  -- 曜日コード
+            重賞案内 TEXT,  -- <重賞案内>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目)
+        )
+    """,
+    "RT_AV": """
+        CREATE TABLE IF NOT EXISTS RT_AV (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            馬番 TEXT,  -- 馬番
+            馬名 TEXT,  -- 馬名
+            事由区分 TEXT,  -- 事由区分
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号, 馬番)
+        )
+    """,
+    "RT_BN": """
+        CREATE TABLE IF NOT EXISTS RT_BN (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            馬主コード TEXT,  -- 馬主コード
+            馬主名法人格有 TEXT,  -- 馬主名(法人格有)
+            馬主名法人格無 TEXT,  -- 馬主名(法人格無)
+            馬主名半角ｶﾅ TEXT,  -- 馬主名半角ｶﾅ
+            馬主名欧字 TEXT,  -- 馬主名欧字
+            服色標示 TEXT,  -- 服色標示
+            本年累計成績情報 TEXT,  -- <本年･累計成績情報>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (馬主コード)
+        )
+    """,
+    "RT_BR": """
+        CREATE TABLE IF NOT EXISTS RT_BR (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            生産者コード TEXT,  -- 生産者コード
+            生産者名法人格有 TEXT,  -- 生産者名(法人格有)
+            生産者名法人格無 TEXT,  -- 生産者名(法人格無)
+            生産者名半角ｶﾅ TEXT,  -- 生産者名半角ｶﾅ
+            生産者名欧字 TEXT,  -- 生産者名欧字
+            生産者住所自治省名 TEXT,  -- 生産者住所自治省名
+            本年累計成績情報 TEXT,  -- <本年･累計成績情報>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (生産者コード)
+        )
+    """,
+    "RT_BT": """
+        CREATE TABLE IF NOT EXISTS RT_BT (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            繁殖登録番号 TEXT,  -- 繁殖登録番号
+            系統ID TEXT,  -- 系統ID
+            系統名 TEXT,  -- 系統名
+            系統説明 TEXT,  -- 系統説明
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (繁殖登録番号)
+        )
+    """,
+    "RT_CC": """
+        CREATE TABLE IF NOT EXISTS RT_CC (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            変更後_距離 TEXT,  -- 変更後 距離
+            変更後_トラックコード TEXT,  -- 変更後 トラックコード
+            変更前_距離 TEXT,  -- 変更前 距離
+            変更前_トラックコード TEXT,  -- 変更前 トラックコード
+            事由区分 TEXT,  -- 事由区分
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "RT_CH": """
+        CREATE TABLE IF NOT EXISTS RT_CH (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            調教師コード TEXT,  -- 調教師コード
+            調教師抹消区分 TEXT,  -- 調教師抹消区分
+            調教師免許交付年月日 TEXT,  -- 調教師免許交付年月日
+            調教師免許抹消年月日 TEXT,  -- 調教師免許抹消年月日
+            生年月日 TEXT,  -- 生年月日
+            調教師名 TEXT,  -- 調教師名
+            調教師名半角ｶﾅ TEXT,  -- 調教師名半角ｶﾅ
+            調教師名略称 TEXT,  -- 調教師名略称
+            調教師名欧字 TEXT,  -- 調教師名欧字
+            性別区分 TEXT,  -- 性別区分
+            調教師東西所属コード TEXT,  -- 調教師東西所属コード
+            招待地域名 TEXT,  -- 招待地域名
+            最近重賞勝利情報 TEXT,  -- <最近重賞勝利情報>
+            本年前年累計成績情報 TEXT,  -- <本年･前年･累計成績情報>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (調教師コード)
+        )
+    """,
+    "RT_CK": """
+        CREATE TABLE IF NOT EXISTS RT_CK (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            血統登録番号 TEXT,  -- 血統登録番号
+            馬名 TEXT,  -- 馬名
+            平地本賞金累計 TEXT,  -- 平地本賞金累計
+            障害本賞金累計 TEXT,  -- 障害本賞金累計
+            平地付加賞金累計 TEXT,  -- 平地付加賞金累計
+            障害付加賞金累計 TEXT,  -- 障害付加賞金累計
+            平地収得賞金累計 TEXT,  -- 平地収得賞金累計
+            障害収得賞金累計 TEXT,  -- 障害収得賞金累計
+            総合着回数 TEXT,  -- 総合着回数
+            中央合計着回数 TEXT,  -- 中央合計着回数
+            芝直着回数 TEXT,  -- 芝直・着回数
+            芝右着回数 TEXT,  -- 芝右・着回数
+            芝左着回数 TEXT,  -- 芝左・着回数
+            ダ直着回数 TEXT,  -- ダ直・着回数
+            ダ右着回数 TEXT,  -- ダ右・着回数
+            ダ左着回数 TEXT,  -- ダ左・着回数
+            障害着回数 TEXT,  -- 障害・着回数
+            芝良着回数 TEXT,  -- 芝良・着回数
+            芝稍着回数 TEXT,  -- 芝稍・着回数
+            芝重着回数 TEXT,  -- 芝重・着回数
+            芝不着回数 TEXT,  -- 芝不・着回数
+            ダ良着回数 TEXT,  -- ダ良・着回数
+            ダ稍着回数 TEXT,  -- ダ稍・着回数
+            ダ重着回数 TEXT,  -- ダ重・着回数
+            ダ不着回数 TEXT,  -- ダ不・着回数
+            障良着回数 TEXT,  -- 障良・着回数
+            障稍着回数 TEXT,  -- 障稍・着回数
+            障重着回数 TEXT,  -- 障重・着回数
+            障不着回数 TEXT,  -- 障不・着回数
+            芝1200以下着回数 TEXT,  -- 芝1200以下・着回数
+            芝1201_1400着回数 TEXT,  -- 芝1201-1400・着回数
+            芝1401_1600着回数 TEXT,  -- 芝1401-1600・着回数
+            芝1601_1800着回数 TEXT,  -- 芝1601-1800・着回数
+            芝1801_2000着回数 TEXT,  -- 芝1801-2000・着回数
+            芝2001_2200着回数 TEXT,  -- 芝2001-2200・着回数
+            芝2201_2400着回数 TEXT,  -- 芝2201-2400・着回数
+            芝2401_2800着回数 TEXT,  -- 芝2401-2800・着回数
+            芝2801以上着回数 TEXT,  -- 芝2801以上・着回数
+            ダ1200以下着回数 TEXT,  -- ダ1200以下・着回数
+            ダ1201_1400着回数 TEXT,  -- ダ1201-1400・着回数
+            ダ1401_1600着回数 TEXT,  -- ダ1401-1600・着回数
+            ダ1601_1800着回数 TEXT,  -- ダ1601-1800・着回数
+            ダ1801_2000着回数 TEXT,  -- ダ1801-2000・着回数
+            ダ2001_2200着回数 TEXT,  -- ダ2001-2200・着回数
+            ダ2201_2400着回数 TEXT,  -- ダ2201-2400・着回数
+            ダ2401_2800着回数 TEXT,  -- ダ2401-2800・着回数
+            ダ2801以上着回数 TEXT,  -- ダ2801以上・着回数
+            札幌芝着回数 TEXT,  -- 札幌芝・着回数
+            函館芝着回数 TEXT,  -- 函館芝・着回数
+            福島芝着回数 TEXT,  -- 福島芝・着回数
+            新潟芝着回数 TEXT,  -- 新潟芝・着回数
+            東京芝着回数 TEXT,  -- 東京芝・着回数
+            中山芝着回数 TEXT,  -- 中山芝・着回数
+            中京芝着回数 TEXT,  -- 中京芝・着回数
+            京都芝着回数 TEXT,  -- 京都芝・着回数
+            阪神芝着回数 TEXT,  -- 阪神芝・着回数
+            小倉芝着回数 TEXT,  -- 小倉芝・着回数
+            札幌ダ着回数 TEXT,  -- 札幌ダ・着回数
+            函館ダ着回数 TEXT,  -- 函館ダ・着回数
+            福島ダ着回数 TEXT,  -- 福島ダ・着回数
+            新潟ダ着回数 TEXT,  -- 新潟ダ・着回数
+            東京ダ着回数 TEXT,  -- 東京ダ・着回数
+            中山ダ着回数 TEXT,  -- 中山ダ・着回数
+            中京ダ着回数 TEXT,  -- 中京ダ・着回数
+            京都ダ着回数 TEXT,  -- 京都ダ・着回数
+            阪神ダ着回数 TEXT,  -- 阪神ダ・着回数
+            小倉ダ着回数 TEXT,  -- 小倉ダ・着回数
+            札幌障着回数 TEXT,  -- 札幌障・着回数
+            函館障着回数 TEXT,  -- 函館障・着回数
+            福島障着回数 TEXT,  -- 福島障・着回数
+            新潟障着回数 TEXT,  -- 新潟障・着回数
+            東京障着回数 TEXT,  -- 東京障・着回数
+            中山障着回数 TEXT,  -- 中山障・着回数
+            中京障着回数 TEXT,  -- 中京障・着回数
+            京都障着回数 TEXT,  -- 京都障・着回数
+            阪神障着回数 TEXT,  -- 阪神障・着回数
+            小倉障着回数 TEXT,  -- 小倉障・着回数
+            脚質傾向 TEXT,  -- 脚質傾向
+            登録レース数 TEXT,  -- 登録レース数
+            騎手コード TEXT,  -- 騎手コード
+            騎手名 TEXT,  -- 騎手名
+            騎手本年累計成績情報 TEXT,  -- <騎手本年･累計成績情報>
+            調教師コード TEXT,  -- 調教師コード
+            調教師名 TEXT,  -- 調教師名
+            調教師本年累計成績情報 TEXT,  -- <調教師本年･累計成績情報>
+            馬主コード TEXT,  -- 馬主コード
+            馬主名法人格有 TEXT,  -- 馬主名(法人格有)
+            馬主名法人格無 TEXT,  -- 馬主名(法人格無)
+            本年累計成績情報 TEXT,  -- <本年･累計成績情報>
+            生産者コード TEXT,  -- 生産者コード
+            生産者名法人格有 TEXT,  -- 生産者名(法人格有)
+            生産者名法人格無 TEXT,  -- 生産者名(法人格無)
+            本年累計成績情報 TEXT,  -- <本年･累計成績情報>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号, 血統登録番号)
+        )
+    """,
+    "RT_CS": """
+        CREATE TABLE IF NOT EXISTS RT_CS (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            競馬場コード TEXT,  -- 競馬場コード
+            距離 TEXT,  -- 距離
+            トラックコード TEXT,  -- トラックコード
+            コース改修年月日 TEXT,  -- コース改修年月日
+            コース説明 TEXT,  -- コース説明
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (競馬場コード, 距離, トラックコード, コース改修年月日)
+        )
+    """,
+    "RT_DM": """
+        CREATE TABLE IF NOT EXISTS RT_DM (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            データ作成時分 TEXT,  -- データ作成時分
+            マイニング予想 TEXT,  -- <マイニング予想>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "RT_H1": """
+        CREATE TABLE IF NOT EXISTS RT_H1 (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            発売フラグ単勝 TEXT,  -- 発売フラグ　単勝
+            発売フラグ複勝 TEXT,  -- 発売フラグ　複勝
+            発売フラグ枠連 TEXT,  -- 発売フラグ　枠連
+            発売フラグ馬連 TEXT,  -- 発売フラグ　馬連
+            発売フラグワイド TEXT,  -- 発売フラグ　ワイド
+            発売フラグ馬単 TEXT,  -- 発売フラグ　馬単
+            発売フラグ3連複 TEXT,  -- 発売フラグ　3連複
+            複勝着払キー TEXT,  -- 複勝着払キー
+            返還馬番情報馬番0128 TEXT,  -- 返還馬番情報(馬番01～28)
+            返還枠番情報枠番18 TEXT,  -- 返還枠番情報(枠番1～8)
+            返還同枠情報枠番18 TEXT,  -- 返還同枠情報(枠番1～8)
+            単勝票数 TEXT,  -- <単勝票数>
+            複勝票数 TEXT,  -- <複勝票数>
+            枠連票数 TEXT,  -- <枠連票数>
+            馬連票数 TEXT,  -- <馬連票数>
+            ワイド票数 TEXT,  -- <ワイド票数>
+            馬単票数 TEXT,  -- <馬単票数>
+            3連複票数 TEXT,  -- <3連複票数>
+            単勝票数合計 TEXT,  -- 単勝票数合計
+            複勝票数合計 TEXT,  -- 複勝票数合計
+            枠連票数合計 TEXT,  -- 枠連票数合計
+            馬連票数合計 TEXT,  -- 馬連票数合計
+            ワイド票数合計 TEXT,  -- ワイド票数合計
+            馬単票数合計 TEXT,  -- 馬単票数合計
+            3連複票数合計 TEXT,  -- 3連複票数合計
+            単勝返還票数合計 TEXT,  -- 単勝返還票数合計
+            複勝返還票数合計 TEXT,  -- 複勝返還票数合計
+            枠連返還票数合計 TEXT,  -- 枠連返還票数合計
+            馬連返還票数合計 TEXT,  -- 馬連返還票数合計
+            ワイド返還票数合計 TEXT,  -- ワイド返還票数合計
+            馬単返還票数合計 TEXT,  -- 馬単返還票数合計
+            3連複返還票数合計 TEXT,  -- 3連複返還票数合計
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "RT_H6": """
+        CREATE TABLE IF NOT EXISTS RT_H6 (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            発売フラグ3連単 TEXT,  -- 発売フラグ　3連単
+            返還馬番情報馬番0118 TEXT,  -- 返還馬番情報(馬番01～18)
+            3連単票数 TEXT,  -- <3連単票数>
+            3連単票数合計 TEXT,  -- 3連単票数合計
+            3連単返還票数合計 TEXT,  -- 3連単返還票数合計
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "RT_HC": """
+        CREATE TABLE IF NOT EXISTS RT_HC (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            トレセン区分 TEXT,  -- トレセン区分
+            調教年月日 TEXT,  -- 調教年月日
+            調教時刻 TEXT,  -- 調教時刻
+            血統登録番号 TEXT,  -- 血統登録番号
+            4ハロンタイム合計800M0M TEXT,  -- 4ハロンタイム合計(800M～0M)
+            ラップタイム800M600M TEXT,  -- ラップタイム(800M～600M)
+            3ハロンタイム合計600M0M TEXT,  -- 3ハロンタイム合計(600M～0M)
+            ラップタイム600M400M TEXT,  -- ラップタイム(600M～400M)
+            2ハロンタイム合計400M0M TEXT,  -- 2ハロンタイム合計(400M～0M)
+            ラップタイム400M200M TEXT,  -- ラップタイム(400M～200M)
+            ラップタイム200M0M TEXT,  -- ラップタイム(200M～0M)
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (トレセン区分, 調教年月日, 調教時刻, 血統登録番号)
+        )
+    """,
+    "RT_HN": """
+        CREATE TABLE IF NOT EXISTS RT_HN (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            繁殖登録番号 TEXT,  -- 繁殖登録番号
+            予備 TEXT,  -- 予備
+            血統登録番号 TEXT,  -- 血統登録番号
+            予備 TEXT,  -- 予備
+            馬名 TEXT,  -- 馬名
+            馬名半角ｶﾅ TEXT,  -- 馬名半角ｶﾅ
+            馬名欧字 TEXT,  -- 馬名欧字
+            生年 TEXT,  -- 生年
+            性別コード TEXT,  -- 性別コード
+            品種コード TEXT,  -- 品種コード
+            毛色コード TEXT,  -- 毛色コード
+            繁殖馬持込区分 TEXT,  -- 繁殖馬持込区分
+            輸入年 TEXT,  -- 輸入年
+            産地名 TEXT,  -- 産地名
+            父馬繁殖登録番号 TEXT,  -- 父馬繁殖登録番号
+            母馬繁殖登録番号 TEXT,  -- 母馬繁殖登録番号
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (繁殖登録番号)
+        )
+    """,
+    "RT_HR": """
+        CREATE TABLE IF NOT EXISTS RT_HR (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            不成立フラグ単勝 TEXT,  -- 不成立フラグ　単勝
+            不成立フラグ複勝 TEXT,  -- 不成立フラグ　複勝
+            不成立フラグ枠連 TEXT,  -- 不成立フラグ　枠連
+            不成立フラグ馬連 TEXT,  -- 不成立フラグ　馬連
+            不成立フラグワイド TEXT,  -- 不成立フラグ　ワイド
+            予備 TEXT,  -- 予備
+            不成立フラグ馬単 TEXT,  -- 不成立フラグ　馬単
+            不成立フラグ3連複 TEXT,  -- 不成立フラグ　3連複
+            不成立フラグ3連単 TEXT,  -- 不成立フラグ　3連単
+            特払フラグ単勝 TEXT,  -- 特払フラグ　単勝
+            特払フラグ複勝 TEXT,  -- 特払フラグ　複勝
+            特払フラグ枠連 TEXT,  -- 特払フラグ　枠連
+            特払フラグ馬連 TEXT,  -- 特払フラグ　馬連
+            特払フラグワイド TEXT,  -- 特払フラグ　ワイド
+            予備 TEXT,  -- 予備
+            特払フラグ馬単 TEXT,  -- 特払フラグ　馬単
+            特払フラグ3連複 TEXT,  -- 特払フラグ　3連複
+            特払フラグ3連単 TEXT,  -- 特払フラグ　3連単
+            返還フラグ単勝 TEXT,  -- 返還フラグ　単勝
+            返還フラグ複勝 TEXT,  -- 返還フラグ　複勝
+            返還フラグ枠連 TEXT,  -- 返還フラグ　枠連
+            返還フラグ馬連 TEXT,  -- 返還フラグ　馬連
+            返還フラグワイド TEXT,  -- 返還フラグ　ワイド
+            予備 TEXT,  -- 予備
+            返還フラグ馬単 TEXT,  -- 返還フラグ　馬単
+            返還フラグ3連複 TEXT,  -- 返還フラグ　3連複
+            返還フラグ3連単 TEXT,  -- 返還フラグ　3連単
+            返還馬番情報馬番0128 TEXT,  -- 返還馬番情報(馬番01～28)
+            返還枠番情報枠番18 TEXT,  -- 返還枠番情報(枠番1～8)
+            返還同枠情報枠番18 TEXT,  -- 返還同枠情報(枠番1～8)
+            単勝払戻 TEXT,  -- <単勝払戻>
+            複勝払戻 TEXT,  -- <複勝払戻>
+            枠連払戻 TEXT,  -- <枠連払戻>
+            馬連払戻 TEXT,  -- <馬連払戻>
+            ワイド払戻 TEXT,  -- <ワイド払戻>
+            予備 TEXT,  -- <予備>
+            馬単払戻 TEXT,  -- <馬単払戻>
+            3連複払戻 TEXT,  -- <3連複払戻>
+            3連単払戻 TEXT,  -- <3連単払戻>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "RT_HS": """
+        CREATE TABLE IF NOT EXISTS RT_HS (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            血統登録番号 TEXT,  -- 血統登録番号
+            父馬_繁殖登録番号 TEXT,  -- 父馬 繁殖登録番号
+            母馬_繁殖登録番号 TEXT,  -- 母馬 繁殖登録番号
+            生年 TEXT,  -- 生年
+            主催者市場コード TEXT,  -- 主催者・市場コード
+            主催者名称 TEXT,  -- 主催者名称
+            市場の名称 TEXT,  -- 市場の名称
+            市場の開催期間開始日 TEXT,  -- 市場の開催期間(開始日)
+            市場の開催期間終了日 TEXT,  -- 市場の開催期間(終了日)
+            取引時の競走馬の年齢 TEXT,  -- 取引時の競走馬の年齢
+            取引価格 TEXT,  -- 取引価格
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (血統登録番号, 主催者市場コード, 市場の開催期間開始日)
+        )
+    """,
+    "RT_HY": """
+        CREATE TABLE IF NOT EXISTS RT_HY (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            血統登録番号 TEXT,  -- 血統登録番号
+            馬名 TEXT,  -- 馬名
+            馬名の意味由来 TEXT,  -- 馬名の意味由来
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (血統登録番号)
+        )
+    """,
+    "RT_JC": """
+        CREATE TABLE IF NOT EXISTS RT_JC (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            馬番 TEXT,  -- 馬番
+            馬名 TEXT,  -- 馬名
+            負担重量 TEXT,  -- 負担重量
+            騎手コード TEXT,  -- 騎手コード
+            騎手名 TEXT,  -- 騎手名
+            騎手見習コード TEXT,  -- 騎手見習コード
+            負担重量 TEXT,  -- 負担重量
+            騎手コード TEXT,  -- 騎手コード
+            騎手名 TEXT,  -- 騎手名
+            騎手見習コード TEXT,  -- 騎手見習コード
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号, 発表月日時分, 馬番)
+        )
+    """,
+    "RT_JG": """
+        CREATE TABLE IF NOT EXISTS RT_JG (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            血統登録番号 TEXT,  -- 血統登録番号
+            馬名 TEXT,  -- 馬名
+            出馬投票受付順番 TEXT,  -- 出馬投票受付順番
+            出走区分 TEXT,  -- 出走区分
+            除外状態区分 TEXT,  -- 除外状態区分
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号, 血統登録番号, 出馬投票受付順番)
+        )
+    """,
+    "RT_KS": """
+        CREATE TABLE IF NOT EXISTS RT_KS (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            騎手コード TEXT,  -- 騎手コード
+            騎手抹消区分 TEXT,  -- 騎手抹消区分
+            騎手免許交付年月日 TEXT,  -- 騎手免許交付年月日
+            騎手免許抹消年月日 TEXT,  -- 騎手免許抹消年月日
+            生年月日 TEXT,  -- 生年月日
+            騎手名 TEXT,  -- 騎手名
+            予備 TEXT,  -- 予備
+            騎手名半角ｶﾅ TEXT,  -- 騎手名半角ｶﾅ
+            騎手名略称 TEXT,  -- 騎手名略称
+            騎手名欧字 TEXT,  -- 騎手名欧字
+            性別区分 TEXT,  -- 性別区分
+            騎乗資格コード TEXT,  -- 騎乗資格コード
+            騎手見習コード TEXT,  -- 騎手見習コード
+            騎手東西所属コード TEXT,  -- 騎手東西所属コード
+            招待地域名 TEXT,  -- 招待地域名
+            所属調教師コード TEXT,  -- 所属調教師コード
+            所属調教師名略称 TEXT,  -- 所属調教師名略称
+            初騎乗情報 TEXT,  -- <初騎乗情報>
+            初勝利情報 TEXT,  -- <初勝利情報>
+            最近重賞勝利情報 TEXT,  -- <最近重賞勝利情報>
+            本年前年累計成績情報 TEXT,  -- <本年･前年･累計成績情報>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (騎手コード)
+        )
+    """,
+    "RT_O1": """
+        CREATE TABLE IF NOT EXISTS RT_O1 (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            発売フラグ単勝 TEXT,  -- 発売フラグ　単勝
+            発売フラグ複勝 TEXT,  -- 発売フラグ　複勝
+            発売フラグ枠連 TEXT,  -- 発売フラグ　枠連
+            複勝着払キー TEXT,  -- 複勝着払キー
+            単勝オッズ TEXT,  -- <単勝オッズ>
+            複勝オッズ TEXT,  -- <複勝オッズ>
+            枠連オッズ TEXT,  -- <枠連オッズ>
+            単勝票数合計 TEXT,  -- 単勝票数合計
+            複勝票数合計 TEXT,  -- 複勝票数合計
+            枠連票数合計 TEXT,  -- 枠連票数合計
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "RT_O2": """
+        CREATE TABLE IF NOT EXISTS RT_O2 (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            発売フラグ馬連 TEXT,  -- 発売フラグ　馬連
+            馬連オッズ TEXT,  -- <馬連オッズ>
+            馬連票数合計 TEXT,  -- 馬連票数合計
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "RT_O3": """
+        CREATE TABLE IF NOT EXISTS RT_O3 (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            発売フラグワイド TEXT,  -- 発売フラグ　ワイド
+            ワイドオッズ TEXT,  -- <ワイドオッズ>
+            ワイド票数合計 TEXT,  -- ワイド票数合計
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "RT_O4": """
+        CREATE TABLE IF NOT EXISTS RT_O4 (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            発売フラグ馬単 TEXT,  -- 発売フラグ　馬単
+            馬単オッズ TEXT,  -- <馬単オッズ>
+            馬単票数合計 TEXT,  -- 馬単票数合計
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "RT_O5": """
+        CREATE TABLE IF NOT EXISTS RT_O5 (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            発売フラグ3連複 TEXT,  -- 発売フラグ　3連複
+            3連複オッズ TEXT,  -- <3連複オッズ>
+            3連複票数合計 TEXT,  -- 3連複票数合計
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "RT_O6": """
+        CREATE TABLE IF NOT EXISTS RT_O6 (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            発売フラグ3連単 TEXT,  -- 発売フラグ　3連単
+            3連単オッズ TEXT,  -- <3連単オッズ>
+            3連単票数合計 TEXT,  -- 3連単票数合計
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "RT_RA": """
+        CREATE TABLE IF NOT EXISTS RT_RA (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            曜日コード TEXT,  -- 曜日コード
+            特別競走番号 TEXT,  -- 特別競走番号
+            競走名本題 TEXT,  -- 競走名本題
+            競走名副題 TEXT,  -- 競走名副題
+            競走名カッコ内 TEXT,  -- 競走名カッコ内
+            競走名本題欧字 TEXT,  -- 競走名本題欧字
+            競走名副題欧字 TEXT,  -- 競走名副題欧字
+            競走名カッコ内欧字 TEXT,  -- 競走名カッコ内欧字
+            競走名略称10文字 TEXT,  -- 競走名略称10文字
+            競走名略称6文字 TEXT,  -- 競走名略称6文字
+            競走名略称3文字 TEXT,  -- 競走名略称3文字
+            競走名区分 TEXT,  -- 競走名区分
+            重賞回次第N回 TEXT,  -- 重賞回次[第N回]
+            グレードコード TEXT,  -- グレードコード
+            変更前グレードコード TEXT,  -- 変更前グレードコード
+            競走種別コード TEXT,  -- 競走種別コード
+            競走記号コード TEXT,  -- 競走記号コード
+            重量種別コード TEXT,  -- 重量種別コード
+            競走条件コード_2歳条件 TEXT,  -- 競走条件コード 2歳条件
+            競走条件コード_3歳条件 TEXT,  -- 競走条件コード 3歳条件
+            競走条件コード_4歳条件 TEXT,  -- 競走条件コード 4歳条件
+            競走条件コード_5歳以上条件 TEXT,  -- 競走条件コード 5歳以上条件
+            競走条件コード_最若年条件 TEXT,  -- 競走条件コード 最若年条件
+            競走条件名称 TEXT,  -- 競走条件名称
+            距離 TEXT,  -- 距離
+            変更前距離 TEXT,  -- 変更前距離
+            トラックコード TEXT,  -- トラックコード
+            変更前トラックコード TEXT,  -- 変更前トラックコード
+            コース区分 TEXT,  -- コース区分
+            変更前コース区分 TEXT,  -- 変更前コース区分
+            本賞金 TEXT,  -- 本賞金
+            変更前本賞金 TEXT,  -- 変更前本賞金
+            付加賞金 TEXT,  -- 付加賞金
+            変更前付加賞金 TEXT,  -- 変更前付加賞金
+            発走時刻 TEXT,  -- 発走時刻
+            変更前発走時刻 TEXT,  -- 変更前発走時刻
+            登録頭数 TEXT,  -- 登録頭数
+            出走頭数 TEXT,  -- 出走頭数
+            入線頭数 TEXT,  -- 入線頭数
+            天候コード TEXT,  -- 天候コード
+            芝馬場状態コード TEXT,  -- 芝馬場状態コード
+            ダート馬場状態コード TEXT,  -- ダート馬場状態コード
+            ラップタイム TEXT,  -- ラップタイム
+            障害マイルタイム TEXT,  -- 障害マイルタイム
+            前3ハロン TEXT,  -- 前3ハロン
+            前4ハロン TEXT,  -- 前4ハロン
+            後3ハロン TEXT,  -- 後3ハロン
+            後4ハロン TEXT,  -- 後4ハロン
+            コーナー通過順位 TEXT,  -- <コーナー通過順位>
+            レコード更新区分 TEXT,  -- レコード更新区分
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "RT_RC": """
+        CREATE TABLE IF NOT EXISTS RT_RC (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            レコード識別区分 TEXT,  -- レコード識別区分
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            特別競走番号 TEXT,  -- 特別競走番号
+            競走名本題 TEXT,  -- 競走名本題
+            グレードコード TEXT,  -- グレードコード
+            競走種別コード TEXT,  -- 競走種別コード
+            距離 TEXT,  -- 距離
+            トラックコード TEXT,  -- トラックコード
+            レコード区分 TEXT,  -- レコード区分
+            レコードタイム TEXT,  -- レコードタイム
+            天候コード TEXT,  -- 天候コード
+            芝馬場状態コード TEXT,  -- 芝馬場状態コード
+            ダート馬場状態コード TEXT,  -- ダート馬場状態コード
+            レコード保持馬情報 TEXT,  -- <レコード保持馬情報>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (レコード識別区分, 開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号, 特別競走番号, 競走種別コード, 距離, トラックコード)
+        )
+    """,
+    "RT_SE": """
+        CREATE TABLE IF NOT EXISTS RT_SE (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            枠番 TEXT,  -- 枠番
+            馬番 TEXT,  -- 馬番
+            血統登録番号 TEXT,  -- 血統登録番号
+            馬名 TEXT,  -- 馬名
+            馬記号コード TEXT,  -- 馬記号コード
+            性別コード TEXT,  -- 性別コード
+            品種コード TEXT,  -- 品種コード
+            毛色コード TEXT,  -- 毛色コード
+            馬齢 TEXT,  -- 馬齢
+            東西所属コード TEXT,  -- 東西所属コード
+            調教師コード TEXT,  -- 調教師コード
+            調教師名略称 TEXT,  -- 調教師名略称
+            馬主コード TEXT,  -- 馬主コード
+            馬主名法人格無 TEXT,  -- 馬主名(法人格無)
+            服色標示 TEXT,  -- 服色標示
+            予備 TEXT,  -- 予備
+            負担重量 TEXT,  -- 負担重量
+            変更前負担重量 TEXT,  -- 変更前負担重量
+            ブリンカー使用区分 TEXT,  -- ブリンカー使用区分
+            予備 TEXT,  -- 予備
+            騎手コード TEXT,  -- 騎手コード
+            変更前騎手コード TEXT,  -- 変更前騎手コード
+            騎手名略称 TEXT,  -- 騎手名略称
+            変更前騎手名略称 TEXT,  -- 変更前騎手名略称
+            騎手見習コード TEXT,  -- 騎手見習コード
+            変更前騎手見習コード TEXT,  -- 変更前騎手見習コード
+            馬体重 TEXT,  -- 馬体重
+            増減符号 TEXT,  -- 増減符号
+            増減差 TEXT,  -- 増減差
+            異常区分コード TEXT,  -- 異常区分コード
+            入線順位 TEXT,  -- 入線順位
+            確定着順 TEXT,  -- 確定着順
+            同着区分 TEXT,  -- 同着区分
+            同着頭数 TEXT,  -- 同着頭数
+            走破タイム TEXT,  -- 走破タイム
+            着差コード TEXT,  -- 着差コード
+            着差コード TEXT,  -- ＋着差コード
+            着差コード TEXT,  -- ＋＋着差コード
+            1コーナーでの順位 TEXT,  -- 1コーナーでの順位
+            2コーナーでの順位 TEXT,  -- 2コーナーでの順位
+            3コーナーでの順位 TEXT,  -- 3コーナーでの順位
+            4コーナーでの順位 TEXT,  -- 4コーナーでの順位
+            単勝オッズ TEXT,  -- 単勝オッズ
+            単勝人気順 TEXT,  -- 単勝人気順
+            獲得本賞金 TEXT,  -- 獲得本賞金
+            獲得付加賞金 TEXT,  -- 獲得付加賞金
+            予備 TEXT,  -- 予備
+            予備 TEXT,  -- 予備
+            後4ハロンタイム TEXT,  -- 後4ハロンタイム
+            後3ハロンタイム TEXT,  -- 後3ハロンタイム
+            1着馬相手馬情報 TEXT,  -- <1着馬(相手馬)情報>
+            タイム差 TEXT,  -- タイム差
+            レコード更新区分 TEXT,  -- レコード更新区分
+            マイニング区分 TEXT,  -- マイニング区分
+            マイニング予想走破タイム TEXT,  -- マイニング予想走破タイム
+            マイニング予想誤差信頼度 TEXT,  -- マイニング予想誤差(信頼度)＋
+            マイニング予想誤差信頼度 TEXT,  -- マイニング予想誤差(信頼度)－
+            マイニング予想順位 TEXT,  -- マイニング予想順位
+            今回レース脚質判定 TEXT,  -- 今回レース脚質判定
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号, 馬番, 血統登録番号)
+        )
+    """,
+    "RT_SK": """
+        CREATE TABLE IF NOT EXISTS RT_SK (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            血統登録番号 TEXT,  -- 血統登録番号
+            生年月日 TEXT,  -- 生年月日
+            性別コード TEXT,  -- 性別コード
+            品種コード TEXT,  -- 品種コード
+            毛色コード TEXT,  -- 毛色コード
+            産駒持込区分 TEXT,  -- 産駒持込区分
+            輸入年 TEXT,  -- 輸入年
+            生産者コード TEXT,  -- 生産者コード
+            産地名 TEXT,  -- 産地名
+            3代血統_繁殖登録番号 TEXT,  -- 3代血統 繁殖登録番号
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (血統登録番号)
+        )
+    """,
+    "RT_TC": """
+        CREATE TABLE IF NOT EXISTS RT_TC (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            変更後_発走時刻 TEXT,  -- 変更後 発走時刻
+            変更前_発走時刻 TEXT,  -- 変更前 発走時刻
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "RT_TK": """
+        CREATE TABLE IF NOT EXISTS RT_TK (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            曜日コード TEXT,  -- 曜日コード
+            特別競走番号 TEXT,  -- 特別競走番号
+            競走名本題 TEXT,  -- 競走名本題
+            競走名副題 TEXT,  -- 競走名副題
+            競走名カッコ内 TEXT,  -- 競走名カッコ内
+            競走名本題欧字 TEXT,  -- 競走名本題欧字
+            競走名副題欧字 TEXT,  -- 競走名副題欧字
+            競走名カッコ内欧字 TEXT,  -- 競走名カッコ内欧字
+            競走名略称10文字 TEXT,  -- 競走名略称10文字
+            競走名略称6文字 TEXT,  -- 競走名略称6文字
+            競走名略称3文字 TEXT,  -- 競走名略称3文字
+            競走名区分 TEXT,  -- 競走名区分
+            重賞回次第N回 TEXT,  -- 重賞回次[第N回]
+            グレードコード TEXT,  -- グレードコード
+            競走種別コード TEXT,  -- 競走種別コード
+            競走記号コード TEXT,  -- 競走記号コード
+            重量種別コード TEXT,  -- 重量種別コード
+            競走条件コード_2歳条件 TEXT,  -- 競走条件コード 2歳条件
+            競走条件コード_3歳条件 TEXT,  -- 競走条件コード 3歳条件
+            競走条件コード_4歳条件 TEXT,  -- 競走条件コード 4歳条件
+            競走条件コード_5歳以上条件 TEXT,  -- 競走条件コード 5歳以上条件
+            競走条件コード_最若年条件 TEXT,  -- 競走条件コード 最若年条件
+            距離 TEXT,  -- 距離
+            トラックコード TEXT,  -- トラックコード
+            コース区分 TEXT,  -- コース区分
+            ハンデ発表日 TEXT,  -- ハンデ発表日
+            登録頭数 TEXT,  -- 登録頭数
+            登録馬毎情報 TEXT,  -- <登録馬毎情報>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "RT_TM": """
+        CREATE TABLE IF NOT EXISTS RT_TM (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            データ作成時分 TEXT,  -- データ作成時分
+            マイニング予想 TEXT,  -- <マイニング予想>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "RT_UM": """
+        CREATE TABLE IF NOT EXISTS RT_UM (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            血統登録番号 TEXT,  -- 血統登録番号
+            競走馬抹消区分 TEXT,  -- 競走馬抹消区分
+            競走馬登録年月日 TEXT,  -- 競走馬登録年月日
+            競走馬抹消年月日 TEXT,  -- 競走馬抹消年月日
+            生年月日 TEXT,  -- 生年月日
+            馬名 TEXT,  -- 馬名
+            馬名半角ｶﾅ TEXT,  -- 馬名半角ｶﾅ
+            馬名欧字 TEXT,  -- 馬名欧字
+            JRA施設在きゅうフラグ TEXT,  -- JRA施設在きゅうフラグ
+            予備 TEXT,  -- 予備
+            馬記号コード TEXT,  -- 馬記号コード
+            性別コード TEXT,  -- 性別コード
+            品種コード TEXT,  -- 品種コード
+            毛色コード TEXT,  -- 毛色コード
+            3代血統情報 TEXT,  -- <3代血統情報>
+            東西所属コード TEXT,  -- 東西所属コード
+            調教師コード TEXT,  -- 調教師コード
+            調教師名略称 TEXT,  -- 調教師名略称
+            招待地域名 TEXT,  -- 招待地域名
+            生産者コード TEXT,  -- 生産者コード
+            生産者名法人格無 TEXT,  -- 生産者名(法人格無)
+            産地名 TEXT,  -- 産地名
+            馬主コード TEXT,  -- 馬主コード
+            馬主名法人格無 TEXT,  -- 馬主名(法人格無)
+            平地本賞金累計 TEXT,  -- 平地本賞金累計
+            障害本賞金累計 TEXT,  -- 障害本賞金累計
+            平地付加賞金累計 TEXT,  -- 平地付加賞金累計
+            障害付加賞金累計 TEXT,  -- 障害付加賞金累計
+            平地収得賞金累計 TEXT,  -- 平地収得賞金累計
+            障害収得賞金累計 TEXT,  -- 障害収得賞金累計
+            総合着回数 TEXT,  -- 総合着回数
+            中央合計着回数 TEXT,  -- 中央合計着回数
+            芝直着回数 TEXT,  -- 芝直・着回数
+            芝右着回数 TEXT,  -- 芝右・着回数
+            芝左着回数 TEXT,  -- 芝左・着回数
+            ダ直着回数 TEXT,  -- ダ直・着回数
+            ダ右着回数 TEXT,  -- ダ右・着回数
+            ダ左着回数 TEXT,  -- ダ左・着回数
+            障害着回数 TEXT,  -- 障害・着回数
+            芝良着回数 TEXT,  -- 芝良・着回数
+            芝稍着回数 TEXT,  -- 芝稍・着回数
+            芝重着回数 TEXT,  -- 芝重・着回数
+            芝不着回数 TEXT,  -- 芝不・着回数
+            ダ良着回数 TEXT,  -- ダ良・着回数
+            ダ稍着回数 TEXT,  -- ダ稍・着回数
+            ダ重着回数 TEXT,  -- ダ重・着回数
+            ダ不着回数 TEXT,  -- ダ不・着回数
+            障良着回数 TEXT,  -- 障良・着回数
+            障稍着回数 TEXT,  -- 障稍・着回数
+            障重着回数 TEXT,  -- 障重・着回数
+            障不着回数 TEXT,  -- 障不・着回数
+            芝16下着回数 TEXT,  -- 芝16下・着回数
+            芝22下着回数 TEXT,  -- 芝22下・着回数
+            芝22超着回数 TEXT,  -- 芝22超・着回数
+            ダ16下着回数 TEXT,  -- ダ16下・着回数
+            ダ22下着回数 TEXT,  -- ダ22下・着回数
+            ダ22超着回数 TEXT,  -- ダ22超・着回数
+            脚質傾向 TEXT,  -- 脚質傾向
+            登録レース数 TEXT,  -- 登録レース数
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (血統登録番号)
+        )
+    """,
+    "RT_WC": """
+        CREATE TABLE IF NOT EXISTS RT_WC (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            トレセン区分 TEXT,  -- トレセン区分
+            調教年月日 TEXT,  -- 調教年月日
+            調教時刻 TEXT,  -- 調教時刻
+            血統登録番号 TEXT,  -- 血統登録番号
+            コース TEXT,  -- コース
+            馬場周り TEXT,  -- 馬場周り
+            予備 TEXT,  -- 予備
+            10ハロンタイム合計2000M0M TEXT,  -- 10ハロンタイム合計(2000M～0M)
+            ラップタイム2000M1800M TEXT,  -- ラップタイム(2000M～1800M)
+            9ハロンタイム合計1800M0M TEXT,  -- 9ハロンタイム合計(1800M～0M)
+            ラップタイム1800M1600M TEXT,  -- ラップタイム(1800M～1600M)
+            8ロンタイム合計1600M0M TEXT,  -- 8ロンタイム合計(1600M～0M)
+            ラップタイム1600M1400M TEXT,  -- ラップタイム(1600M～1400M)
+            7ハロンタイム合計1400M0M TEXT,  -- 7ハロンタイム合計(1400M～0M)
+            ラップタイム1400M1200M TEXT,  -- ラップタイム(1400M～1200M)
+            6ハロンタイム合計1200M0M TEXT,  -- 6ハロンタイム合計(1200M～0M)
+            ラップタイム1200M1000M TEXT,  -- ラップタイム(1200M～1000M)
+            5ハロンタイム合計1000M0M TEXT,  -- 5ハロンタイム合計(1000M～0M)
+            ラップタイム1000M800M TEXT,  -- ラップタイム(1000M～800M)
+            4ハロンタイム合計800M0M TEXT,  -- 4ハロンタイム合計(800M～0M)
+            ラップタイム800M600M TEXT,  -- ラップタイム(800M～600M)
+            3ハロンタイム合計600M0M TEXT,  -- 3ハロンタイム合計(600M～0M)
+            ラップタイム600M400M TEXT,  -- ラップタイム(600M～400M)
+            2ハロンタイム合計400M0M TEXT,  -- 2ハロンタイム合計(400M～0M)
+            ラップタイム400M200M TEXT,  -- ラップタイム(400M～200M)
+            ラップタイム200M0M TEXT,  -- ラップタイム(200M～0M)
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (トレセン区分, 調教年月日, 調教時刻, 血統登録番号)
+        )
+    """,
+    "RT_WE": """
+        CREATE TABLE IF NOT EXISTS RT_WE (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            発表月日時分 TEXT,  -- 発表月日時分
+            変更識別 TEXT,  -- 変更識別
+            天候状態 TEXT,  -- 天候状態
+            馬場状態芝 TEXT,  -- 馬場状態・芝
+            馬場状態ダート TEXT,  -- 馬場状態・ダート
+            天候状態 TEXT,  -- 天候状態
+            馬場状態芝 TEXT,  -- 馬場状態・芝
+            馬場状態ダート TEXT,  -- 馬場状態・ダート
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, 発表月日時分, 変更識別)
+        )
+    """,
+    "RT_WF": """
+        CREATE TABLE IF NOT EXISTS RT_WF (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            予備 TEXT,  -- 予備
+            重勝式対象レース情報 TEXT,  -- <重勝式対象レース情報>
+            予備 TEXT,  -- 予備
+            重勝式発売票数 TEXT,  -- 重勝式発売票数
+            有効票数情報 TEXT,  -- <有効票数情報>
+            返還フラグ TEXT,  -- 返還フラグ
+            不成立フラグ TEXT,  -- 不成立フラグ
+            的中無フラグ TEXT,  -- 的中無フラグ
+            キャリーオーバー金額初期 TEXT,  -- キャリーオーバー金額初期
+            キャリーオーバー金額残高 TEXT,  -- キャリーオーバー金額残高
+            重勝式払戻情報 TEXT,  -- <重勝式払戻情報>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日)
+        )
+    """,
+    "RT_WH": """
+        CREATE TABLE IF NOT EXISTS RT_WH (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            レース番号 TEXT,  -- レース番号
+            発表月日時分 TEXT,  -- 発表月日時分
+            馬体重情報 TEXT,  -- <馬体重情報>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目, レース番号)
+        )
+    """,
+    "RT_YS": """
+        CREATE TABLE IF NOT EXISTS RT_YS (
+            レコード種別ID TEXT,  -- レコード種別ID
+            データ区分 TEXT,  -- データ区分
+            データ作成年月日 TEXT,  -- データ作成年月日
+            開催年 TEXT,  -- 開催年
+            開催月日 TEXT,  -- 開催月日
+            競馬場コード TEXT,  -- 競馬場コード
+            開催回第N回 TEXT,  -- 開催回[第N回]
+            開催日目N日目 TEXT,  -- 開催日目[N日目]
+            曜日コード TEXT,  -- 曜日コード
+            重賞案内 TEXT,  -- <重賞案内>
+            レコード区切 TEXT,  -- レコード区切
+
+            PRIMARY KEY (開催年, 開催月日, 競馬場コード, 開催回第N回, 開催日目N日目)
         )
     """,
 }
 
 
 class SchemaManager:
-    """Manager for database schema operations.
-
-    Handles table creation and schema management for JV-Data tables.
-
-    Examples:
-        >>> from src.database.sqlite_handler import SQLiteDatabase
-        >>> db = SQLiteDatabase({"path": "./test.db"})
-        >>> manager = SchemaManager(db)
-        >>> with db:
-        ...     manager.create_all_tables()
-    """
+    """Schema manager for database tables."""
 
     def __init__(self, database: BaseDatabase):
         """Initialize schema manager.
 
         Args:
-            database: Database handler instance
+            database: Database instance
         """
         self.database = database
+        logger.info("SchemaManager initialized")
 
     def create_table(self, table_name: str) -> bool:
-        """Create single table.
+        """Create a single table.
 
         Args:
             table_name: Name of table to create
 
         Returns:
-            True if created successfully, False otherwise
-
-        Examples:
-            >>> manager.create_table("NL_RA_RACE")
-            True
+            True if successful, False otherwise
         """
         if table_name not in SCHEMAS:
             logger.error(f"Unknown table: {table_name}")
             return False
 
         try:
-            schema = SCHEMAS[table_name]
-            self.database.create_table(table_name, schema)
+            self.database.execute(SCHEMAS[table_name])
             logger.info(f"Created table: {table_name}")
             return True
-
         except Exception as e:
-            logger.error(f"Failed to create table {table_name}", error=str(e))
+            logger.error(f"Failed to create table {table_name}: {e}")
             return False
 
     def create_all_tables(self) -> Dict[str, bool]:
-        """Create all defined tables.
+        """Create all tables.
 
         Returns:
             Dictionary mapping table names to creation status
-
-        Examples:
-            >>> results = manager.create_all_tables()
-            >>> print(results)
-            {'NL_RA_RACE': True, 'NL_SE_RACE_UMA': True, 'NL_HR_PAY': True}
         """
         results = {}
-
         for table_name in SCHEMAS.keys():
             results[table_name] = self.create_table(table_name)
 
-        success_count = sum(1 for v in results.values() if v)
-        logger.info(
-            f"Created {success_count}/{len(results)} tables",
-            results=results,
-        )
+        created_count = sum(1 for success in results.values() if success)
+        logger.info(f"Created {created_count}/{len(SCHEMAS)} tables", results=results)
 
         return results
-
-    def get_table_names(self) -> List[str]:
-        """Get list of defined table names.
-
-        Returns:
-            List of table names
-        """
-        return list(SCHEMAS.keys())
-
-    def table_exists(self, table_name: str) -> bool:
-        """Check if table exists in database.
-
-        Args:
-            table_name: Name of table to check
-
-        Returns:
-            True if table exists, False otherwise
-        """
-        return self.database.table_exists(table_name)
 
     def get_existing_tables(self) -> List[str]:
         """Get list of existing tables.
@@ -330,7 +2357,7 @@ class SchemaManager:
         """
         existing = []
         for table_name in SCHEMAS.keys():
-            if self.table_exists(table_name):
+            if self.database.table_exists(table_name):
                 existing.append(table_name)
         return existing
 
@@ -342,6 +2369,6 @@ class SchemaManager:
         """
         missing = []
         for table_name in SCHEMAS.keys():
-            if not self.table_exists(table_name):
+            if not self.database.table_exists(table_name):
                 missing.append(table_name)
         return missing

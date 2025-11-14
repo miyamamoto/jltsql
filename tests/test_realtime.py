@@ -41,7 +41,7 @@ class TestRealtimeUpdater(unittest.TestCase):
 
             self.assertIsNotNone(result)
             self.assertEqual(result["operation"], "insert")
-            self.assertEqual(result["table"], "NL_RA_RACE")
+            self.assertEqual(result["table"], "RT_RA")
             self.assertTrue(result["success"])
             self.mock_db.insert.assert_called_once()
 
@@ -63,7 +63,7 @@ class TestRealtimeUpdater(unittest.TestCase):
 
             self.assertIsNotNone(result)
             self.assertEqual(result["operation"], "update")
-            self.assertEqual(result["table"], "NL_RA_RACE")
+            self.assertEqual(result["table"], "RT_RA")
 
     def test_process_record_delete(self):
         """Test processing delete record (headDataKubun=3)."""
@@ -82,7 +82,7 @@ class TestRealtimeUpdater(unittest.TestCase):
 
             self.assertIsNotNone(result)
             self.assertEqual(result["operation"], "delete")
-            self.assertEqual(result["table"], "NL_RA_RACE")
+            self.assertEqual(result["table"], "RT_RA")
 
     def test_process_record_invalid(self):
         """Test processing invalid record."""
@@ -111,7 +111,7 @@ class TestRealtimeUpdater(unittest.TestCase):
 
             result = self.updater.process_record(test_record)
 
-            self.assertEqual(result["table"], "NL_SE_RACE_UMA")
+            self.assertEqual(result["table"], "RT_SE")
 
     def test_handle_new_record_hr(self):
         """Test handling new HR (payout) record."""
@@ -128,7 +128,7 @@ class TestRealtimeUpdater(unittest.TestCase):
 
             result = self.updater.process_record(test_record)
 
-            self.assertEqual(result["table"], "NL_HR_PAY")
+            self.assertEqual(result["table"], "RT_HR")
 
 
 class TestRealtimeMonitor(unittest.TestCase):

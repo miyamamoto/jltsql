@@ -1,18 +1,30 @@
 """Parser factory for JV-Data records.
 
 This module provides a factory for creating appropriate parser instances
-based on record type.
+based on record type. Supports all 38 JV-Data record types.
 """
 
+import importlib
 from typing import Dict, Optional, Type
 
 from src.parser.base import BaseParser
-from src.parser.hr_parser import HRParser
-from src.parser.ra_parser import RAParser
-from src.parser.se_parser import SEParser
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+# All supported record types (38 total)
+ALL_RECORD_TYPES = [
+    'AV', 'BN', 'BR', 'BT', 'CC', 'CH', 'CK', 'CS', 'DM',
+    'H1', 'H6', 'HC', 'HN', 'HR', 'HS', 'HY',
+    'JC', 'JG', 'KS',
+    'O1', 'O2', 'O3', 'O4', 'O5', 'O6',
+    'RA', 'RC', 'SE', 'SK',
+    'TC', 'TK', 'TM',
+    'UM',
+    'WC', 'WE', 'WF', 'WH',
+    'YS'
+]
 
 
 class ParserFactory:
@@ -21,6 +33,8 @@ class ParserFactory:
     This factory maintains a registry of parser classes and creates
     appropriate parser instances based on record type.
 
+    Supports all 38 JV-Data record types through dynamic loading.
+
     Examples:
         >>> factory = ParserFactory()
         >>> parser = factory.get_parser("RA")
@@ -28,15 +42,43 @@ class ParserFactory:
     """
 
     def __init__(self):
-        """Initialize parser factory with default parsers."""
+        """Initialize parser factory with dynamic parser loading."""
         self._parsers: Dict[str, BaseParser] = {}
-        self._parser_classes: Dict[str, Type[BaseParser]] = {
-            "RA": RAParser,
-            "SE": SEParser,
-            "HR": HRParser,
-        }
+        self._parser_classes: Dict[str, Type[BaseParser]] = {}
 
-        logger.info("ParserFactory initialized", parser_types=list(self._parser_classes.keys()))
+        logger.info("ParserFactory initialized", total_types=len(ALL_RECORD_TYPES))
+
+    def _load_parser_class(self, record_type: str) -> Optional[Type[BaseParser]]:
+        """Dynamically load parser class for record type.
+
+        Args:
+            record_type: Two-character record type code (e.g., "RA", "SE", "HR")
+
+        Returns:
+            Parser class if found, None otherwise
+        """
+        try:
+            # Convert record type to module name (e.g., "RA" -> "ra_parser")
+            module_name = f"src.parser.{record_type.lower()}_parser"
+            class_name = f"{record_type}Parser"
+
+            # Import module
+            module = importlib.import_module(module_name)
+
+            # Get parser class
+            parser_class = getattr(module, class_name)
+
+            # Verify it's a BaseParser subclass
+            if not issubclass(parser_class, BaseParser):
+                logger.error(f"Invalid parser class: {class_name} is not a BaseParser subclass")
+                return None
+
+            logger.debug(f"Loaded parser class: {class_name}")
+            return parser_class
+
+        except (ImportError, AttributeError) as e:
+            logger.warning(f"Failed to load parser for {record_type}: {e}")
+            return None
 
     def get_parser(self, record_type: str) -> Optional[BaseParser]:
         """Get parser for specified record type.
@@ -61,14 +103,17 @@ class ParserFactory:
         if record_type in self._parsers:
             return self._parsers[record_type]
 
-        # Create new parser instance
-        parser_class = self._parser_classes.get(record_type)
-        if not parser_class:
-            logger.warning(f"No parser registered for record type: {record_type}")
-            return None
+        # Load parser class if not cached
+        if record_type not in self._parser_classes:
+            parser_class = self._load_parser_class(record_type)
+            if not parser_class:
+                logger.warning(f"No parser available for record type: {record_type}")
+                return None
+            self._parser_classes[record_type] = parser_class
 
+        # Create parser instance
         try:
-            parser = parser_class()
+            parser = self._parser_classes[record_type]()
             self._parsers[record_type] = parser
             logger.debug(f"Created parser for record type: {record_type}")
             return parser
@@ -112,7 +157,7 @@ class ParserFactory:
         Returns:
             List of two-character record type codes
         """
-        return list(self._parser_classes.keys())
+        return ALL_RECORD_TYPES.copy()
 
     def parse(self, record: bytes) -> Optional[dict]:
         """Parse a record by auto-detecting its type.
@@ -153,7 +198,7 @@ class ParserFactory:
 
     def __repr__(self) -> str:
         """String representation."""
-        return f"<ParserFactory types={len(self._parser_classes)} cached={len(self._parsers)}>"
+        return f"<ParserFactory types={len(ALL_RECORD_TYPES)} cached={len(self._parsers)}>"
 
 
 # Global factory instance
