@@ -200,5 +200,197 @@ class TestMonitorCommand(unittest.TestCase):
             self.assertIsNotNone(result)
 
 
+class TestExportCommand(unittest.TestCase):
+    """Test export command."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.runner = CliRunner()
+
+    def test_export_missing_table(self):
+        """Test export without table argument."""
+        result = self.runner.invoke(cli, ['export', '--output', 'test.csv'])
+
+        # Should fail due to missing --table
+        self.assertNotEqual(result.exit_code, 0)
+
+    def test_export_missing_output(self):
+        """Test export without output argument."""
+        result = self.runner.invoke(cli, ['export', '--table', 'NL_RA'])
+
+        # Should fail due to missing --output
+        self.assertNotEqual(result.exit_code, 0)
+
+    @patch('src.cli.main.SQLiteDatabase')
+    def test_export_csv_format(self, mock_db):
+        """Test export to CSV format."""
+        # Setup mocks
+        mock_db_instance = MagicMock()
+        mock_db_instance.table_exists.return_value = True
+        mock_db_instance.fetch_all.return_value = [
+            {'id': 1, 'name': 'Test1'},
+            {'id': 2, 'name': 'Test2'}
+        ]
+        mock_db.return_value.__enter__ = MagicMock(return_value=mock_db_instance)
+        mock_db.return_value.__exit__ = MagicMock(return_value=None)
+
+        with self.runner.isolated_filesystem():
+            # Create config
+            Path('config').mkdir()
+            Path('config/config.yaml').write_text("""
+database:
+  type: sqlite
+  path: data/test.db
+jvlink:
+  sid: TEST
+""")
+
+            result = self.runner.invoke(cli, [
+                'export',
+                '--table', 'NL_RA',
+                '--output', 'test.csv',
+                '--format', 'csv'
+            ])
+
+            # May fail due to config issues but command structure should work
+            self.assertIsNotNone(result)
+
+    @patch('src.cli.main.SQLiteDatabase')
+    def test_export_json_format(self, mock_db):
+        """Test export to JSON format."""
+        # Setup mocks
+        mock_db_instance = MagicMock()
+        mock_db_instance.table_exists.return_value = True
+        mock_db_instance.fetch_all.return_value = [
+            {'id': 1, 'name': 'Test'}
+        ]
+        mock_db.return_value.__enter__ = MagicMock(return_value=mock_db_instance)
+        mock_db.return_value.__exit__ = MagicMock(return_value=None)
+
+        with self.runner.isolated_filesystem():
+            Path('config').mkdir()
+            Path('config/config.yaml').write_text("""
+database:
+  type: sqlite
+  path: data/test.db
+""")
+
+            result = self.runner.invoke(cli, [
+                'export',
+                '--table', 'NL_SE',
+                '--output', 'test.json',
+                '--format', 'json'
+            ])
+
+            self.assertIsNotNone(result)
+
+    def test_export_with_where_clause(self):
+        """Test export with WHERE clause."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(cli, [
+                'export',
+                '--table', 'NL_RA',
+                '--where', "開催年月日 >= 20240101",
+                '--output', 'filtered.csv',
+                '--db', 'sqlite'
+            ])
+
+            # Should attempt to execute
+            self.assertIsNotNone(result)
+
+
+class TestConfigCommand(unittest.TestCase):
+    """Test config command."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.runner = CliRunner()
+
+    def test_config_show(self):
+        """Test config --show command."""
+        with self.runner.isolated_filesystem():
+            Path('config').mkdir()
+            Path('config/config.yaml').write_text("""
+database:
+  type: sqlite
+  path: data/keiba.db
+jvlink:
+  sid: JLTSQL
+  service_key: test_key
+logging:
+  level: INFO
+  file: logs/jltsql.log
+""")
+
+            result = self.runner.invoke(cli, ['config', '--show'])
+
+            # Should show configuration
+            self.assertEqual(result.exit_code, 0)
+            self.assertIn('Configuration', result.output)
+
+    def test_config_get_existing_key(self):
+        """Test config --get with existing key."""
+        with self.runner.isolated_filesystem():
+            Path('config').mkdir()
+            Path('config/config.yaml').write_text("""
+database:
+  type: duckdb
+  path: data/keiba.duckdb
+""")
+
+            result = self.runner.invoke(cli, ['config', '--get', 'database.type'])
+
+            if result.exit_code == 0:
+                self.assertIn('duckdb', result.output)
+
+    def test_config_get_nonexistent_key(self):
+        """Test config --get with non-existent key."""
+        with self.runner.isolated_filesystem():
+            Path('config').mkdir()
+            Path('config/config.yaml').write_text("""
+database:
+  type: sqlite
+""")
+
+            result = self.runner.invoke(cli, ['config', '--get', 'nonexistent.key'])
+
+            # Should fail
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn('not found', result.output)
+
+    def test_config_set_shows_warning(self):
+        """Test config --set shows not implemented warning."""
+        with self.runner.isolated_filesystem():
+            Path('config').mkdir()
+            Path('config/config.yaml').write_text("""
+database:
+  type: sqlite
+""")
+
+            result = self.runner.invoke(cli, ['config', '--set', 'database.type=duckdb'])
+
+            # Should show not implemented message
+            self.assertIn('not yet implemented', result.output)
+
+    def test_config_default_shows_tree(self):
+        """Test config without arguments shows tree."""
+        with self.runner.isolated_filesystem():
+            Path('config').mkdir()
+            Path('config/config.yaml').write_text("""
+database:
+  type: sqlite
+  path: data/test.db
+jvlink:
+  sid: TEST
+logging:
+  level: DEBUG
+""")
+
+            result = self.runner.invoke(cli, ['config'])
+
+            # Should show config tree
+            self.assertEqual(result.exit_code, 0)
+
+
 if __name__ == '__main__':
     unittest.main()

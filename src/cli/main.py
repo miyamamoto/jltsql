@@ -607,5 +607,229 @@ def create_indexes(ctx, db, table):
         sys.exit(1)
 
 
+@cli.command()
+@click.option("--table", required=True, help="Table name to export")
+@click.option("--format", "output_format", type=click.Choice(["csv", "json", "parquet"]), default="csv", help="Output format (default: csv)")
+@click.option("--output", "-o", required=True, type=click.Path(), help="Output file path")
+@click.option("--where", help="SQL WHERE clause (e.g., '開催年月日 >= 20240101')")
+@click.option("--db", type=click.Choice(["sqlite", "duckdb", "postgresql"]), default=None, help="Database type (default: from config)")
+@click.pass_context
+def export(ctx, table, output_format, output, where, db):
+    """Export data from database to file.
+
+    \b
+    Supports multiple output formats:
+    - CSV: Comma-separated values
+    - JSON: JSON array of records
+    - Parquet: Apache Parquet columnar format
+
+    \b
+    Examples:
+      jltsql export --table NL_RA --output races.csv
+      jltsql export --table NL_SE --format json --output horses.json
+      jltsql export --table NL_RA --where "開催年月日 >= 20240101" --output 2024_races.csv
+      jltsql export --table NL_HR --format parquet --output payouts.parquet
+    """
+    from pathlib import Path
+    from src.database.sqlite_handler import SQLiteDatabase
+    from src.database.duckdb_handler import DuckDBDatabase
+    from src.database.postgresql_handler import PostgreSQLDatabase
+
+    config = ctx.obj.get("config")
+    if not config and not db:
+        console.print("[red]Error:[/red] No configuration found. Run 'jltsql init' first or use --db option.")
+        sys.exit(1)
+
+    # Determine database type
+    if db:
+        db_type = db
+    else:
+        db_type = config.database.get("type", "sqlite")
+
+    console.print(f"[bold cyan]Exporting data from {table}...[/bold cyan]\n")
+    console.print(f"  Database:      {db_type}")
+    console.print(f"  Format:        {output_format}")
+    console.print(f"  Output:        {output}")
+    if where:
+        console.print(f"  WHERE clause:  {where}")
+    console.print()
+
+    try:
+        # Initialize database
+        if db_type == "sqlite":
+            db_config = config.database if config else {"path": "data/keiba.db"}
+            database = SQLiteDatabase(db_config)
+        elif db_type == "duckdb":
+            db_config = config.database if config else {"path": "data/keiba.duckdb"}
+            database = DuckDBDatabase(db_config)
+        elif db_type == "postgresql":
+            if not config:
+                console.print("[red]Error:[/red] PostgreSQL requires configuration file.")
+                sys.exit(1)
+            database = PostgreSQLDatabase(config.database)
+        else:
+            console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
+            sys.exit(1)
+
+        # Connect and export
+        with database:
+            # Check table exists
+            if not database.table_exists(table):
+                console.print(f"[red]Error:[/red] Table '{table}' does not exist.")
+                sys.exit(1)
+
+            # Build query
+            sql = f"SELECT * FROM {table}"
+            if where:
+                sql += f" WHERE {where}"
+
+            console.print(f"[dim]Executing: {sql}[/dim]\n")
+
+            # Fetch data
+            from rich.progress import Progress, SpinnerColumn, TextColumn
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console
+            ) as progress:
+                task = progress.add_task("[cyan]Fetching data...", total=None)
+                rows = database.fetch_all(sql)
+                progress.update(task, description=f"[green]Fetched {len(rows)} rows")
+
+            if not rows:
+                console.print("[yellow]Warning:[/yellow] No data found.")
+                sys.exit(0)
+
+            # Export based on format
+            output_path = Path(output)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            if output_format == "csv":
+                import csv
+                with open(output_path, "w", newline="", encoding="utf-8") as f:
+                    if rows:
+                        writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+                        writer.writeheader()
+                        writer.writerows(rows)
+
+            elif output_format == "json":
+                import json
+                with open(output_path, "w", encoding="utf-8") as f:
+                    json.dump(rows, f, ensure_ascii=False, indent=2)
+
+            elif output_format == "parquet":
+                try:
+                    import pandas as pd
+                    df = pd.DataFrame(rows)
+                    df.to_parquet(output_path, index=False)
+                except ImportError:
+                    console.print("[red]Error:[/red] Parquet export requires pandas and pyarrow.")
+                    console.print("Install with: pip install pandas pyarrow")
+                    sys.exit(1)
+
+            # Show results
+            console.print()
+            console.print(f"[bold green]✓ Export complete![/bold green]")
+            console.print()
+            console.print(f"  Records exported: {len(rows):,}")
+            console.print(f"  Output file:      {output_path.absolute()}")
+            console.print(f"  File size:        {output_path.stat().st_size:,} bytes")
+
+    except Exception as e:
+        console.print(f"\n[red]Error:[/red] {e}", style="bold")
+        logger.error("Failed to export data", error=str(e), exc_info=True)
+        sys.exit(1)
+
+
+@cli.command()
+@click.option("--show", is_flag=True, help="Show current configuration")
+@click.option("--set", "set_value", help="Set configuration value (format: key=value)")
+@click.option("--get", "get_key", help="Get configuration value")
+@click.pass_context
+def config(ctx, show, set_value, get_key):
+    """Manage JLTSQL configuration.
+
+    \b
+    Examples:
+      jltsql config --show                       # Show all settings
+      jltsql config --get database.type          # Get specific value
+      jltsql config --set database.type=duckdb   # Set value (not implemented yet)
+    """
+    from pathlib import Path
+    import yaml
+
+    # Find config file
+    if ctx.obj.get("config"):
+        config_obj = ctx.obj["config"]
+        config_dict = config_obj.to_dict()
+        config_path = Path(ctx.params.get("config", "config/config.yaml"))
+    else:
+        project_root = Path(__file__).parent.parent.parent
+        config_path = project_root / "config" / "config.yaml"
+
+        if not config_path.exists():
+            console.print("[red]Error:[/red] Configuration file not found.")
+            console.print("Run 'jltsql init' first.")
+            sys.exit(1)
+
+        # Load config manually
+        with open(config_path, "r", encoding="utf-8") as f:
+            config_dict = yaml.safe_load(f)
+
+    # Show all configuration
+    if show or (not set_value and not get_key):
+        console.print(f"[bold cyan]Configuration ({config_path})[/bold cyan]\n")
+
+        # Pretty print config
+        from rich.tree import Tree
+        tree = Tree("📋 JLTSQL Configuration")
+
+        # JV-Link section
+        jvlink_tree = tree.add("🔗 JV-Link")
+        jvlink_config = config_dict.get("jvlink", {})
+        jvlink_tree.add(f"SID: {jvlink_config.get('sid', 'N/A')}")
+        jvlink_tree.add(f"Service Key: {'*' * 20 if jvlink_config.get('service_key') else 'Not set'}")
+
+        # Database section
+        db_tree = tree.add("💾 Database")
+        db_config = config_dict.get("database", {})
+        db_tree.add(f"Type: {db_config.get('type', 'N/A')}")
+        if db_config.get("path"):
+            db_tree.add(f"Path: {db_config.get('path')}")
+        if db_config.get("host"):
+            db_tree.add(f"Host: {db_config.get('host')}")
+            db_tree.add(f"Port: {db_config.get('port', 5432)}")
+            db_tree.add(f"Database: {db_config.get('database', 'N/A')}")
+            db_tree.add(f"User: {db_config.get('user', 'N/A')}")
+
+        # Logging section
+        log_tree = tree.add("📝 Logging")
+        log_config = config_dict.get("logging", {})
+        log_tree.add(f"Level: {log_config.get('level', 'INFO')}")
+        log_tree.add(f"File: {log_config.get('file', 'logs/jltsql.log')}")
+
+        console.print(tree)
+        console.print()
+
+    # Get specific value
+    elif get_key:
+        keys = get_key.split(".")
+        value = config_dict
+        try:
+            for key in keys:
+                value = value[key]
+            console.print(f"{get_key}: {value}")
+        except KeyError:
+            console.print(f"[red]Error:[/red] Key '{get_key}' not found in configuration.")
+            sys.exit(1)
+
+    # Set value (future implementation)
+    elif set_value:
+        console.print("[yellow]Note:[/yellow] Configuration modification via CLI is not yet implemented.")
+        console.print(f"Please edit {config_path} manually.")
+        console.print()
+        console.print(f"You wanted to set: {set_value}")
+
+
 if __name__ == "__main__":
     cli(obj={})
