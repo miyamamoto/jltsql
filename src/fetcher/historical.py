@@ -65,19 +65,18 @@ class HistoricalFetcher(BaseFetcher):
             self.jvlink.jv_init()
 
             # Convert dates to fromtime format
-            # fromtime format: "YYYYMMDDhhmmss-YYYYMMDDhhmmss"
-            fromtime_start = f"{from_date}000000"
-            fromtime_end = f"{to_date}235959"
-            fromtime = f"{fromtime_start}-{fromtime_end}"
+            # fromtime format: "YYYYMMDDhhmmss" (single timestamp)
+            # JV-Link retrieves data from this timestamp onwards
+            fromtime = f"{from_date}000000"
 
             # Open data stream
             logger.info(
                 "Opening data stream",
                 data_spec=data_spec,
                 from_date=from_date,
-                to_date=to_date,
                 fromtime=fromtime,
                 option=option,
+                note="Retrieves data from fromtime onwards (not a range)",
             )
 
             result, read_count, download_count, last_file_timestamp = self.jvlink.jv_open(
@@ -88,10 +87,21 @@ class HistoricalFetcher(BaseFetcher):
 
             logger.info(
                 "Data stream opened",
+                result_code=result,
                 read_count=read_count,
                 download_count=download_count,
                 last_file_timestamp=last_file_timestamp,
             )
+
+            # Check if data is empty (result=-1 or read_count=0)
+            if result == -1 or read_count == 0:
+                logger.info(
+                    "No data available from specified timestamp",
+                    data_spec=data_spec,
+                    fromtime=fromtime,
+                    note="No new data since this timestamp",
+                )
+                return  # No data to fetch
 
             # Reset statistics
             self.reset_statistics()

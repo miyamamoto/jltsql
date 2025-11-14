@@ -129,9 +129,9 @@ class JVLinkWrapper:
 
         Args:
             data_spec: Data specification code (e.g., "RACE", "DIFF")
-            fromtime: Start time in YYYYMMDDhhmmss format or date range
-                     Single: "20241103000000"
-                     Range: "20241103000000-20241103235959"
+            fromtime: Start time in YYYYMMDDhhmmss format (14 digits)
+                     Example: "20241103000000"
+                     Retrieves data from this timestamp onwards
             option: Option flag (0=normal, 1=setup, 2=update)
 
         Returns:
@@ -175,7 +175,12 @@ class JVLinkWrapper:
                 # Unexpected single value
                 raise ValueError(f"Unexpected JVOpen return type: {type(jv_result)}, expected tuple")
 
-            if result < 0:
+            # Handle result codes:
+            # 0: Success
+            # -1: No data (not an error)
+            # -2: Setup dialog cancelled (not an error)
+            # < -100: Actual errors
+            if result < 0 and result not in [-1, -2]:
                 logger.error(
                     "JVOpen failed",
                     data_spec=data_spec,
@@ -184,6 +189,18 @@ class JVLinkWrapper:
                     error_code=result,
                 )
                 raise JVLinkError("JVOpen failed", error_code=result)
+            elif result == -1:
+                logger.info(
+                    "JVOpen: No data available",
+                    data_spec=data_spec,
+                    fromtime=fromtime,
+                )
+            elif result == -2:
+                logger.info(
+                    "JVOpen: Setup dialog cancelled",
+                    data_spec=data_spec,
+                    fromtime=fromtime,
+                )
 
             self._is_open = True
 
@@ -280,18 +297,32 @@ class JVLinkWrapper:
             raise JVLinkError("JV-Link stream not open. Call jv_open() or jv_rt_open() first.")
 
         try:
-            import pythoncom
+            # JVRead signature: (out buff, out size, out filename)
+            # pywin32 returns out parameters as tuple
+            # Try calling without arguments first
+            jv_result = self._jvlink.JVRead()
 
-            # Create buffer for data
-            buff = pythoncom.AllocateBuffer(BUFFER_SIZE_JVREAD)
-            filename = pythoncom.AllocateBuffer(256)
-
-            result = self._jvlink.JVRead(buff, BUFFER_SIZE_JVREAD, filename)
+            # Handle result - pywin32 returns (return_code, buff_str, size, filename_str)
+            if isinstance(jv_result, tuple) and len(jv_result) >= 3:
+                result = jv_result[0]
+                buff_str = jv_result[1] if len(jv_result) > 1 else ""
+                filename_str = jv_result[3] if len(jv_result) > 3 else ""
+            else:
+                # Unexpected return format
+                result = jv_result if isinstance(jv_result, int) else JV_READ_ERROR
+                buff_str = ""
+                filename_str = ""
 
             if result == JV_READ_SUCCESS:
                 # Successfully read data
-                data_bytes = bytes(buff[: buff.find(b"\x00")])
-                filename_str = filename[: filename.find(b"\x00")].decode("ascii", errors="ignore")
+                # Convert string to bytes (JV-Data uses Shift_JIS encoding)
+                try:
+                    data_bytes = buff_str.encode(ENCODING_JVDATA) if buff_str else b""
+                except Exception:
+                    # If already bytes or encoding fails, try to handle
+                    data_bytes = buff_str if isinstance(buff_str, bytes) else buff_str.encode('shift_jis', errors='ignore')
+
+                logger.debug("JVRead success", data_len=len(data_bytes), filename=filename_str)
                 return result, data_bytes, filename_str
 
             elif result == JV_READ_NO_MORE_DATA:
