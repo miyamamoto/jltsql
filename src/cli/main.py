@@ -163,39 +163,219 @@ def version():
     console.print("Python version: " + sys.version.split()[0])
 
 
-# Placeholder commands for future implementation
 @cli.command()
-@click.option("--from", "date_from", required=True, help="Start date (YYYY-MM-DD)")
-@click.option("--to", "date_to", required=True, help="End date (YYYY-MM-DD)")
-@click.option("--data-spec", required=True, help="Data specification (RACE, DIFF, etc.)")
+@click.option("--from", "date_from", required=True, help="Start date (YYYYMMDD)")
+@click.option("--to", "date_to", required=True, help="End date (YYYYMMDD)")
+@click.option("--spec", "data_spec", required=True, help="Data specification (RACE, DIFF, etc.)")
+@click.option("--db", type=click.Choice(["sqlite", "duckdb", "postgresql"]), default=None, help="Database type (default: from config)")
+@click.option("--batch-size", default=1000, help="Batch size for imports (default: 1000)")
 @click.pass_context
-def fetch(ctx, date_from, date_to, data_spec):
+def fetch(ctx, date_from, date_to, data_spec, db, batch_size):
     """Fetch historical data from JRA-VAN DataLab.
 
     \b
     Examples:
-      jltsql fetch --from 2024-01-01 --to 2024-12-31 --data-spec RACE
-      jltsql fetch --from 2024-01-01 --to 2024-12-31 --data-spec DIFF
+      jltsql fetch --from 20240101 --to 20241231 --spec RACE
+      jltsql fetch --from 20240101 --to 20241231 --spec DIFF
     """
-    console.print("[yellow]Note: This command is not yet implemented.[/yellow]")
-    console.print(f"Would fetch data from {date_from} to {date_to}, spec: {data_spec}")
-    logger.info("Fetch command called", date_from=date_from, date_to=date_to, data_spec=data_spec)
+    from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn
+    from src.database.sqlite_handler import SQLiteDatabase
+    from src.database.duckdb_handler import DuckDBDatabase
+    from src.database.postgresql_handler import PostgreSQLDatabase
+    from src.database.schema import SchemaManager
+    from src.importer.batch import BatchProcessor
+
+    config = ctx.obj.get("config")
+    if not config and not db:
+        console.print("[red]Error:[/red] No configuration found. Run 'jltsql init' first or use --db option.")
+        sys.exit(1)
+
+    # Determine database type
+    if db:
+        db_type = db
+    else:
+        db_type = config.database.get("type", "sqlite")
+
+    console.print(f"[bold cyan]Fetching historical data from JRA-VAN...[/bold cyan]\n")
+    console.print(f"  Date range: {date_from} → {date_to}")
+    console.print(f"  Data spec:  {data_spec}")
+    console.print(f"  Database:   {db_type}")
+    console.print()
+
+    try:
+        # Initialize database
+        if db_type == "sqlite":
+            db_config = config.database if config else {"path": "data/keiba.db"}
+            database = SQLiteDatabase(db_config)
+        elif db_type == "duckdb":
+            db_config = config.database if config else {"path": "data/keiba.duckdb"}
+            database = DuckDBDatabase(db_config)
+        elif db_type == "postgresql":
+            if not config:
+                console.print("[red]Error:[/red] PostgreSQL requires configuration file.")
+                sys.exit(1)
+            database = PostgreSQLDatabase(config.database)
+        else:
+            console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
+            sys.exit(1)
+
+        # Connect to database
+        with database:
+            # Ensure tables exist
+            schema_manager = SchemaManager(database)
+            missing_tables = schema_manager.get_missing_tables()
+
+            if missing_tables:
+                console.print(f"[yellow]Warning:[/yellow] {len(missing_tables)} tables are missing.")
+                console.print("Creating tables...")
+
+                for table_name in missing_tables:
+                    schema_manager.create_table(table_name)
+
+                console.print(f"[green]✓[/green] Created {len(missing_tables)} tables\n")
+
+            # Process data
+            processor = BatchProcessor(
+                database=database,
+                sid=config.jvlink.get("sid", "JLTSQL") if config else "JLTSQL",
+                batch_size=batch_size
+            )
+
+            console.print("[bold]Processing data...[/bold]")
+
+            result = processor.process_date_range(
+                data_spec=data_spec,
+                from_date=date_from,
+                to_date=date_to
+            )
+
+            # Show results
+            console.print()
+            console.print("[bold green]✓ Fetch complete![/bold green]")
+            console.print()
+            console.print("[bold]Statistics:[/bold]")
+            console.print(f"  Fetched:  {result['fetched']}")
+            console.print(f"  Parsed:   {result['parsed']}")
+            console.print(f"  Imported: {result['imported']}")
+            console.print(f"  Failed:   {result['failed']}")
+            console.print(f"  Batches:  {result.get('batches', 0)}")
+
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Interrupted by user[/yellow]")
+        sys.exit(1)
+    except Exception as e:
+        console.print(f"\n[red]Error:[/red] {e}", style="bold")
+        logger.error("Failed to fetch data", error=str(e), exc_info=True)
+        sys.exit(1)
 
 
 @cli.command()
 @click.option("--daemon", is_flag=True, help="Run in background")
+@click.option("--spec", "data_spec", default="RACE", help="Data specification (default: RACE)")
+@click.option("--interval", default=60, help="Polling interval in seconds (default: 60)")
+@click.option("--db", type=click.Choice(["sqlite", "duckdb", "postgresql"]), default=None, help="Database type (default: from config)")
 @click.pass_context
-def monitor(ctx, daemon):
+def monitor(ctx, daemon, data_spec, interval, db):
     """Start real-time monitoring.
 
     \b
     Examples:
-      jltsql monitor             # Run in foreground
-      jltsql monitor --daemon    # Run in background
+      jltsql monitor                        # Run in foreground
+      jltsql monitor --daemon               # Run in background
+      jltsql monitor --spec RACE --interval 30
     """
-    console.print("[yellow]Note: This command is not yet implemented.[/yellow]")
-    console.print(f"Would start monitoring (daemon: {daemon})")
-    logger.info("Monitor command called", daemon=daemon)
+    from src.database.sqlite_handler import SQLiteDatabase
+    from src.database.duckdb_handler import DuckDBDatabase
+    from src.database.postgresql_handler import PostgreSQLDatabase
+    from src.database.schema import SchemaManager
+    from src.realtime.monitor import RealtimeMonitor
+
+    config = ctx.obj.get("config")
+    if not config and not db:
+        console.print("[red]Error:[/red] No configuration found. Run 'jltsql init' first or use --db option.")
+        sys.exit(1)
+
+    # Determine database type
+    if db:
+        db_type = db
+    else:
+        db_type = config.database.get("type", "sqlite")
+
+    console.print(f"[bold cyan]Starting real-time monitoring...[/bold cyan]\n")
+    console.print(f"  Data spec:  {data_spec}")
+    console.print(f"  Interval:   {interval}s")
+    console.print(f"  Database:   {db_type}")
+    console.print(f"  Mode:       {'daemon' if daemon else 'foreground'}")
+    console.print()
+
+    try:
+        # Initialize database
+        if db_type == "sqlite":
+            db_config = config.database if config else {"path": "data/keiba.db"}
+            database = SQLiteDatabase(db_config)
+        elif db_type == "duckdb":
+            db_config = config.database if config else {"path": "data/keiba.duckdb"}
+            database = DuckDBDatabase(db_config)
+        elif db_type == "postgresql":
+            if not config:
+                console.print("[red]Error:[/red] PostgreSQL requires configuration file.")
+                sys.exit(1)
+            database = PostgreSQLDatabase(config.database)
+        else:
+            console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
+            sys.exit(1)
+
+        # Connect to database
+        with database:
+            # Ensure tables exist
+            schema_manager = SchemaManager(database)
+            missing_tables = schema_manager.get_missing_tables()
+
+            if missing_tables:
+                console.print(f"[yellow]Warning:[/yellow] {len(missing_tables)} tables are missing.")
+                console.print("Creating tables...")
+
+                for table_name in missing_tables:
+                    schema_manager.create_table(table_name)
+
+                console.print(f"[green]✓[/green] Created {len(missing_tables)} tables\n")
+
+            # Start monitoring
+            monitor_obj = RealtimeMonitor(
+                database=database,
+                data_spec=data_spec,
+                polling_interval=interval,
+                sid=config.jvlink.get("sid", "JLTSQL") if config else "JLTSQL"
+            )
+
+            console.print("[bold green]Monitoring started![/bold green]")
+            console.print("Press Ctrl+C to stop.\n")
+
+            # Start in daemon or foreground mode
+            monitor_obj.start(daemon=daemon)
+
+            if daemon:
+                console.print("\n[bold green]Monitoring running in background[/bold green]")
+                status = monitor_obj.get_status()
+                console.print(f"Started at: {status['started_at']}")
+            else:
+                # Foreground mode - wait for Ctrl+C
+                try:
+                    import time
+                    while True:
+                        time.sleep(1)
+                except KeyboardInterrupt:
+                    console.print("\n[yellow]Stopping monitor...[/yellow]")
+                    monitor_obj.stop()
+                    console.print("[green]Monitor stopped.[/green]")
+
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Interrupted by user[/yellow]")
+        sys.exit(0)
+    except Exception as e:
+        console.print(f"\n[red]Error:[/red] {e}", style="bold")
+        logger.error("Failed to start monitoring", error=str(e), exc_info=True)
+        sys.exit(1)
 
 
 @cli.command()
@@ -207,18 +387,112 @@ def stop(ctx):
 
 
 @cli.command()
-@click.option("--db", type=click.Choice(["sqlite", "duckdb", "postgresql"]), default="sqlite")
+@click.option("--db", type=click.Choice(["sqlite", "duckdb", "postgresql"]), default=None, help="Database type (default: from config)")
+@click.option("--all", "create_all", is_flag=True, help="Create both NL_ and RT_ tables")
+@click.option("--nl-only", is_flag=True, help="Create only NL_ (Normal Load) tables")
+@click.option("--rt-only", is_flag=True, help="Create only RT_ (Real-Time) tables")
 @click.pass_context
-def create_tables(ctx, db):
+def create_tables(ctx, db, create_all, nl_only, rt_only):
     """Create database tables.
 
     \b
     Examples:
-      jltsql create-tables              # Create SQLite tables
-      jltsql create-tables --db duckdb  # Create DuckDB tables
+      jltsql create-tables                # Create all tables (from config)
+      jltsql create-tables --db sqlite    # Create all tables in SQLite
+      jltsql create-tables --nl-only      # Create only NL_* tables
+      jltsql create-tables --rt-only      # Create only RT_* tables
     """
-    console.print("[yellow]Note: This command is not yet implemented.[/yellow]")
-    console.print(f"Would create tables for {db}")
+    from rich.progress import Progress, SpinnerColumn, TextColumn
+    from src.database.schema import SchemaManager
+    from src.database.sqlite_handler import SQLiteDatabase
+    from src.database.duckdb_handler import DuckDBDatabase
+    from src.database.postgresql_handler import PostgreSQLDatabase
+
+    config = ctx.obj.get("config")
+    if not config and not db:
+        console.print("[red]Error:[/red] No configuration found. Run 'jltsql init' first or use --db option.")
+        sys.exit(1)
+
+    # Determine database type
+    if db:
+        db_type = db
+    else:
+        db_type = config.database.get("type", "sqlite")
+
+    console.print(f"[bold cyan]Creating database tables ({db_type})...[/bold cyan]\n")
+
+    try:
+        # Initialize database
+        if db_type == "sqlite":
+            db_config = config.database if config else {"path": "data/keiba.db"}
+            database = SQLiteDatabase(db_config)
+        elif db_type == "duckdb":
+            db_config = config.database if config else {"path": "data/keiba.duckdb"}
+            database = DuckDBDatabase(db_config)
+        elif db_type == "postgresql":
+            if not config:
+                console.print("[red]Error:[/red] PostgreSQL requires configuration file.")
+                sys.exit(1)
+            database = PostgreSQLDatabase(config.database)
+        else:
+            console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
+            sys.exit(1)
+
+        # Connect to database
+        with database:
+            schema_manager = SchemaManager(database)
+
+            # Determine which tables to create
+            from src.database.schema import SCHEMAS
+
+            if nl_only:
+                tables_to_create = [name for name in SCHEMAS.keys() if name.startswith("NL_")]
+            elif rt_only:
+                tables_to_create = [name for name in SCHEMAS.keys() if name.startswith("RT_")]
+            else:
+                tables_to_create = list(SCHEMAS.keys())
+
+            # Create tables with progress bar
+            created_count = 0
+            failed_count = 0
+
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console
+            ) as progress:
+                task = progress.add_task(f"[cyan]Creating {len(tables_to_create)} tables...", total=len(tables_to_create))
+
+                for table_name in tables_to_create:
+                    progress.update(task, description=f"[cyan]Creating {table_name}...")
+
+                    if schema_manager.create_table(table_name):
+                        created_count += 1
+                    else:
+                        failed_count += 1
+
+                    progress.advance(task)
+
+            # Show results
+            console.print()
+            console.print(f"[green]✓[/green] Created {created_count} tables")
+            if failed_count > 0:
+                console.print(f"[yellow]⚠[/yellow] Failed to create {failed_count} tables")
+
+            # Show table statistics
+            nl_tables = len([n for n in tables_to_create if n.startswith("NL_")])
+            rt_tables = len([n for n in tables_to_create if n.startswith("RT_")])
+
+            console.print()
+            console.print("[bold]Table Statistics:[/bold]")
+            console.print(f"  NL_* tables (Normal Load): {nl_tables}")
+            console.print(f"  RT_* tables (Real-Time):   {rt_tables}")
+            console.print(f"  Total:                     {len(tables_to_create)}")
+
+    except Exception as e:
+        console.print(f"\n[red]Error:[/red] {e}", style="bold")
+        logger.error("Failed to create tables", error=str(e), exc_info=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
