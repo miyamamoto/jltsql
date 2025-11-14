@@ -100,14 +100,14 @@ try:
         WHERE type='table' AND name LIKE 'NL_%'
         ORDER BY name
     """
-    tables = db.fetch(tables_query)
+    tables = db.fetch_all(tables_query)
 
     if tables:
         print(f"   作成されたテーブル ({len(tables)}個):")
         for table in tables:
             table_name = table[0]
             count_query = f"SELECT COUNT(*) FROM {table_name}"
-            count = db.fetch(count_query)[0][0]
+            count = db.fetch_all(count_query)[0][0]
             print(f"   - {table_name}: {count}件")
     else:
         print("   テーブルなし")
@@ -121,7 +121,7 @@ try:
     # RA (レース詳細) テーブル確認
     if db.table_exists("NL_RA_RACE"):
         print("   NL_RA_RACE (レース詳細) - 最初の3件:")
-        ra_data = db.fetch(
+        ra_data = db.fetch_all(
             "SELECT idYear, idJyoCD, idRaceNum, RaceName FROM NL_RA_RACE LIMIT 3"
         )
         for row in ra_data:
@@ -131,7 +131,7 @@ try:
     # SE (馬毎レース情報) テーブル確認
     if db.table_exists("NL_SE_RACE_UMA"):
         print("   NL_SE_RACE_UMA (馬毎レース情報) - 最初の3件:")
-        se_data = db.fetch(
+        se_data = db.fetch_all(
             "SELECT idYear, idBangou, UmaName, Kishu FROM NL_SE_RACE_UMA LIMIT 3"
         )
         for row in se_data:
@@ -141,7 +141,7 @@ try:
     # HR (払戻) テーブル確認
     if db.table_exists("NL_HR_PAY"):
         print("   NL_HR_PAY (払戻情報) - 最初の3件:")
-        hr_data = db.fetch(
+        hr_data = db.fetch_all(
             "SELECT idYear, TansyoPay1, FukusyoPay1 FROM NL_HR_PAY LIMIT 3"
         )
         for row in hr_data:
