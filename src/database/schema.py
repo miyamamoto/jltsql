@@ -1835,3 +1835,292 @@ class SchemaManager:
             if not self.database.table_exists(table_name):
                 missing.append(table_name)
         return missing
+
+    def apply_metadata_to_table(self, table_name: str) -> bool:
+        """Apply metadata comments to a table and its columns.
+
+        This method adds descriptive comments to database tables and columns
+        using metadata from schema_metadata.py. Behavior varies by database:
+
+        - PostgreSQL/DuckDB: Uses COMMENT ON syntax
+        - SQLite: Creates _metadata table with descriptions
+
+        Args:
+            table_name: Name of table to apply metadata to
+
+        Returns:
+            True if successful, False otherwise
+
+        Examples:
+            >>> schema_mgr.apply_metadata_to_table("NL_RA")
+            True
+        """
+        try:
+            from src.database.schema_metadata import TABLE_METADATA
+
+            if table_name not in TABLE_METADATA:
+                logger.warning(f"No metadata available for table: {table_name}")
+                return False
+
+            if not self.database.table_exists(table_name):
+                logger.error(f"Table does not exist: {table_name}")
+                return False
+
+            metadata = TABLE_METADATA[table_name]
+            db_type = self.database.__class__.__name__
+
+            # PostgreSQL: Use COMMENT ON syntax
+            if "PostgreSQL" in db_type:
+                return self._apply_comments_postgresql_duckdb(table_name, metadata)
+
+            # SQLite & DuckDB: Use metadata table
+            # (DuckDB doesn't support COMMENT ON syntax as of current version)
+            elif "SQLite" in db_type or "DuckDB" in db_type:
+                return self._apply_comments_sqlite(table_name, metadata)
+
+            else:
+                logger.warning(f"Metadata not supported for database type: {db_type}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Failed to apply metadata to {table_name}: {e}")
+            return False
+
+    def _apply_comments_postgresql_duckdb(self, table_name: str, metadata: dict) -> bool:
+        """Apply COMMENT ON statements for PostgreSQL/DuckDB."""
+        try:
+            # Table comment
+            table_comment = f"{metadata['description']} - {metadata['purpose']}"
+            table_comment_safe = table_comment.replace("'", "''")
+            self.database.execute(
+                f"COMMENT ON TABLE {table_name} IS '{table_comment_safe}'"
+            )
+            logger.debug(f"Applied table comment to {table_name}")
+
+            # Column comments
+            for col in metadata['columns']:
+                col_name = col['name']
+                col_desc = col['description']
+                col_desc_safe = col_desc.replace("'", "''")
+
+                try:
+                    self.database.execute(
+                        f"COMMENT ON COLUMN {table_name}.{col_name} IS '{col_desc_safe}'"
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to add comment to column {table_name}.{col_name}: {e}")
+
+            logger.info(f"Applied metadata comments to {table_name} ({len(metadata['columns'])} columns)")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to apply PostgreSQL/DuckDB comments: {e}")
+            return False
+
+    def _apply_comments_sqlite(self, table_name: str, metadata: dict) -> bool:
+        """Apply metadata to SQLite/DuckDB using _metadata table."""
+        try:
+            db_type = self.database.__class__.__name__
+
+            # Create metadata table if it doesn't exist
+            self.database.execute("""
+                CREATE TABLE IF NOT EXISTS _metadata (
+                    table_name TEXT NOT NULL,
+                    column_name TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    metadata_type TEXT NOT NULL,
+                    PRIMARY KEY (table_name, column_name)
+                )
+            """)
+
+            # Insert table description (use empty string instead of NULL for primary key)
+            table_desc = f"{metadata['description']} - {metadata['purpose']}"
+
+            if "DuckDB" in db_type:
+                # DuckDB uses ON CONFLICT syntax
+                self.database.execute(
+                    """INSERT INTO _metadata (table_name, column_name, description, metadata_type)
+                       VALUES (?, ?, ?, ?)
+                       ON CONFLICT (table_name, column_name)
+                       DO UPDATE SET description = EXCLUDED.description""",
+                    (table_name, '', table_desc, 'table')
+                )
+            else:
+                # SQLite uses INSERT OR REPLACE
+                self.database.execute(
+                    """INSERT OR REPLACE INTO _metadata
+                       (table_name, column_name, description, metadata_type)
+                       VALUES (?, ?, ?, ?)""",
+                    (table_name, '', table_desc, 'table')
+                )
+
+            # Insert column descriptions
+            for col in metadata['columns']:
+                col_name = col['name']
+                col_desc = col['description']
+
+                if "DuckDB" in db_type:
+                    self.database.execute(
+                        """INSERT INTO _metadata (table_name, column_name, description, metadata_type)
+                           VALUES (?, ?, ?, ?)
+                           ON CONFLICT (table_name, column_name)
+                           DO UPDATE SET description = EXCLUDED.description""",
+                        (table_name, col_name, col_desc, 'column')
+                    )
+                else:
+                    self.database.execute(
+                        """INSERT OR REPLACE INTO _metadata
+                           (table_name, column_name, description, metadata_type)
+                           VALUES (?, ?, ?, ?)""",
+                        (table_name, col_name, col_desc, 'column')
+                    )
+
+            logger.info(f"Applied metadata to _metadata table for {table_name} ({len(metadata['columns'])} columns)")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to apply metadata: {e}")
+            return False
+
+    def apply_all_metadata(self) -> Dict[str, bool]:
+        """Apply metadata comments to all tables.
+
+        Returns:
+            Dictionary mapping table names to application status
+
+        Examples:
+            >>> schema_mgr.apply_all_metadata()
+            {'NL_RA': True, 'NL_SE': True, ...}
+        """
+        results = {}
+        from src.database.schema_metadata import TABLE_METADATA
+
+        for table_name in TABLE_METADATA.keys():
+            if self.database.table_exists(table_name):
+                results[table_name] = self.apply_metadata_to_table(table_name)
+            else:
+                logger.warning(f"Skipping metadata for non-existent table: {table_name}")
+                results[table_name] = False
+
+        applied_count = sum(1 for success in results.values() if success)
+        logger.info(f"Applied metadata to {applied_count}/{len(results)} tables")
+
+        return results
+
+    def get_table_metadata(self, table_name: str) -> Dict:
+        """Get metadata for a specific table from database.
+
+        For PostgreSQL/DuckDB: Queries table/column comments
+        For SQLite: Queries _metadata table
+
+        Args:
+            table_name: Name of table
+
+        Returns:
+            Dictionary with table and column metadata
+        """
+        try:
+            db_type = self.database.__class__.__name__
+
+            if "PostgreSQL" in db_type:
+                return self._get_metadata_postgresql(table_name)
+            elif "DuckDB" in db_type or "SQLite" in db_type:
+                # Both DuckDB and SQLite use _metadata table
+                return self._get_metadata_sqlite(table_name)
+            else:
+                return {}
+
+        except Exception as e:
+            logger.error(f"Failed to get metadata for {table_name}: {e}")
+            return {}
+
+    def _get_metadata_postgresql(self, table_name: str) -> Dict:
+        """Get metadata from PostgreSQL information_schema."""
+        result = {'table': None, 'columns': {}}
+
+        try:
+            # Get table comment
+            row = self.database.fetch_one(
+                """SELECT obj_description(oid) as description
+                   FROM pg_class WHERE relname = %s""",
+                (table_name,)
+            )
+            if row:
+                result['table'] = row['description']
+
+            # Get column comments
+            rows = self.database.fetch_all(
+                """SELECT column_name,
+                          col_description((quote_ident(table_schema)||'.'||quote_ident(table_name))::regclass::oid, ordinal_position) as description
+                   FROM information_schema.columns
+                   WHERE table_name = %s""",
+                (table_name,)
+            )
+            for row in rows:
+                if row['description']:
+                    result['columns'][row['column_name']] = row['description']
+
+            return result
+        except Exception as e:
+            logger.error(f"Failed to get PostgreSQL metadata: {e}")
+            return {}
+
+    def _get_metadata_duckdb(self, table_name: str) -> Dict:
+        """Get metadata from DuckDB information_schema."""
+        result = {'table': None, 'columns': {}}
+
+        try:
+            # Get table comment
+            row = self.database.fetch_one(
+                f"""SELECT comment as description
+                    FROM duckdb_tables()
+                    WHERE table_name = '{table_name}'"""
+            )
+            if row:
+                result['table'] = row['description']
+
+            # Get column comments
+            rows = self.database.fetch_all(
+                f"""SELECT column_name, comment as description
+                    FROM duckdb_columns()
+                    WHERE table_name = '{table_name}'"""
+            )
+            for row in rows:
+                if row['description']:
+                    result['columns'][row['column_name']] = row['description']
+
+            return result
+        except Exception as e:
+            logger.error(f"Failed to get DuckDB metadata: {e}")
+            return {}
+
+    def _get_metadata_sqlite(self, table_name: str) -> Dict:
+        """Get metadata from SQLite _metadata table."""
+        result = {'table': None, 'columns': {}}
+
+        try:
+            if not self.database.table_exists('_metadata'):
+                return result
+
+            # Get table description (column_name is empty string for table descriptions)
+            row = self.database.fetch_one(
+                """SELECT description FROM _metadata
+                   WHERE table_name = ? AND column_name = '' AND metadata_type = 'table'""",
+                (table_name,)
+            )
+            if row:
+                result['table'] = row['description']
+
+            # Get column descriptions (column_name is not empty for column descriptions)
+            rows = self.database.fetch_all(
+                """SELECT column_name, description FROM _metadata
+                   WHERE table_name = ? AND column_name != '' AND metadata_type = 'column'""",
+                (table_name,)
+            )
+            for row in rows:
+                result['columns'][row['column_name']] = row['description']
+
+            return result
+        except Exception as e:
+            logger.error(f"Failed to get SQLite metadata: {e}")
+            return {}
