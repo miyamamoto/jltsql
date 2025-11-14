@@ -3,6 +3,7 @@
 This module fetches historical JV-Data from JV-Link.
 """
 
+import time
 from datetime import datetime
 from typing import Iterator, Optional
 
@@ -103,6 +104,14 @@ class HistoricalFetcher(BaseFetcher):
                 )
                 return  # No data to fetch
 
+            # Wait for download to complete if needed (download_count > 0)
+            if download_count > 0:
+                logger.info(
+                    "Download in progress, waiting for completion",
+                    download_count=download_count,
+                )
+                self._wait_for_download()
+
             # Reset statistics
             self.reset_statistics()
 
@@ -160,3 +169,54 @@ class HistoricalFetcher(BaseFetcher):
         to_date = end_date.strftime("%Y%m%d")
 
         yield from self.fetch(data_spec, from_date, to_date, option)
+
+    def _wait_for_download(self, timeout: int = 600, interval: float = 1.0):
+        """Wait for JV-Link download to complete.
+
+        Args:
+            timeout: Maximum wait time in seconds (default: 600 = 10 minutes)
+            interval: Status check interval in seconds (default: 1.0)
+
+        Raises:
+            FetcherError: If download fails or times out
+        """
+        start_time = time.time()
+        last_status = None
+
+        while True:
+            # Check if timeout exceeded
+            elapsed = time.time() - start_time
+            if elapsed > timeout:
+                raise FetcherError(f"Download timeout after {elapsed:.1f} seconds")
+
+            try:
+                # Get download status
+                # JVStatus returns:
+                # > 0: Download in progress (percentage * 100)
+                # 0: Download complete
+                # < 0: Error
+                status = self.jvlink.jv_status()
+
+                if status != last_status:
+                    if status > 0:
+                        logger.info(
+                            "Download in progress",
+                            progress_percent=status / 100,
+                            elapsed_seconds=int(elapsed),
+                        )
+                    last_status = status
+
+                if status == 0:
+                    logger.info("Download completed", elapsed_seconds=int(elapsed))
+                    return  # Download complete
+
+                if status < 0:
+                    raise FetcherError(f"Download failed with status code: {status}")
+
+                # Wait before next status check
+                time.sleep(interval)
+
+            except Exception as e:
+                if isinstance(e, FetcherError):
+                    raise
+                raise FetcherError(f"Failed to check download status: {e}")

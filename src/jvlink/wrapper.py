@@ -277,7 +277,7 @@ class JVLinkWrapper:
 
         Returns:
             Tuple of (return_code, buffer, filename)
-            - return_code: 0=success, -1=no more data, -2=error
+            - return_code: >0=success with data length, 0=complete, -1=file switch, <-1=error
             - buffer: Data buffer (bytes) if success, None otherwise
             - filename: Filename if applicable, None otherwise
 
@@ -285,53 +285,70 @@ class JVLinkWrapper:
             JVLinkError: If read operation fails
 
         Examples:
-            >>> wrapper = JVLinkWrapper("YOUR_KEY")
+            >>> wrapper = JVLinkWrapper()
             >>> wrapper.jv_init()
-            >>> wrapper.jv_open("RACE", "20240101", "20241231")
-            >>> ret_code, buff, filename = wrapper.jv_read()
-            >>> if ret_code == 0:
-            ...     data = buff.decode('shift_jis')
-            ...     print(data[:100])
+            >>> wrapper.jv_open("RACE", "20240101000000", 0)
+            >>> while True:
+            ...     ret_code, buff, filename = wrapper.jv_read()
+            ...     if ret_code == 0:  # Complete
+            ...         break
+            ...     elif ret_code == -1:  # File switch
+            ...         continue
+            ...     elif ret_code < -1:  # Error
+            ...         raise Exception(f"Error: {ret_code}")
+            ...     else:  # ret_code > 0 (data length)
+            ...         data = buff.decode('shift_jis')
+            ...         print(data[:100])
         """
         if not self._is_open:
             raise JVLinkError("JV-Link stream not open. Call jv_open() or jv_rt_open() first.")
 
         try:
-            # JVRead signature: (out buff, out size, out filename)
-            # pywin32 returns out parameters as tuple
-            # Try calling without arguments first
-            jv_result = self._jvlink.JVRead()
+            # JVRead signature: JVRead(String buff, Long size, String filename)
+            # Call with empty strings and buffer size
+            # pywin32 returns 4-tuple: (return_code, buff_str, size_int, filename_str)
+            jv_result = self._jvlink.JVRead("", BUFFER_SIZE_JVREAD, "")
 
             # Handle result - pywin32 returns (return_code, buff_str, size, filename_str)
-            if isinstance(jv_result, tuple) and len(jv_result) >= 3:
+            if isinstance(jv_result, tuple) and len(jv_result) >= 4:
                 result = jv_result[0]
-                buff_str = jv_result[1] if len(jv_result) > 1 else ""
-                filename_str = jv_result[3] if len(jv_result) > 3 else ""
+                buff_str = jv_result[1]
+                # jv_result[2] is size (int) - not needed
+                filename_str = jv_result[3]
             else:
                 # Unexpected return format
-                result = jv_result if isinstance(jv_result, int) else JV_READ_ERROR
-                buff_str = ""
-                filename_str = ""
+                raise JVLinkError(f"Unexpected JVRead return format: {type(jv_result)}, length={len(jv_result) if isinstance(jv_result, tuple) else 'N/A'}")
 
-            if result == JV_READ_SUCCESS:
-                # Successfully read data
-                # Convert string to bytes (JV-Data uses Shift_JIS encoding)
+            # Return code meanings:
+            # > 0: Success, value is data length in bytes
+            # 0: Read complete (no more data)
+            # -1: File switch (continue reading)
+            # < -1: Error
+            if result > 0:
+                # Successfully read data (result is data length)
+                # buff_str is already in Shift_JIS encoding (Unicode string from COM)
+                # Convert to bytes for consistent handling
                 try:
                     data_bytes = buff_str.encode(ENCODING_JVDATA) if buff_str else b""
                 except Exception:
-                    # If already bytes or encoding fails, try to handle
-                    data_bytes = buff_str if isinstance(buff_str, bytes) else buff_str.encode('shift_jis', errors='ignore')
+                    # If encoding fails, try with error handling
+                    data_bytes = buff_str.encode('shift_jis', errors='ignore') if buff_str else b""
 
-                logger.debug("JVRead success", data_len=len(data_bytes), filename=filename_str)
+                logger.debug("JVRead success", data_len=result, actual_len=len(data_bytes), filename=filename_str)
                 return result, data_bytes, filename_str
 
+            elif result == JV_READ_SUCCESS:
+                # Read complete (0)
+                logger.debug("JVRead: Complete")
+                return result, None, None
+
             elif result == JV_READ_NO_MORE_DATA:
-                # No more data
-                logger.debug("JVRead: No more data")
+                # File switch (-1)
+                logger.debug("JVRead: File switch")
                 return result, None, None
 
             else:
-                # Error
+                # Error (< -1)
                 logger.error("JVRead failed", error_code=result)
                 raise JVLinkError("JVRead failed", error_code=result)
 

@@ -77,11 +77,24 @@ class BaseFetcher(ABC):
                 # Read next record
                 ret_code, buff, filename = self.jvlink.jv_read()
 
-                if ret_code == JV_READ_NO_MORE_DATA:
-                    logger.info("No more data to read")
+                # Return code meanings:
+                # > 0: Success with data (value is data length)
+                # 0: Read complete (no more data)
+                # -1: File switch (continue reading)
+                # < -1: Error
+
+                if ret_code == JV_READ_SUCCESS:
+                    # Complete (0)
+                    logger.info("Read complete - no more data")
                     break
 
-                if ret_code == JV_READ_SUCCESS and buff:
+                elif ret_code == JV_READ_NO_MORE_DATA:
+                    # File switch (-1)
+                    logger.debug("File switch")
+                    continue
+
+                elif ret_code > 0:
+                    # Success with data (ret_code is data length)
                     self._records_fetched += 1
 
                     # Parse record
@@ -106,11 +119,15 @@ class BaseFetcher(ABC):
                         )
 
                 else:
-                    logger.warning(
-                        f"Unexpected read result",
+                    # Error (< -1)
+                    logger.error(
+                        "JVRead error",
                         ret_code=ret_code,
                     )
+                    raise FetcherError(f"JVRead returned error code: {ret_code}")
 
+            except FetcherError:
+                raise
             except Exception as e:
                 logger.error("Error during fetch", error=str(e))
                 raise FetcherError(f"Failed to fetch data: {e}")
