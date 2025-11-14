@@ -63,6 +63,7 @@ class BatchProcessor:
         data_spec: str,
         from_date: str,
         to_date: str,
+        option: int = 0,
         auto_commit: bool = True,
         ensure_tables: bool = True,
     ) -> dict:
@@ -72,6 +73,7 @@ class BatchProcessor:
             data_spec: Data specification code
             from_date: Start date (YYYYMMDD)
             to_date: End date (YYYYMMDD)
+            option: JVOpen option (0=normal, 1=setup, 2=update)
             auto_commit: Whether to auto-commit
             ensure_tables: Whether to ensure tables exist
 
@@ -88,6 +90,7 @@ class BatchProcessor:
             data_spec=data_spec,
             from_date=from_date,
             to_date=to_date,
+            option=option,
         )
 
         # Ensure tables exist
@@ -99,7 +102,7 @@ class BatchProcessor:
 
         # Fetch and import records
         try:
-            records = self.fetcher.fetch(data_spec, from_date, to_date)
+            records = self.fetcher.fetch(data_spec, from_date, to_date, option)
             import_stats = self.importer.import_records(records, auto_commit)
 
             # Combine statistics
