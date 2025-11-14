@@ -831,5 +831,261 @@ def config(ctx, show, set_value, get_key):
         console.print(f"You wanted to set: {set_value}")
 
 
+@cli.group()
+def realtime():
+    """Realtime data monitoring commands.
+
+    \b
+    Manage realtime data streams from JV-Link for up-to-the-minute
+    race results, odds, payouts, and other breaking news data.
+
+    \b
+    Examples:
+      jltsql realtime start --specs 0B12,0B15    # Monitor race results and payouts
+      jltsql realtime status                      # Check monitoring status
+      jltsql realtime stop                        # Stop monitoring
+      jltsql realtime specs                       # List available data specs
+    """
+    pass
+
+
+@realtime.command()
+@click.option(
+    "--specs",
+    default="0B12",
+    help="Comma-separated data specs to monitor (default: 0B12)"
+)
+@click.option(
+    "--db",
+    type=click.Choice(["sqlite", "duckdb", "postgresql"]),
+    default=None,
+    help="Database type (default: from config)"
+)
+@click.option(
+    "--batch-size",
+    default=100,
+    help="Batch size for imports (default: 100)"
+)
+@click.option(
+    "--no-create-tables",
+    is_flag=True,
+    help="Don't auto-create missing tables"
+)
+@click.pass_context
+def start(ctx, specs, db, batch_size, no_create_tables):
+    """Start realtime monitoring service.
+
+    \b
+    This command starts background threads that continuously monitor
+    JV-Link realtime data streams and automatically import new data
+    as it arrives.
+
+    \b
+    Common data specs:
+      0B12 - Race results (default)
+      0B15 - Payouts
+      0B31 - Odds
+      0B33 - Horse numbers
+      0B35 - Weather/track conditions
+
+    \b
+    Examples:
+      jltsql realtime start
+      jltsql realtime start --specs 0B12,0B15
+      jltsql realtime start --specs 0B12 --db duckdb
+    """
+    from src.database.sqlite_handler import SQLiteDatabase
+    from src.database.duckdb_handler import DuckDBDatabase
+    from src.database.postgresql_handler import PostgreSQLDatabase
+    from src.services.realtime_monitor import RealtimeMonitor
+
+    config = ctx.obj.get("config")
+    if not config and not db:
+        console.print(
+            "[red]Error:[/red] No configuration found. "
+            "Run 'jltsql init' first or use --db option."
+        )
+        sys.exit(1)
+
+    # Parse data specs
+    data_specs = [spec.strip() for spec in specs.split(",")]
+
+    # Determine database type
+    if db:
+        db_type = db
+    else:
+        db_type = config.database.get("type", "sqlite")
+
+    console.print("[bold cyan]Starting realtime monitoring service...[/bold cyan]\n")
+    console.print(f"  Data specs:    {', '.join(data_specs)}")
+    console.print(f"  Database:      {db_type}")
+    console.print(f"  Batch size:    {batch_size}")
+    console.print(f"  Auto-create:   {'No' if no_create_tables else 'Yes'}")
+    console.print()
+
+    try:
+        # Initialize database
+        if db_type == "sqlite":
+            db_config = config.database if config else {"path": "data/keiba.db"}
+            database = SQLiteDatabase(db_config)
+        elif db_type == "duckdb":
+            db_config = config.database if config else {"path": "data/keiba.duckdb"}
+            database = DuckDBDatabase(db_config)
+        elif db_type == "postgresql":
+            if not config:
+                console.print("[red]Error:[/red] PostgreSQL requires configuration file.")
+                sys.exit(1)
+            database = PostgreSQLDatabase(config.database)
+        else:
+            console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
+            sys.exit(1)
+
+        # Create monitor
+        monitor = RealtimeMonitor(
+            database=database,
+            data_specs=data_specs,
+            sid=config.jvlink.get("sid", "JLTSQL") if config else "JLTSQL",
+            batch_size=batch_size,
+            auto_create_tables=not no_create_tables
+        )
+
+        # Start monitoring
+        if monitor.start():
+            console.print("[bold green]✓ Monitoring service started![/bold green]\n")
+
+            status = monitor.get_status()
+            console.print("[bold]Status:[/bold]")
+            console.print(f"  Running:        Yes")
+            console.print(f"  Started at:     {status['started_at']}")
+            console.print(f"  Monitored specs: {', '.join(status['monitored_specs'])}")
+            console.print()
+            console.print("[dim]Use 'jltsql realtime status' to check progress[/dim]")
+            console.print("[dim]Use 'jltsql realtime stop' to stop monitoring[/dim]")
+
+            # Keep monitoring in foreground
+            console.print("\nPress Ctrl+C to stop...\n")
+            try:
+                import time
+                while monitor.status.is_running:
+                    time.sleep(2)
+                    # Periodically show stats
+                    status = monitor.get_status()
+                    console.print(
+                        f"\rImported: {status['records_imported']:,} | "
+                        f"Failed: {status['records_failed']:,} | "
+                        f"Uptime: {status['uptime_seconds']:.0f}s",
+                        end=""
+                    )
+            except KeyboardInterrupt:
+                console.print("\n\n[yellow]Stopping monitoring...[/yellow]")
+                monitor.stop()
+                console.print("[green]✓ Monitoring stopped[/green]")
+
+        else:
+            console.print("[red]✗ Failed to start monitoring service[/red]")
+            sys.exit(1)
+
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Interrupted by user[/yellow]")
+        sys.exit(0)
+    except Exception as e:
+        console.print(f"\n[red]Error:[/red] {e}", style="bold")
+        logger.error("Failed to start realtime monitoring", error=str(e), exc_info=True)
+        sys.exit(1)
+
+
+@realtime.command()
+@click.pass_context
+def status(ctx):
+    """Show realtime monitoring status.
+
+    Displays current status of the monitoring service including:
+    - Running state
+    - Uptime
+    - Records imported
+    - Errors
+    - Monitored data specs
+    """
+    console.print("[yellow]Note:[/yellow] Status tracking not yet implemented.")
+    console.print()
+    console.print("To implement persistent status tracking, the monitor needs to:")
+    console.print("  1. Save status to a shared location (e.g., file or Redis)")
+    console.print("  2. Support inter-process communication")
+    console.print()
+    console.print("For now, check the logs at: logs/jltsql.log")
+
+
+@realtime.command()
+@click.pass_context
+def stop(ctx):
+    """Stop realtime monitoring service.
+
+    Gracefully stops all monitoring threads and closes database connections.
+    """
+    console.print("[yellow]Note:[/yellow] Stop command not yet implemented.")
+    console.print()
+    console.print("To implement stop functionality, the monitor needs to:")
+    console.print("  1. Save process ID (PID) when starting")
+    console.print("  2. Support inter-process signaling")
+    console.print()
+    console.print("For now, use Ctrl+C to stop the monitoring process.")
+
+
+@realtime.command()
+def specs():
+    """List available realtime data specification codes.
+
+    Shows all JV-Link realtime data specs with descriptions.
+    """
+    from src.fetcher.realtime import RealtimeFetcher
+
+    specs_dict = RealtimeFetcher.list_data_specs()
+
+    console.print("[bold cyan]Available Realtime Data Specs[/bold cyan]\n")
+
+    # Group by category
+    race_specs = {}
+    master_specs = {}
+    odds_specs = {}
+    other_specs = {}
+
+    for code, desc in specs_dict.items():
+        if "レース" in desc or "払戻" in desc:
+            race_specs[code] = desc
+        elif "マスタ" in desc:
+            master_specs[code] = desc
+        elif "オッズ" in desc:
+            odds_specs[code] = desc
+        else:
+            other_specs[code] = desc
+
+    # Display grouped
+    if race_specs:
+        console.print("[bold]Race Data:[/bold]")
+        for code, desc in sorted(race_specs.items()):
+            console.print(f"  [cyan]{code}[/cyan] - {desc}")
+        console.print()
+
+    if odds_specs:
+        console.print("[bold]Odds Data:[/bold]")
+        for code, desc in sorted(odds_specs.items()):
+            console.print(f"  [cyan]{code}[/cyan] - {desc}")
+        console.print()
+
+    if master_specs:
+        console.print("[bold]Master Data:[/bold]")
+        for code, desc in sorted(master_specs.items()):
+            console.print(f"  [cyan]{code}[/cyan] - {desc}")
+        console.print()
+
+    if other_specs:
+        console.print("[bold]Other Data:[/bold]")
+        for code, desc in sorted(other_specs.items()):
+            console.print(f"  [cyan]{code}[/cyan] - {desc}")
+        console.print()
+
+    console.print("[dim]Use these codes with: jltsql realtime start --specs <code>[/dim]")
+
+
 if __name__ == "__main__":
     cli(obj={})
