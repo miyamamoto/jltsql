@@ -1,127 +1,130 @@
-"""Parser for CK record (２０．出走別着度数)."""
+"""Parser for CK record - JRA-VAN Standard compliant.
 
-from typing import List, Tuple
+This parser uses JRA-VAN standard field names and type conversions.
+Auto-generated from jv_data_formats.json.
+"""
 
-from src.parser.base import BaseParser
+from typing import List
+
+from src.parser.base import BaseParser, FieldDef
 
 
 class CKParser(BaseParser):
-    """Parser for CK record (Format 20).
+    """Parser for CK record with JRA-VAN standard schema.
 
-    Record type: ２０．出走別着度数
-    Total fields: 103
+    Uses English/Romanized field names matching JRA-VAN standard database.
     """
 
     record_type = "CK"
 
-    def _define_fields(self) -> List[Tuple[int, int, str]]:
-        """Define field positions and lengths.
+    def _define_fields(self) -> List[FieldDef]:
+        """Define field positions with JRA-VAN standard names and types.
 
         Returns:
-            List of tuples: (position, length, field_name)
+            List of FieldDef objects with type conversion settings
         """
         return [
-            (1, 2, 'レコード種別ID'),  # レコード種別ID
-            (3, 1, 'データ区分'),  # データ区分
-            (4, 8, 'データ作成年月日'),  # データ作成年月日
-            (12, 4, '開催年'),  # 開催年
-            (16, 4, '開催月日'),  # 開催月日
-            (20, 2, '競馬場コード'),  # 競馬場コード
-            (22, 2, '開催回第N回'),  # 開催回[第N回]
-            (24, 2, '開催日目N日目'),  # 開催日目[N日目]
-            (26, 2, 'レース番号'),  # レース番号
-            (28, 10, '血統登録番号'),  # 血統登録番号
-            (38, 36, '馬名'),  # 馬名
-            (74, 9, '平地本賞金累計'),  # 平地本賞金累計
-            (83, 9, '障害本賞金累計'),  # 障害本賞金累計
-            (92, 9, '平地付加賞金累計'),  # 平地付加賞金累計
-            (101, 9, '障害付加賞金累計'),  # 障害付加賞金累計
-            (110, 9, '平地収得賞金累計'),  # 平地収得賞金累計
-            (119, 9, '障害収得賞金累計'),  # 障害収得賞金累計
-            (128, 3, '総合着回数'),  # 総合着回数
-            (146, 3, '中央合計着回数'),  # 中央合計着回数
-            (164, 3, '芝直着回数'),  # 芝直・着回数
-            (182, 3, '芝右着回数'),  # 芝右・着回数
-            (200, 3, '芝左着回数'),  # 芝左・着回数
-            (218, 3, 'ダ直着回数'),  # ダ直・着回数
-            (236, 3, 'ダ右着回数'),  # ダ右・着回数
-            (254, 3, 'ダ左着回数'),  # ダ左・着回数
-            (272, 3, '障害着回数'),  # 障害・着回数
-            (290, 3, '芝良着回数'),  # 芝良・着回数
-            (308, 3, '芝稍着回数'),  # 芝稍・着回数
-            (326, 3, '芝重着回数'),  # 芝重・着回数
-            (344, 3, '芝不着回数'),  # 芝不・着回数
-            (362, 3, 'ダ良着回数'),  # ダ良・着回数
-            (380, 3, 'ダ稍着回数'),  # ダ稍・着回数
-            (398, 3, 'ダ重着回数'),  # ダ重・着回数
-            (416, 3, 'ダ不着回数'),  # ダ不・着回数
-            (434, 3, '障良着回数'),  # 障良・着回数
-            (452, 3, '障稍着回数'),  # 障稍・着回数
-            (470, 3, '障重着回数'),  # 障重・着回数
-            (488, 3, '障不着回数'),  # 障不・着回数
-            (506, 3, '芝1200以下着回数'),  # 芝1200以下・着回数
-            (524, 3, '芝1201_1400着回数'),  # 芝1201-1400・着回数
-            (542, 3, '芝1401_1600着回数'),  # 芝1401-1600・着回数
-            (560, 3, '芝1601_1800着回数'),  # 芝1601-1800・着回数
-            (578, 3, '芝1801_2000着回数'),  # 芝1801-2000・着回数
-            (596, 3, '芝2001_2200着回数'),  # 芝2001-2200・着回数
-            (614, 3, '芝2201_2400着回数'),  # 芝2201-2400・着回数
-            (632, 3, '芝2401_2800着回数'),  # 芝2401-2800・着回数
-            (650, 3, '芝2801以上着回数'),  # 芝2801以上・着回数
-            (668, 3, 'ダ1200以下着回数'),  # ダ1200以下・着回数
-            (686, 3, 'ダ1201_1400着回数'),  # ダ1201-1400・着回数
-            (704, 3, 'ダ1401_1600着回数'),  # ダ1401-1600・着回数
-            (722, 3, 'ダ1601_1800着回数'),  # ダ1601-1800・着回数
-            (740, 3, 'ダ1801_2000着回数'),  # ダ1801-2000・着回数
-            (758, 3, 'ダ2001_2200着回数'),  # ダ2001-2200・着回数
-            (776, 3, 'ダ2201_2400着回数'),  # ダ2201-2400・着回数
-            (794, 3, 'ダ2401_2800着回数'),  # ダ2401-2800・着回数
-            (812, 3, 'ダ2801以上着回数'),  # ダ2801以上・着回数
-            (830, 3, '札幌芝着回数'),  # 札幌芝・着回数
-            (848, 3, '函館芝着回数'),  # 函館芝・着回数
-            (866, 3, '福島芝着回数'),  # 福島芝・着回数
-            (884, 3, '新潟芝着回数'),  # 新潟芝・着回数
-            (902, 3, '東京芝着回数'),  # 東京芝・着回数
-            (920, 3, '中山芝着回数'),  # 中山芝・着回数
-            (938, 3, '中京芝着回数'),  # 中京芝・着回数
-            (956, 3, '京都芝着回数'),  # 京都芝・着回数
-            (974, 3, '阪神芝着回数'),  # 阪神芝・着回数
-            (992, 3, '小倉芝着回数'),  # 小倉芝・着回数
-            (1010, 3, '札幌ダ着回数'),  # 札幌ダ・着回数
-            (1028, 3, '函館ダ着回数'),  # 函館ダ・着回数
-            (1046, 3, '福島ダ着回数'),  # 福島ダ・着回数
-            (1064, 3, '新潟ダ着回数'),  # 新潟ダ・着回数
-            (1082, 3, '東京ダ着回数'),  # 東京ダ・着回数
-            (1100, 3, '中山ダ着回数'),  # 中山ダ・着回数
-            (1118, 3, '中京ダ着回数'),  # 中京ダ・着回数
-            (1136, 3, '京都ダ着回数'),  # 京都ダ・着回数
-            (1154, 3, '阪神ダ着回数'),  # 阪神ダ・着回数
-            (1172, 3, '小倉ダ着回数'),  # 小倉ダ・着回数
-            (1190, 3, '札幌障着回数'),  # 札幌障・着回数
-            (1208, 3, '函館障着回数'),  # 函館障・着回数
-            (1226, 3, '福島障着回数'),  # 福島障・着回数
-            (1244, 3, '新潟障着回数'),  # 新潟障・着回数
-            (1262, 3, '東京障着回数'),  # 東京障・着回数
-            (1280, 3, '中山障着回数'),  # 中山障・着回数
-            (1298, 3, '中京障着回数'),  # 中京障・着回数
-            (1316, 3, '京都障着回数'),  # 京都障・着回数
-            (1334, 3, '阪神障着回数'),  # 阪神障・着回数
-            (1352, 3, '小倉障着回数'),  # 小倉障・着回数
-            (1370, 3, '脚質傾向'),  # 脚質傾向
-            (1382, 3, '登録レース数'),  # 登録レース数
-            (1385, 5, '騎手コード'),  # 騎手コード
-            (1390, 34, '騎手名'),  # 騎手名
-            (1424, 1220, '騎手本年累計成績情報'),  # <騎手本年･累計成績情報>
-            (3864, 5, '調教師コード'),  # 調教師コード
-            (3869, 34, '調教師名'),  # 調教師名
-            (3903, 1220, '調教師本年累計成績情報'),  # <調教師本年･累計成績情報>
-            (6343, 6, '馬主コード'),  # 馬主コード
-            (6349, 64, '馬主名法人格有'),  # 馬主名(法人格有)
-            (6413, 64, '馬主名法人格無'),  # 馬主名(法人格無)
-            (6477, 60, '本年累計成績情報'),  # <本年･累計成績情報>
-            (6597, 8, '生産者コード'),  # 生産者コード
-            (6605, 72, '生産者名法人格有'),  # 生産者名(法人格有)
-            (6677, 72, '生産者名法人格無'),  # 生産者名(法人格無)
-            (6749, 60, '本年累計成績情報'),  # <本年･累計成績情報>
-            (6869, 2, 'レコード区切'),  # レコード区切
+            FieldDef("RecordSpec", 0, 2, description="レコード種別ID"),
+            FieldDef("DataKubun", 2, 1, description="データ区分"),
+            FieldDef("MakeDate", 3, 8, convert_type="DATE", description="データ作成年月日"),
+            FieldDef("Year", 11, 4, convert_type="SMALLINT", description="開催年"),
+            FieldDef("MonthDay", 15, 4, convert_type="MONTH_DAY", description="開催月日"),
+            FieldDef("JyoCD", 19, 2, description="競馬場コード"),
+            FieldDef("Kaiji", 21, 2, convert_type="SMALLINT", description="開催回[第N回]"),
+            FieldDef("Nichiji", 23, 2, convert_type="SMALLINT", description="開催日目[N日目]"),
+            FieldDef("RaceNum", 25, 2, convert_type="SMALLINT", description="レース番号"),
+            FieldDef("KettoNum", 27, 10, description="血統登録番号"),
+            FieldDef("Bamei", 37, 36, description="馬名"),
+            FieldDef("平地本賞金累計", 73, 9, description="平地本賞金累計"),
+            FieldDef("障害本賞金累計", 82, 9, description="障害本賞金累計"),
+            FieldDef("平地付加賞金累計", 91, 9, description="平地付加賞金累計"),
+            FieldDef("障害付加賞金累計", 100, 9, description="障害付加賞金累計"),
+            FieldDef("平地収得賞金累計", 109, 9, description="平地収得賞金累計"),
+            FieldDef("障害収得賞金累計", 118, 9, description="障害収得賞金累計"),
+            FieldDef("総合着回数", 127, 3, description="総合着回数"),
+            FieldDef("中央合計着回数", 145, 3, description="中央合計着回数"),
+            FieldDef("芝直・着回数", 163, 3, description="芝直・着回数"),
+            FieldDef("芝右・着回数", 181, 3, description="芝右・着回数"),
+            FieldDef("芝左・着回数", 199, 3, description="芝左・着回数"),
+            FieldDef("ダ直・着回数", 217, 3, description="ダ直・着回数"),
+            FieldDef("ダ右・着回数", 235, 3, description="ダ右・着回数"),
+            FieldDef("ダ左・着回数", 253, 3, description="ダ左・着回数"),
+            FieldDef("障害・着回数", 271, 3, description="障害・着回数"),
+            FieldDef("芝良・着回数", 289, 3, description="芝良・着回数"),
+            FieldDef("芝稍・着回数", 307, 3, description="芝稍・着回数"),
+            FieldDef("芝重・着回数", 325, 3, description="芝重・着回数"),
+            FieldDef("芝不・着回数", 343, 3, description="芝不・着回数"),
+            FieldDef("ダ良・着回数", 361, 3, description="ダ良・着回数"),
+            FieldDef("ダ稍・着回数", 379, 3, description="ダ稍・着回数"),
+            FieldDef("ダ重・着回数", 397, 3, description="ダ重・着回数"),
+            FieldDef("ダ不・着回数", 415, 3, description="ダ不・着回数"),
+            FieldDef("障良・着回数", 433, 3, description="障良・着回数"),
+            FieldDef("障稍・着回数", 451, 3, description="障稍・着回数"),
+            FieldDef("障重・着回数", 469, 3, description="障重・着回数"),
+            FieldDef("障不・着回数", 487, 3, description="障不・着回数"),
+            FieldDef("芝1200以下・着回数", 505, 3, description="芝1200以下・着回数"),
+            FieldDef("芝1201-1400・着回数", 523, 3, description="芝1201-1400・着回数"),
+            FieldDef("芝1401-1600・着回数", 541, 3, description="芝1401-1600・着回数"),
+            FieldDef("芝1601-1800・着回数", 559, 3, description="芝1601-1800・着回数"),
+            FieldDef("芝1801-2000・着回数", 577, 3, description="芝1801-2000・着回数"),
+            FieldDef("芝2001-2200・着回数", 595, 3, description="芝2001-2200・着回数"),
+            FieldDef("芝2201-2400・着回数", 613, 3, description="芝2201-2400・着回数"),
+            FieldDef("芝2401-2800・着回数", 631, 3, description="芝2401-2800・着回数"),
+            FieldDef("芝2801以上・着回数", 649, 3, description="芝2801以上・着回数"),
+            FieldDef("ダ1200以下・着回数", 667, 3, description="ダ1200以下・着回数"),
+            FieldDef("ダ1201-1400・着回数", 685, 3, description="ダ1201-1400・着回数"),
+            FieldDef("ダ1401-1600・着回数", 703, 3, description="ダ1401-1600・着回数"),
+            FieldDef("ダ1601-1800・着回数", 721, 3, description="ダ1601-1800・着回数"),
+            FieldDef("ダ1801-2000・着回数", 739, 3, description="ダ1801-2000・着回数"),
+            FieldDef("ダ2001-2200・着回数", 757, 3, description="ダ2001-2200・着回数"),
+            FieldDef("ダ2201-2400・着回数", 775, 3, description="ダ2201-2400・着回数"),
+            FieldDef("ダ2401-2800・着回数", 793, 3, description="ダ2401-2800・着回数"),
+            FieldDef("ダ2801以上・着回数", 811, 3, description="ダ2801以上・着回数"),
+            FieldDef("札幌芝・着回数", 829, 3, description="札幌芝・着回数"),
+            FieldDef("函館芝・着回数", 847, 3, description="函館芝・着回数"),
+            FieldDef("福島芝・着回数", 865, 3, description="福島芝・着回数"),
+            FieldDef("新潟芝・着回数", 883, 3, description="新潟芝・着回数"),
+            FieldDef("東京芝・着回数", 901, 3, description="東京芝・着回数"),
+            FieldDef("中山芝・着回数", 919, 3, description="中山芝・着回数"),
+            FieldDef("中京芝・着回数", 937, 3, description="中京芝・着回数"),
+            FieldDef("京都芝・着回数", 955, 3, description="京都芝・着回数"),
+            FieldDef("阪神芝・着回数", 973, 3, description="阪神芝・着回数"),
+            FieldDef("小倉芝・着回数", 991, 3, description="小倉芝・着回数"),
+            FieldDef("札幌ダ・着回数", 1009, 3, description="札幌ダ・着回数"),
+            FieldDef("函館ダ・着回数", 1027, 3, description="函館ダ・着回数"),
+            FieldDef("福島ダ・着回数", 1045, 3, description="福島ダ・着回数"),
+            FieldDef("新潟ダ・着回数", 1063, 3, description="新潟ダ・着回数"),
+            FieldDef("東京ダ・着回数", 1081, 3, description="東京ダ・着回数"),
+            FieldDef("中山ダ・着回数", 1099, 3, description="中山ダ・着回数"),
+            FieldDef("中京ダ・着回数", 1117, 3, description="中京ダ・着回数"),
+            FieldDef("京都ダ・着回数", 1135, 3, description="京都ダ・着回数"),
+            FieldDef("阪神ダ・着回数", 1153, 3, description="阪神ダ・着回数"),
+            FieldDef("小倉ダ・着回数", 1171, 3, description="小倉ダ・着回数"),
+            FieldDef("札幌障・着回数", 1189, 3, description="札幌障・着回数"),
+            FieldDef("函館障・着回数", 1207, 3, description="函館障・着回数"),
+            FieldDef("福島障・着回数", 1225, 3, description="福島障・着回数"),
+            FieldDef("新潟障・着回数", 1243, 3, description="新潟障・着回数"),
+            FieldDef("東京障・着回数", 1261, 3, description="東京障・着回数"),
+            FieldDef("中山障・着回数", 1279, 3, description="中山障・着回数"),
+            FieldDef("中京障・着回数", 1297, 3, description="中京障・着回数"),
+            FieldDef("京都障・着回数", 1315, 3, description="京都障・着回数"),
+            FieldDef("阪神障・着回数", 1333, 3, description="阪神障・着回数"),
+            FieldDef("小倉障・着回数", 1351, 3, description="小倉障・着回数"),
+            FieldDef("脚質傾向", 1369, 3, description="脚質傾向"),
+            FieldDef("登録レース数", 1381, 3, description="登録レース数"),
+            FieldDef("KisyuCode", 1384, 5, description="騎手コード"),
+            FieldDef("騎手名", 1389, 34, description="騎手名"),
+            FieldDef("<騎手本年･累計成績情報>", 1423, 1220, description="<騎手本年･累計成績情報>"),
+            FieldDef("ChokyosiCode", 3863, 5, description="調教師コード"),
+            FieldDef("調教師名", 3868, 34, description="調教師名"),
+            FieldDef("<調教師本年･累計成績情報>", 3902, 1220, description="<調教師本年･累計成績情報>"),
+            FieldDef("BanusiCode", 6342, 6, description="馬主コード"),
+            FieldDef("馬主名(法人格有)", 6348, 64, description="馬主名(法人格有)"),
+            FieldDef("馬主名(法人格無)", 6412, 64, description="馬主名(法人格無)"),
+            FieldDef("<本年･累計成績情報>", 6476, 60, description="<本年･累計成績情報>"),
+            FieldDef("生産者コード", 6596, 8, description="生産者コード"),
+            FieldDef("生産者名(法人格有)", 6604, 72, description="生産者名(法人格有)"),
+            FieldDef("生産者名(法人格無)", 6676, 72, description="生産者名(法人格無)"),
+            FieldDef("<本年･累計成績情報>", 6748, 60, description="<本年･累計成績情報>"),
+            FieldDef("RecordDelimiter", 6868, 2, description="レコード区切"),
         ]

@@ -1,40 +1,43 @@
-"""Parser for O3 record (９．オッズ3（ワイド）)."""
+"""Parser for O3 record - JRA-VAN Standard compliant.
 
-from typing import List, Tuple
+This parser uses JRA-VAN standard field names and type conversions.
+Generated from jv_data_formats.json and JRA-VAN standard schema.
+"""
 
-from src.parser.base import BaseParser
+from typing import List
+
+from src.parser.base import BaseParser, FieldDef
 
 
 class O3Parser(BaseParser):
-    """Parser for O3 record (Format 9).
+    """Parser for O3 record with JRA-VAN standard schema.
 
-    Record type: ９．オッズ3（ワイド）
-    Total fields: 16
+    Uses English/Romanized field names matching JRA-VAN standard database.
     """
 
     record_type = "O3"
 
-    def _define_fields(self) -> List[Tuple[int, int, str]]:
-        """Define field positions and lengths.
+    def _define_fields(self) -> List[FieldDef]:
+        """Define field positions with JRA-VAN standard names and types.
 
         Returns:
-            List of tuples: (position, length, field_name)
+            List of FieldDef objects with type conversion settings
         """
         return [
-            (1, 2, 'レコード種別ID'),  # レコード種別ID
-            (3, 1, 'データ区分'),  # データ区分
-            (4, 8, 'データ作成年月日'),  # データ作成年月日
-            (12, 4, '開催年'),  # 開催年
-            (16, 4, '開催月日'),  # 開催月日
-            (20, 2, '競馬場コード'),  # 競馬場コード
-            (22, 2, '開催回第N回'),  # 開催回[第N回]
-            (24, 2, '開催日目N日目'),  # 開催日目[N日目]
-            (26, 2, 'レース番号'),  # レース番号
-            (28, 8, '発表月日時分'),  # 発表月日時分
-            (36, 2, '登録頭数'),  # 登録頭数
-            (38, 2, '出走頭数'),  # 出走頭数
-            (40, 1, '発売フラグワイド'),  # 発売フラグ　ワイド
-            (41, 17, 'ワイドオッズ'),  # <ワイドオッズ>
-            (2642, 11, 'ワイド票数合計'),  # ワイド票数合計
-            (2653, 2, 'レコード区切'),  # レコード区切
+            FieldDef("MakeDate", 0, 2, convert_type="DATE", description="レコード種別ID"),
+            FieldDef("Year", 2, 1, convert_type="SMALLINT", description="データ区分"),
+            FieldDef("MonthDay", 3, 8, convert_type="MONTH_DAY", description="データ作成年月日"),
+            FieldDef("JyoCD", 11, 4, description="開催年"),
+            FieldDef("Kaiji", 15, 4, convert_type="SMALLINT", description="開催月日"),
+            FieldDef("Nichiji", 19, 2, convert_type="SMALLINT", description="競馬場コード"),
+            FieldDef("RaceNum", 21, 2, convert_type="SMALLINT", description="開催回[第N回]"),
+            FieldDef("Kumi", 23, 2, description="開催日目[N日目]"),
+            FieldDef("Odds", 25, 2, convert_type="ODDS", description="レース番号"),
+            FieldDef("Ninki", 27, 8, convert_type="SMALLINT", description="発表月日時分"),
+            FieldDef("登録頭数", 35, 2, description="登録頭数"),
+            FieldDef("出走頭数", 37, 2, description="出走頭数"),
+            FieldDef("発売フラグ　ワイド", 39, 1, description="発売フラグ　ワイド"),
+            FieldDef("<ワイドオッズ>", 40, 17, description="<ワイドオッズ>"),
+            FieldDef("ワイド票数合計", 2641, 11, description="ワイド票数合計"),
+            FieldDef("レコード区切", 2652, 2, description="レコード区切"),
         ]

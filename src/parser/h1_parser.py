@@ -1,68 +1,71 @@
-"""Parser for H1 record (５．票数１)."""
+"""Parser for H1 record - JRA-VAN Standard compliant.
 
-from typing import List, Tuple
+This parser uses JRA-VAN standard field names and type conversions.
+Generated from jv_data_formats.json and JRA-VAN standard schema.
+"""
 
-from src.parser.base import BaseParser
+from typing import List
+
+from src.parser.base import BaseParser, FieldDef
 
 
 class H1Parser(BaseParser):
-    """Parser for H1 record (Format 5).
+    """Parser for H1 record with JRA-VAN standard schema.
 
-    Record type: ５．票数１
-    Total fields: 44
+    Uses English/Romanized field names matching JRA-VAN standard database.
     """
 
     record_type = "H1"
 
-    def _define_fields(self) -> List[Tuple[int, int, str]]:
-        """Define field positions and lengths.
+    def _define_fields(self) -> List[FieldDef]:
+        """Define field positions with JRA-VAN standard names and types.
 
         Returns:
-            List of tuples: (position, length, field_name)
+            List of FieldDef objects with type conversion settings
         """
         return [
-            (1, 2, 'レコード種別ID'),  # レコード種別ID
-            (3, 1, 'データ区分'),  # データ区分
-            (4, 8, 'データ作成年月日'),  # データ作成年月日
-            (12, 4, '開催年'),  # 開催年
-            (16, 4, '開催月日'),  # 開催月日
-            (20, 2, '競馬場コード'),  # 競馬場コード
-            (22, 2, '開催回第N回'),  # 開催回[第N回]
-            (24, 2, '開催日目N日目'),  # 開催日目[N日目]
-            (26, 2, 'レース番号'),  # レース番号
-            (28, 2, '登録頭数'),  # 登録頭数
-            (30, 2, '出走頭数'),  # 出走頭数
-            (32, 1, '発売フラグ単勝'),  # 発売フラグ　単勝
-            (33, 1, '発売フラグ複勝'),  # 発売フラグ　複勝
-            (34, 1, '発売フラグ枠連'),  # 発売フラグ　枠連
-            (35, 1, '発売フラグ馬連'),  # 発売フラグ　馬連
-            (36, 1, '発売フラグワイド'),  # 発売フラグ　ワイド
-            (37, 1, '発売フラグ馬単'),  # 発売フラグ　馬単
-            (38, 1, '発売フラグ3連複'),  # 発売フラグ　3連複
-            (39, 1, '複勝着払キー'),  # 複勝着払キー
-            (40, 1, '返還馬番情報馬番0128'),  # 返還馬番情報(馬番01～28)
-            (68, 1, '返還枠番情報枠番18'),  # 返還枠番情報(枠番1～8)
-            (76, 1, '返還同枠情報枠番18'),  # 返還同枠情報(枠番1～8)
-            (84, 15, '単勝票数'),  # <単勝票数>
-            (504, 15, '複勝票数'),  # <複勝票数>
-            (924, 15, '枠連票数'),  # <枠連票数>
-            (1464, 18, '馬連票数'),  # <馬連票数>
-            (4218, 18, 'ワイド票数'),  # <ワイド票数>
-            (6972, 18, '馬単票数'),  # <馬単票数>
-            (12480, 20, '3連複票数'),  # <3連複票数>
-            (28800, 11, '単勝票数合計'),  # 単勝票数合計
-            (28811, 11, '複勝票数合計'),  # 複勝票数合計
-            (28822, 11, '枠連票数合計'),  # 枠連票数合計
-            (28833, 11, '馬連票数合計'),  # 馬連票数合計
-            (28844, 11, 'ワイド票数合計'),  # ワイド票数合計
-            (28855, 11, '馬単票数合計'),  # 馬単票数合計
-            (28866, 11, '3連複票数合計'),  # 3連複票数合計
-            (28877, 11, '単勝返還票数合計'),  # 単勝返還票数合計
-            (28888, 11, '複勝返還票数合計'),  # 複勝返還票数合計
-            (28899, 11, '枠連返還票数合計'),  # 枠連返還票数合計
-            (28910, 11, '馬連返還票数合計'),  # 馬連返還票数合計
-            (28921, 11, 'ワイド返還票数合計'),  # ワイド返還票数合計
-            (28932, 11, '馬単返還票数合計'),  # 馬単返還票数合計
-            (28943, 11, '3連複返還票数合計'),  # 3連複返還票数合計
-            (28954, 2, 'レコード区切'),  # レコード区切
+            FieldDef("MakeDate", 0, 2, convert_type="DATE", description="レコード種別ID"),
+            FieldDef("Year", 2, 1, convert_type="SMALLINT", description="データ区分"),
+            FieldDef("MonthDay", 3, 8, convert_type="MONTH_DAY", description="データ作成年月日"),
+            FieldDef("JyoCD", 11, 4, description="開催年"),
+            FieldDef("Kaiji", 15, 4, convert_type="SMALLINT", description="開催月日"),
+            FieldDef("Nichiji", 19, 2, convert_type="SMALLINT", description="競馬場コード"),
+            FieldDef("RaceNum", 21, 2, convert_type="SMALLINT", description="開催回[第N回]"),
+            FieldDef("Umaban", 23, 2, convert_type="SMALLINT", description="開催日目[N日目]"),
+            FieldDef("TanOdds", 25, 2, description="レース番号"),
+            FieldDef("TanNinki", 27, 2, description="登録頭数"),
+            FieldDef("FukuOddsLow", 29, 2, description="出走頭数"),
+            FieldDef("FukuOddsHigh", 31, 1, description="発売フラグ　単勝"),
+            FieldDef("FukuNinki", 32, 1, description="発売フラグ　複勝"),
+            FieldDef("発売フラグ　枠連", 33, 1, description="発売フラグ　枠連"),
+            FieldDef("発売フラグ　馬連", 34, 1, description="発売フラグ　馬連"),
+            FieldDef("発売フラグ　ワイド", 35, 1, description="発売フラグ　ワイド"),
+            FieldDef("発売フラグ　馬単", 36, 1, description="発売フラグ　馬単"),
+            FieldDef("発売フラグ　3連複", 37, 1, description="発売フラグ　3連複"),
+            FieldDef("複勝着払キー", 38, 1, description="複勝着払キー"),
+            FieldDef("返還馬番情報(馬番01～28)", 39, 1, description="返還馬番情報(馬番01～28)"),
+            FieldDef("返還枠番情報(枠番1～8)", 67, 1, description="返還枠番情報(枠番1～8)"),
+            FieldDef("返還同枠情報(枠番1～8)", 75, 1, description="返還同枠情報(枠番1～8)"),
+            FieldDef("<単勝票数>", 83, 15, description="<単勝票数>"),
+            FieldDef("<複勝票数>", 503, 15, description="<複勝票数>"),
+            FieldDef("<枠連票数>", 923, 15, description="<枠連票数>"),
+            FieldDef("<馬連票数>", 1463, 18, description="<馬連票数>"),
+            FieldDef("<ワイド票数>", 4217, 18, description="<ワイド票数>"),
+            FieldDef("<馬単票数>", 6971, 18, description="<馬単票数>"),
+            FieldDef("<3連複票数>", 12479, 20, description="<3連複票数>"),
+            FieldDef("単勝票数合計", 28799, 11, description="単勝票数合計"),
+            FieldDef("複勝票数合計", 28810, 11, description="複勝票数合計"),
+            FieldDef("枠連票数合計", 28821, 11, description="枠連票数合計"),
+            FieldDef("馬連票数合計", 28832, 11, description="馬連票数合計"),
+            FieldDef("ワイド票数合計", 28843, 11, description="ワイド票数合計"),
+            FieldDef("馬単票数合計", 28854, 11, description="馬単票数合計"),
+            FieldDef("3連複票数合計", 28865, 11, description="3連複票数合計"),
+            FieldDef("単勝返還票数合計", 28876, 11, description="単勝返還票数合計"),
+            FieldDef("複勝返還票数合計", 28887, 11, description="複勝返還票数合計"),
+            FieldDef("枠連返還票数合計", 28898, 11, description="枠連返還票数合計"),
+            FieldDef("馬連返還票数合計", 28909, 11, description="馬連返還票数合計"),
+            FieldDef("ワイド返還票数合計", 28920, 11, description="ワイド返還票数合計"),
+            FieldDef("馬単返還票数合計", 28931, 11, description="馬単返還票数合計"),
+            FieldDef("3連複返還票数合計", 28942, 11, description="3連複返還票数合計"),
+            FieldDef("レコード区切", 28953, 2, description="レコード区切"),
         ]

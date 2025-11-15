@@ -1,32 +1,35 @@
-"""Parser for BT record (２６．系統情報)."""
+"""Parser for BT record - JRA-VAN Standard compliant.
 
-from typing import List, Tuple
+This parser uses JRA-VAN standard field names and type conversions.
+Auto-generated from jv_data_formats.json.
+"""
 
-from src.parser.base import BaseParser
+from typing import List
+
+from src.parser.base import BaseParser, FieldDef
 
 
 class BTParser(BaseParser):
-    """Parser for BT record (Format 26).
+    """Parser for BT record with JRA-VAN standard schema.
 
-    Record type: ２６．系統情報
-    Total fields: 8
+    Uses English/Romanized field names matching JRA-VAN standard database.
     """
 
     record_type = "BT"
 
-    def _define_fields(self) -> List[Tuple[int, int, str]]:
-        """Define field positions and lengths.
+    def _define_fields(self) -> List[FieldDef]:
+        """Define field positions with JRA-VAN standard names and types.
 
         Returns:
-            List of tuples: (position, length, field_name)
+            List of FieldDef objects with type conversion settings
         """
         return [
-            (1, 2, 'レコード種別ID'),  # レコード種別ID
-            (3, 1, 'データ区分'),  # データ区分
-            (4, 8, 'データ作成年月日'),  # データ作成年月日
-            (12, 10, '繁殖登録番号'),  # 繁殖登録番号
-            (22, 30, '系統ID'),  # 系統ID
-            (52, 36, '系統名'),  # 系統名
-            (88, 6800, '系統説明'),  # 系統説明
-            (6888, 2, 'レコード区切'),  # レコード区切
+            FieldDef("RecordSpec", 0, 2, description="レコード種別ID"),
+            FieldDef("DataKubun", 2, 1, description="データ区分"),
+            FieldDef("MakeDate", 3, 8, convert_type="DATE", description="データ作成年月日"),
+            FieldDef("繁殖登録番号", 11, 10, description="繁殖登録番号"),
+            FieldDef("系統ID", 21, 30, description="系統ID"),
+            FieldDef("系統名", 51, 36, description="系統名"),
+            FieldDef("系統説明", 87, 6800, description="系統説明"),
+            FieldDef("RecordDelimiter", 6887, 2, description="レコード区切"),
         ]

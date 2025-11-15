@@ -1,33 +1,36 @@
-"""Parser for CS record (２７．コース情報)."""
+"""Parser for CS record - JRA-VAN Standard compliant.
 
-from typing import List, Tuple
+This parser uses JRA-VAN standard field names and type conversions.
+Auto-generated from jv_data_formats.json.
+"""
 
-from src.parser.base import BaseParser
+from typing import List
+
+from src.parser.base import BaseParser, FieldDef
 
 
 class CSParser(BaseParser):
-    """Parser for CS record (Format 27).
+    """Parser for CS record with JRA-VAN standard schema.
 
-    Record type: ２７．コース情報
-    Total fields: 9
+    Uses English/Romanized field names matching JRA-VAN standard database.
     """
 
     record_type = "CS"
 
-    def _define_fields(self) -> List[Tuple[int, int, str]]:
-        """Define field positions and lengths.
+    def _define_fields(self) -> List[FieldDef]:
+        """Define field positions with JRA-VAN standard names and types.
 
         Returns:
-            List of tuples: (position, length, field_name)
+            List of FieldDef objects with type conversion settings
         """
         return [
-            (1, 2, 'レコード種別ID'),  # レコード種別ID
-            (3, 1, 'データ区分'),  # データ区分
-            (4, 8, 'データ作成年月日'),  # データ作成年月日
-            (12, 2, '競馬場コード'),  # 競馬場コード
-            (14, 4, '距離'),  # 距離
-            (18, 2, 'トラックコード'),  # トラックコード
-            (20, 8, 'コース改修年月日'),  # コース改修年月日
-            (28, 6800, 'コース説明'),  # コース説明
-            (6828, 2, 'レコード区切'),  # レコード区切
+            FieldDef("RecordSpec", 0, 2, description="レコード種別ID"),
+            FieldDef("DataKubun", 2, 1, description="データ区分"),
+            FieldDef("MakeDate", 3, 8, convert_type="DATE", description="データ作成年月日"),
+            FieldDef("JyoCD", 11, 2, description="競馬場コード"),
+            FieldDef("Kyori", 13, 4, convert_type="SMALLINT", description="距離"),
+            FieldDef("TrackCD", 17, 2, description="トラックコード"),
+            FieldDef("コース改修年月日", 19, 8, description="コース改修年月日"),
+            FieldDef("コース説明", 27, 6800, description="コース説明"),
+            FieldDef("RecordDelimiter", 6827, 2, description="レコード区切"),
         ]

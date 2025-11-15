@@ -1,75 +1,78 @@
-"""Parser for HR record (４．払戻)."""
+"""Parser for HR record - JRA-VAN Standard compliant.
 
-from typing import List, Tuple
+This parser uses JRA-VAN standard field names and type conversions.
+Generated from jv_data_formats.json and JRA-VAN standard schema.
+"""
 
-from src.parser.base import BaseParser
+from typing import List
+
+from src.parser.base import BaseParser, FieldDef
 
 
 class HRParser(BaseParser):
-    """Parser for HR record (Format 4).
+    """Parser for HR record with JRA-VAN standard schema.
 
-    Record type: ４．払戻
-    Total fields: 51
+    Uses English/Romanized field names matching JRA-VAN standard database.
     """
 
     record_type = "HR"
 
-    def _define_fields(self) -> List[Tuple[int, int, str]]:
-        """Define field positions and lengths.
+    def _define_fields(self) -> List[FieldDef]:
+        """Define field positions with JRA-VAN standard names and types.
 
         Returns:
-            List of tuples: (position, length, field_name)
+            List of FieldDef objects with type conversion settings
         """
         return [
-            (1, 2, 'レコード種別ID'),  # レコード種別ID
-            (3, 1, 'データ区分'),  # データ区分
-            (4, 8, 'データ作成年月日'),  # データ作成年月日
-            (12, 4, '開催年'),  # 開催年
-            (16, 4, '開催月日'),  # 開催月日
-            (20, 2, '競馬場コード'),  # 競馬場コード
-            (22, 2, '開催回第N回'),  # 開催回[第N回]
-            (24, 2, '開催日目N日目'),  # 開催日目[N日目]
-            (26, 2, 'レース番号'),  # レース番号
-            (28, 2, '登録頭数'),  # 登録頭数
-            (30, 2, '出走頭数'),  # 出走頭数
-            (32, 1, '不成立フラグ単勝'),  # 不成立フラグ　単勝
-            (33, 1, '不成立フラグ複勝'),  # 不成立フラグ　複勝
-            (34, 1, '不成立フラグ枠連'),  # 不成立フラグ　枠連
-            (35, 1, '不成立フラグ馬連'),  # 不成立フラグ　馬連
-            (36, 1, '不成立フラグワイド'),  # 不成立フラグ　ワイド
-            (37, 1, '予備'),  # 予備
-            (38, 1, '不成立フラグ馬単'),  # 不成立フラグ　馬単
-            (39, 1, '不成立フラグ3連複'),  # 不成立フラグ　3連複
-            (40, 1, '不成立フラグ3連単'),  # 不成立フラグ　3連単
-            (41, 1, '特払フラグ単勝'),  # 特払フラグ　単勝
-            (42, 1, '特払フラグ複勝'),  # 特払フラグ　複勝
-            (43, 1, '特払フラグ枠連'),  # 特払フラグ　枠連
-            (44, 1, '特払フラグ馬連'),  # 特払フラグ　馬連
-            (45, 1, '特払フラグワイド'),  # 特払フラグ　ワイド
-            (46, 1, '予備'),  # 予備
-            (47, 1, '特払フラグ馬単'),  # 特払フラグ　馬単
-            (48, 1, '特払フラグ3連複'),  # 特払フラグ　3連複
-            (49, 1, '特払フラグ3連単'),  # 特払フラグ　3連単
-            (50, 1, '返還フラグ単勝'),  # 返還フラグ　単勝
-            (51, 1, '返還フラグ複勝'),  # 返還フラグ　複勝
-            (52, 1, '返還フラグ枠連'),  # 返還フラグ　枠連
-            (53, 1, '返還フラグ馬連'),  # 返還フラグ　馬連
-            (54, 1, '返還フラグワイド'),  # 返還フラグ　ワイド
-            (55, 1, '予備'),  # 予備
-            (56, 1, '返還フラグ馬単'),  # 返還フラグ　馬単
-            (57, 1, '返還フラグ3連複'),  # 返還フラグ　3連複
-            (58, 1, '返還フラグ3連単'),  # 返還フラグ　3連単
-            (59, 1, '返還馬番情報馬番0128'),  # 返還馬番情報(馬番01～28)
-            (87, 1, '返還枠番情報枠番18'),  # 返還枠番情報(枠番1～8)
-            (95, 1, '返還同枠情報枠番18'),  # 返還同枠情報(枠番1～8)
-            (103, 13, '単勝払戻'),  # <単勝払戻>
-            (142, 13, '複勝払戻'),  # <複勝払戻>
-            (207, 13, '枠連払戻'),  # <枠連払戻>
-            (246, 16, '馬連払戻'),  # <馬連払戻>
-            (294, 16, 'ワイド払戻'),  # <ワイド払戻>
-            (406, 16, '予備'),  # <予備>
-            (454, 16, '馬単払戻'),  # <馬単払戻>
-            (550, 18, '3連複払戻'),  # <3連複払戻>
-            (604, 19, '3連単払戻'),  # <3連単払戻>
-            (718, 2, 'レコード区切'),  # レコード区切
+            FieldDef("RecordSpec", 0, 2, description="レコード種別ID"),
+            FieldDef("DataKubun", 2, 1, description="データ区分"),
+            FieldDef("MakeDate", 3, 8, convert_type="DATE", description="データ作成年月日"),
+            FieldDef("Year", 11, 4, convert_type="SMALLINT", description="開催年"),
+            FieldDef("MonthDay", 15, 4, convert_type="MONTH_DAY", description="開催月日"),
+            FieldDef("JyoCD", 19, 2, description="競馬場コード"),
+            FieldDef("Kaiji", 21, 2, convert_type="SMALLINT", description="開催回[第N回]"),
+            FieldDef("Nichiji", 23, 2, convert_type="SMALLINT", description="開催日目[N日目]"),
+            FieldDef("RaceNum", 25, 2, convert_type="SMALLINT", description="レース番号"),
+            FieldDef("TorokuTosu", 27, 2, convert_type="SMALLINT", description="登録頭数"),
+            FieldDef("SyussoTosu", 29, 2, convert_type="SMALLINT", description="出走頭数"),
+            FieldDef("FuseirituFlag1", 31, 1, description="不成立フラグ　単勝"),
+            FieldDef("FuseirituFlag2", 32, 1, description="不成立フラグ　複勝"),
+            FieldDef("FuseirituFlag3", 33, 1, description="不成立フラグ　枠連"),
+            FieldDef("FuseirituFlag4", 34, 1, description="不成立フラグ　馬連"),
+            FieldDef("FuseirituFlag5", 35, 1, description="不成立フラグ　ワイド"),
+            FieldDef("FuseirituFlag6", 36, 1, description="予備"),
+            FieldDef("FuseirituFlag7", 37, 1, description="不成立フラグ　馬単"),
+            FieldDef("FuseirituFlag8", 38, 1, description="不成立フラグ　3連複"),
+            FieldDef("FuseirituFlag9", 39, 1, description="不成立フラグ　3連単"),
+            FieldDef("TokubaraiFlag1", 40, 1, description="特払フラグ　単勝"),
+            FieldDef("TokubaraiFlag2", 41, 1, description="特払フラグ　複勝"),
+            FieldDef("TokubaraiFlag3", 42, 1, description="特払フラグ　枠連"),
+            FieldDef("TokubaraiFlag4", 43, 1, description="特払フラグ　馬連"),
+            FieldDef("TokubaraiFlag5", 44, 1, description="特払フラグ　ワイド"),
+            FieldDef("TokubaraiFlag6", 45, 1, description="予備"),
+            FieldDef("TokubaraiFlag7", 46, 1, description="特払フラグ　馬単"),
+            FieldDef("TokubaraiFlag8", 47, 1, description="特払フラグ　3連複"),
+            FieldDef("TokubaraiFlag9", 48, 1, description="特払フラグ　3連単"),
+            FieldDef("HenkanFlag1", 49, 1, description="返還フラグ　単勝"),
+            FieldDef("HenkanFlag2", 50, 1, description="返還フラグ　複勝"),
+            FieldDef("HenkanFlag3", 51, 1, description="返還フラグ　枠連"),
+            FieldDef("HenkanFlag4", 52, 1, description="返還フラグ　馬連"),
+            FieldDef("HenkanFlag5", 53, 1, description="返還フラグ　ワイド"),
+            FieldDef("HenkanFlag6", 54, 1, description="予備"),
+            FieldDef("HenkanFlag7", 55, 1, description="返還フラグ　馬単"),
+            FieldDef("HenkanFlag8", 56, 1, description="返還フラグ　3連複"),
+            FieldDef("HenkanFlag9", 57, 1, description="返還フラグ　3連単"),
+            FieldDef("HenkanUma1", 58, 1, description="返還馬番情報(馬番01～28)"),
+            FieldDef("HenkanUma2", 86, 1, description="返還枠番情報(枠番1～8)"),
+            FieldDef("HenkanUma3", 94, 1, description="返還同枠情報(枠番1～8)"),
+            FieldDef("HenkanUma4", 102, 13, description="<単勝払戻>"),
+            FieldDef("HenkanUma5", 141, 13, description="<複勝払戻>"),
+            FieldDef("HenkanUma6", 206, 13, description="<枠連払戻>"),
+            FieldDef("HenkanUma7", 245, 16, description="<馬連払戻>"),
+            FieldDef("HenkanUma8", 293, 16, description="<ワイド払戻>"),
+            FieldDef("HenkanUma9", 405, 16, description="<予備>"),
+            FieldDef("HenkanUma10", 453, 16, description="<馬単払戻>"),
+            FieldDef("HenkanUma11", 549, 18, description="<3連複払戻>"),
+            FieldDef("HenkanUma12", 603, 19, description="<3連単払戻>"),
+            FieldDef("HenkanUma13", 717, 2, description="レコード区切"),
         ]

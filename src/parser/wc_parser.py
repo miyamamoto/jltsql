@@ -1,54 +1,57 @@
-"""Parser for WC record (３２．ウッドチップ調教)."""
+"""Parser for WC record - JRA-VAN Standard compliant.
 
-from typing import List, Tuple
+This parser uses JRA-VAN standard field names and type conversions.
+Auto-generated from jv_data_formats.json.
+"""
 
-from src.parser.base import BaseParser
+from typing import List
+
+from src.parser.base import BaseParser, FieldDef
 
 
 class WCParser(BaseParser):
-    """Parser for WC record (Format 32).
+    """Parser for WC record with JRA-VAN standard schema.
 
-    Record type: ３２．ウッドチップ調教
-    Total fields: 30
+    Uses English/Romanized field names matching JRA-VAN standard database.
     """
 
     record_type = "WC"
 
-    def _define_fields(self) -> List[Tuple[int, int, str]]:
-        """Define field positions and lengths.
+    def _define_fields(self) -> List[FieldDef]:
+        """Define field positions with JRA-VAN standard names and types.
 
         Returns:
-            List of tuples: (position, length, field_name)
+            List of FieldDef objects with type conversion settings
         """
         return [
-            (1, 2, 'レコード種別ID'),  # レコード種別ID
-            (3, 1, 'データ区分'),  # データ区分
-            (4, 8, 'データ作成年月日'),  # データ作成年月日
-            (12, 1, 'トレセン区分'),  # トレセン区分
-            (13, 8, '調教年月日'),  # 調教年月日
-            (21, 4, '調教時刻'),  # 調教時刻
-            (25, 10, '血統登録番号'),  # 血統登録番号
-            (35, 1, 'コース'),  # コース
-            (36, 1, '馬場周り'),  # 馬場周り
-            (37, 1, '予備'),  # 予備
-            (38, 4, '10ハロンタイム合計2000M0M'),  # 10ハロンタイム合計(2000M～0M)
-            (42, 3, 'ラップタイム2000M1800M'),  # ラップタイム(2000M～1800M)
-            (45, 4, '9ハロンタイム合計1800M0M'),  # 9ハロンタイム合計(1800M～0M)
-            (49, 3, 'ラップタイム1800M1600M'),  # ラップタイム(1800M～1600M)
-            (52, 4, '8ロンタイム合計1600M0M'),  # 8ロンタイム合計(1600M～0M)
-            (56, 3, 'ラップタイム1600M1400M'),  # ラップタイム(1600M～1400M)
-            (59, 4, '7ハロンタイム合計1400M0M'),  # 7ハロンタイム合計(1400M～0M)
-            (63, 3, 'ラップタイム1400M1200M'),  # ラップタイム(1400M～1200M)
-            (66, 4, '6ハロンタイム合計1200M0M'),  # 6ハロンタイム合計(1200M～0M)
-            (70, 3, 'ラップタイム1200M1000M'),  # ラップタイム(1200M～1000M)
-            (73, 4, '5ハロンタイム合計1000M0M'),  # 5ハロンタイム合計(1000M～0M)
-            (77, 3, 'ラップタイム1000M800M'),  # ラップタイム(1000M～800M)
-            (80, 4, '4ハロンタイム合計800M0M'),  # 4ハロンタイム合計(800M～0M)
-            (84, 3, 'ラップタイム800M600M'),  # ラップタイム(800M～600M)
-            (87, 4, '3ハロンタイム合計600M0M'),  # 3ハロンタイム合計(600M～0M)
-            (91, 3, 'ラップタイム600M400M'),  # ラップタイム(600M～400M)
-            (94, 4, '2ハロンタイム合計400M0M'),  # 2ハロンタイム合計(400M～0M)
-            (98, 3, 'ラップタイム400M200M'),  # ラップタイム(400M～200M)
-            (101, 3, 'ラップタイム200M0M'),  # ラップタイム(200M～0M)
-            (104, 2, 'レコード区切'),  # レコード区切
+            FieldDef("RecordSpec", 0, 2, description="レコード種別ID"),
+            FieldDef("DataKubun", 2, 1, description="データ区分"),
+            FieldDef("MakeDate", 3, 8, convert_type="DATE", description="データ作成年月日"),
+            FieldDef("トレセン区分", 11, 1, description="トレセン区分"),
+            FieldDef("調教年月日", 12, 8, description="調教年月日"),
+            FieldDef("調教時刻", 20, 4, description="調教時刻"),
+            FieldDef("KettoNum", 24, 10, description="血統登録番号"),
+            FieldDef("コース", 34, 1, description="コース"),
+            FieldDef("馬場周り", 35, 1, description="馬場周り"),
+            FieldDef("予備", 36, 1, description="予備"),
+            FieldDef("10ハロンタイム合計(2000M～0M)", 37, 4, description="10ハロンタイム合計(2000M～0M)"),
+            FieldDef("LapTime(2000M～1800M)", 41, 3, description="ラップタイム(2000M～1800M)"),
+            FieldDef("9ハロンタイム合計(1800M～0M)", 44, 4, description="9ハロンタイム合計(1800M～0M)"),
+            FieldDef("LapTime(1800M～1600M)", 48, 3, description="ラップタイム(1800M～1600M)"),
+            FieldDef("8ロンタイム合計(1600M～0M)", 51, 4, description="8ロンタイム合計(1600M～0M)"),
+            FieldDef("LapTime(1600M～1400M)", 55, 3, description="ラップタイム(1600M～1400M)"),
+            FieldDef("7ハロンタイム合計(1400M～0M)", 58, 4, description="7ハロンタイム合計(1400M～0M)"),
+            FieldDef("LapTime(1400M～1200M)", 62, 3, description="ラップタイム(1400M～1200M)"),
+            FieldDef("6ハロンタイム合計(1200M～0M)", 65, 4, description="6ハロンタイム合計(1200M～0M)"),
+            FieldDef("LapTime(1200M～1000M)", 69, 3, description="ラップタイム(1200M～1000M)"),
+            FieldDef("5ハロンタイム合計(1000M～0M)", 72, 4, description="5ハロンタイム合計(1000M～0M)"),
+            FieldDef("LapTime(1000M～800M)", 76, 3, description="ラップタイム(1000M～800M)"),
+            FieldDef("4ハロンタイム合計(800M～0M)", 79, 4, description="4ハロンタイム合計(800M～0M)"),
+            FieldDef("LapTime(800M～600M)", 83, 3, description="ラップタイム(800M～600M)"),
+            FieldDef("3ハロンタイム合計(600M～0M)", 86, 4, description="3ハロンタイム合計(600M～0M)"),
+            FieldDef("LapTime(600M～400M)", 90, 3, description="ラップタイム(600M～400M)"),
+            FieldDef("2ハロンタイム合計(400M～0M)", 93, 4, description="2ハロンタイム合計(400M～0M)"),
+            FieldDef("LapTime(400M～200M)", 97, 3, description="ラップタイム(400M～200M)"),
+            FieldDef("LapTime(200M～0M)", 100, 3, description="ラップタイム(200M～0M)"),
+            FieldDef("RecordDelimiter", 103, 2, description="レコード区切"),
         ]

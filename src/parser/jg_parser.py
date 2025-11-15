@@ -1,39 +1,42 @@
-"""Parser for JG record (３１．競走馬除外情報)."""
+"""Parser for JG record - JRA-VAN Standard compliant.
 
-from typing import List, Tuple
+This parser uses JRA-VAN standard field names and type conversions.
+Auto-generated from jv_data_formats.json.
+"""
 
-from src.parser.base import BaseParser
+from typing import List
+
+from src.parser.base import BaseParser, FieldDef
 
 
 class JGParser(BaseParser):
-    """Parser for JG record (Format 31).
+    """Parser for JG record with JRA-VAN standard schema.
 
-    Record type: ３１．競走馬除外情報
-    Total fields: 15
+    Uses English/Romanized field names matching JRA-VAN standard database.
     """
 
     record_type = "JG"
 
-    def _define_fields(self) -> List[Tuple[int, int, str]]:
-        """Define field positions and lengths.
+    def _define_fields(self) -> List[FieldDef]:
+        """Define field positions with JRA-VAN standard names and types.
 
         Returns:
-            List of tuples: (position, length, field_name)
+            List of FieldDef objects with type conversion settings
         """
         return [
-            (1, 2, 'レコード種別ID'),  # レコード種別ID
-            (3, 1, 'データ区分'),  # データ区分
-            (4, 8, 'データ作成年月日'),  # データ作成年月日
-            (12, 4, '開催年'),  # 開催年
-            (16, 4, '開催月日'),  # 開催月日
-            (20, 2, '競馬場コード'),  # 競馬場コード
-            (22, 2, '開催回第N回'),  # 開催回[第N回]
-            (24, 2, '開催日目N日目'),  # 開催日目[N日目]
-            (26, 2, 'レース番号'),  # レース番号
-            (28, 10, '血統登録番号'),  # 血統登録番号
-            (38, 36, '馬名'),  # 馬名
-            (74, 3, '出馬投票受付順番'),  # 出馬投票受付順番
-            (77, 1, '出走区分'),  # 出走区分
-            (78, 1, '除外状態区分'),  # 除外状態区分
-            (79, 2, 'レコード区切'),  # レコード区切
+            FieldDef("RecordSpec", 0, 2, description="レコード種別ID"),
+            FieldDef("DataKubun", 2, 1, description="データ区分"),
+            FieldDef("MakeDate", 3, 8, convert_type="DATE", description="データ作成年月日"),
+            FieldDef("Year", 11, 4, convert_type="SMALLINT", description="開催年"),
+            FieldDef("MonthDay", 15, 4, convert_type="MONTH_DAY", description="開催月日"),
+            FieldDef("JyoCD", 19, 2, description="競馬場コード"),
+            FieldDef("Kaiji", 21, 2, convert_type="SMALLINT", description="開催回[第N回]"),
+            FieldDef("Nichiji", 23, 2, convert_type="SMALLINT", description="開催日目[N日目]"),
+            FieldDef("RaceNum", 25, 2, convert_type="SMALLINT", description="レース番号"),
+            FieldDef("KettoNum", 27, 10, description="血統登録番号"),
+            FieldDef("Bamei", 37, 36, description="馬名"),
+            FieldDef("出馬投票受付順番", 73, 3, description="出馬投票受付順番"),
+            FieldDef("出走区分", 76, 1, description="出走区分"),
+            FieldDef("除外状態区分", 77, 1, description="除外状態区分"),
+            FieldDef("RecordDelimiter", 78, 2, description="レコード区切"),
         ]

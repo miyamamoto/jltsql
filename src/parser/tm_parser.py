@@ -1,36 +1,39 @@
-"""Parser for TM record (２９．対戦型データマイニング予想)."""
+"""Parser for TM record - JRA-VAN Standard compliant.
 
-from typing import List, Tuple
+This parser uses JRA-VAN standard field names and type conversions.
+Auto-generated from jv_data_formats.json.
+"""
 
-from src.parser.base import BaseParser
+from typing import List
+
+from src.parser.base import BaseParser, FieldDef
 
 
 class TMParser(BaseParser):
-    """Parser for TM record (Format 29).
+    """Parser for TM record with JRA-VAN standard schema.
 
-    Record type: ２９．対戦型データマイニング予想
-    Total fields: 12
+    Uses English/Romanized field names matching JRA-VAN standard database.
     """
 
     record_type = "TM"
 
-    def _define_fields(self) -> List[Tuple[int, int, str]]:
-        """Define field positions and lengths.
+    def _define_fields(self) -> List[FieldDef]:
+        """Define field positions with JRA-VAN standard names and types.
 
         Returns:
-            List of tuples: (position, length, field_name)
+            List of FieldDef objects with type conversion settings
         """
         return [
-            (1, 2, 'レコード種別ID'),  # レコード種別ID
-            (3, 1, 'データ区分'),  # データ区分
-            (4, 8, 'データ作成年月日'),  # データ作成年月日
-            (12, 4, '開催年'),  # 開催年
-            (16, 4, '開催月日'),  # 開催月日
-            (20, 2, '競馬場コード'),  # 競馬場コード
-            (22, 2, '開催回第N回'),  # 開催回[第N回]
-            (24, 2, '開催日目N日目'),  # 開催日目[N日目]
-            (26, 2, 'レース番号'),  # レース番号
-            (28, 4, 'データ作成時分'),  # データ作成時分
-            (32, 6, 'マイニング予想'),  # <マイニング予想>
-            (140, 2, 'レコード区切'),  # レコード区切
+            FieldDef("RecordSpec", 0, 2, description="レコード種別ID"),
+            FieldDef("DataKubun", 2, 1, description="データ区分"),
+            FieldDef("MakeDate", 3, 8, convert_type="DATE", description="データ作成年月日"),
+            FieldDef("Year", 11, 4, convert_type="SMALLINT", description="開催年"),
+            FieldDef("MonthDay", 15, 4, convert_type="MONTH_DAY", description="開催月日"),
+            FieldDef("JyoCD", 19, 2, description="競馬場コード"),
+            FieldDef("Kaiji", 21, 2, convert_type="SMALLINT", description="開催回[第N回]"),
+            FieldDef("Nichiji", 23, 2, convert_type="SMALLINT", description="開催日目[N日目]"),
+            FieldDef("RaceNum", 25, 2, convert_type="SMALLINT", description="レース番号"),
+            FieldDef("データ作成時分", 27, 4, description="データ作成時分"),
+            FieldDef("<マイニング予想>", 31, 6, description="<マイニング予想>"),
+            FieldDef("RecordDelimiter", 139, 2, description="レコード区切"),
         ]

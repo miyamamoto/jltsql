@@ -1,35 +1,38 @@
-"""Parser for BN record (１７．馬主マスタ)."""
+"""Parser for BN record - JRA-VAN Standard compliant.
 
-from typing import List, Tuple
+This parser uses JRA-VAN standard field names and type conversions.
+Generated from jv_data_formats.json and JRA-VAN standard schema.
+"""
 
-from src.parser.base import BaseParser
+from typing import List
+
+from src.parser.base import BaseParser, FieldDef
 
 
 class BNParser(BaseParser):
-    """Parser for BN record (Format 17).
+    """Parser for BN record with JRA-VAN standard schema.
 
-    Record type: １７．馬主マスタ
-    Total fields: 11
+    Uses English/Romanized field names matching JRA-VAN standard database.
     """
 
     record_type = "BN"
 
-    def _define_fields(self) -> List[Tuple[int, int, str]]:
-        """Define field positions and lengths.
+    def _define_fields(self) -> List[FieldDef]:
+        """Define field positions with JRA-VAN standard names and types.
 
         Returns:
-            List of tuples: (position, length, field_name)
+            List of FieldDef objects with type conversion settings
         """
         return [
-            (1, 2, 'レコード種別ID'),  # レコード種別ID
-            (3, 1, 'データ区分'),  # データ区分
-            (4, 8, 'データ作成年月日'),  # データ作成年月日
-            (12, 6, '馬主コード'),  # 馬主コード
-            (18, 64, '馬主名法人格有'),  # 馬主名(法人格有)
-            (82, 64, '馬主名法人格無'),  # 馬主名(法人格無)
-            (146, 50, '馬主名半角ｶﾅ'),  # 馬主名半角ｶﾅ
-            (196, 100, '馬主名欧字'),  # 馬主名欧字
-            (296, 60, '服色標示'),  # 服色標示
-            (356, 60, '本年累計成績情報'),  # <本年･累計成績情報>
-            (476, 2, 'レコード区切'),  # レコード区切
+            FieldDef("RecordSpec", 0, 2, description="レコード種別ID"),
+            FieldDef("DataKubun", 2, 1, description="データ区分"),
+            FieldDef("MakeDate", 3, 8, convert_type="DATE", description="データ作成年月日"),
+            FieldDef("BreederName_Co", 11, 6, description="馬主コード"),
+            FieldDef("BreederName", 17, 64, description="馬主名(法人格有)"),
+            FieldDef("BreederNameKana", 81, 64, description="馬主名(法人格無)"),
+            FieldDef("BreederNameEng", 145, 50, description="馬主名半角ｶﾅ"),
+            FieldDef("Address", 195, 100, description="馬主名欧字"),
+            FieldDef("H_SetYear", 295, 60, description="服色標示"),
+            FieldDef("H_HonSyokinTotal", 355, 60, description="<本年･累計成績情報>"),
+            FieldDef("H_FukaSyokin", 475, 2, description="レコード区切"),
         ]

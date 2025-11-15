@@ -1,62 +1,65 @@
-"""Parser for TK record (１．特別登録馬)."""
+"""Parser for TK record - JRA-VAN Standard compliant.
 
-from typing import List, Tuple
+This parser uses JRA-VAN standard field names and type conversions.
+Generated from jv_data_formats.json and JRA-VAN standard schema.
+"""
 
-from src.parser.base import BaseParser
+from typing import List
+
+from src.parser.base import BaseParser, FieldDef
 
 
 class TKParser(BaseParser):
-    """Parser for TK record (Format 1).
+    """Parser for TK record with JRA-VAN standard schema.
 
-    Record type: １．特別登録馬
-    Total fields: 38
+    Uses English/Romanized field names matching JRA-VAN standard database.
     """
 
     record_type = "TK"
 
-    def _define_fields(self) -> List[Tuple[int, int, str]]:
-        """Define field positions and lengths.
+    def _define_fields(self) -> List[FieldDef]:
+        """Define field positions with JRA-VAN standard names and types.
 
         Returns:
-            List of tuples: (position, length, field_name)
+            List of FieldDef objects with type conversion settings
         """
         return [
-            (1, 2, 'レコード種別ID'),  # レコード種別ID
-            (3, 1, 'データ区分'),  # データ区分
-            (4, 8, 'データ作成年月日'),  # データ作成年月日
-            (12, 4, '開催年'),  # 開催年
-            (16, 4, '開催月日'),  # 開催月日
-            (20, 2, '競馬場コード'),  # 競馬場コード
-            (22, 2, '開催回第N回'),  # 開催回[第N回]
-            (24, 2, '開催日目N日目'),  # 開催日目[N日目]
-            (26, 2, 'レース番号'),  # レース番号
-            (28, 1, '曜日コード'),  # 曜日コード
-            (29, 4, '特別競走番号'),  # 特別競走番号
-            (33, 60, '競走名本題'),  # 競走名本題
-            (93, 60, '競走名副題'),  # 競走名副題
-            (153, 60, '競走名カッコ内'),  # 競走名カッコ内
-            (213, 120, '競走名本題欧字'),  # 競走名本題欧字
-            (333, 120, '競走名副題欧字'),  # 競走名副題欧字
-            (453, 120, '競走名カッコ内欧字'),  # 競走名カッコ内欧字
-            (573, 20, '競走名略称10文字'),  # 競走名略称10文字
-            (593, 12, '競走名略称6文字'),  # 競走名略称6文字
-            (605, 6, '競走名略称3文字'),  # 競走名略称3文字
-            (611, 1, '競走名区分'),  # 競走名区分
-            (612, 3, '重賞回次第N回'),  # 重賞回次[第N回]
-            (615, 1, 'グレードコード'),  # グレードコード
-            (616, 2, '競走種別コード'),  # 競走種別コード
-            (618, 3, '競走記号コード'),  # 競走記号コード
-            (621, 1, '重量種別コード'),  # 重量種別コード
-            (622, 3, '競走条件コード_2歳条件'),  # 競走条件コード 2歳条件
-            (625, 3, '競走条件コード_3歳条件'),  # 競走条件コード 3歳条件
-            (628, 3, '競走条件コード_4歳条件'),  # 競走条件コード 4歳条件
-            (631, 3, '競走条件コード_5歳以上条件'),  # 競走条件コード 5歳以上条件
-            (634, 3, '競走条件コード_最若年条件'),  # 競走条件コード 最若年条件
-            (637, 4, '距離'),  # 距離
-            (641, 2, 'トラックコード'),  # トラックコード
-            (643, 2, 'コース区分'),  # コース区分
-            (645, 8, 'ハンデ発表日'),  # ハンデ発表日
-            (653, 3, '登録頭数'),  # 登録頭数
-            (656, 70, '登録馬毎情報'),  # <登録馬毎情報>
-            (21656, 2, 'レコード区切'),  # レコード区切
+            FieldDef("MakeDate", 0, 2, convert_type="DATE", description="レコード種別ID"),
+            FieldDef("Year", 2, 1, convert_type="SMALLINT", description="データ区分"),
+            FieldDef("MonthDay", 3, 8, convert_type="MONTH_DAY", description="データ作成年月日"),
+            FieldDef("JyoCD", 11, 4, description="開催年"),
+            FieldDef("Kaiji", 15, 4, convert_type="SMALLINT", description="開催月日"),
+            FieldDef("Nichiji", 19, 2, convert_type="SMALLINT", description="競馬場コード"),
+            FieldDef("RaceNum", 21, 2, convert_type="SMALLINT", description="開催回[第N回]"),
+            FieldDef("Num", 23, 2, description="開催日目[N日目]"),
+            FieldDef("KettoNum", 25, 2, description="レース番号"),
+            FieldDef("Bamei", 27, 1, description="曜日コード"),
+            FieldDef("UmaKigoCD", 28, 4, description="特別競走番号"),
+            FieldDef("SexCD", 32, 60, description="競走名本題"),
+            FieldDef("TozaiCD", 92, 60, description="競走名副題"),
+            FieldDef("ChokyosiCode", 152, 60, description="競走名カッコ内"),
+            FieldDef("ChokyosiRyakusyo", 212, 120, description="競走名本題欧字"),
+            FieldDef("Futan", 332, 120, convert_type="WEIGHT", description="競走名副題欧字"),
+            FieldDef("Koryu", 452, 120, description="競走名カッコ内欧字"),
+            FieldDef("競走名略称10文字", 572, 20, description="競走名略称10文字"),
+            FieldDef("競走名略称6文字", 592, 12, description="競走名略称6文字"),
+            FieldDef("競走名略称3文字", 604, 6, description="競走名略称3文字"),
+            FieldDef("競走名区分", 610, 1, description="競走名区分"),
+            FieldDef("重賞回次[第N回]", 611, 3, description="重賞回次[第N回]"),
+            FieldDef("グレードコード", 614, 1, description="グレードコード"),
+            FieldDef("競走種別コード", 615, 2, description="競走種別コード"),
+            FieldDef("競走記号コード", 617, 3, description="競走記号コード"),
+            FieldDef("重量種別コード", 620, 1, description="重量種別コード"),
+            FieldDef("競走条件コード 2歳条件", 621, 3, description="競走条件コード 2歳条件"),
+            FieldDef("競走条件コード 3歳条件", 624, 3, description="競走条件コード 3歳条件"),
+            FieldDef("競走条件コード 4歳条件", 627, 3, description="競走条件コード 4歳条件"),
+            FieldDef("競走条件コード 5歳以上条件", 630, 3, description="競走条件コード 5歳以上条件"),
+            FieldDef("競走条件コード 最若年条件", 633, 3, description="競走条件コード 最若年条件"),
+            FieldDef("距離", 636, 4, description="距離"),
+            FieldDef("トラックコード", 640, 2, description="トラックコード"),
+            FieldDef("コース区分", 642, 2, description="コース区分"),
+            FieldDef("ハンデ発表日", 644, 8, description="ハンデ発表日"),
+            FieldDef("登録頭数", 652, 3, description="登録頭数"),
+            FieldDef("<登録馬毎情報>", 655, 70, description="<登録馬毎情報>"),
+            FieldDef("レコード区切", 21655, 2, description="レコード区切"),
         ]

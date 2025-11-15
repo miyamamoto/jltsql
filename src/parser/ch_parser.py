@@ -1,42 +1,45 @@
-"""Parser for CH record (１５．調教師マスタ)."""
+"""Parser for CH record - JRA-VAN Standard compliant.
 
-from typing import List, Tuple
+This parser uses JRA-VAN standard field names and type conversions.
+Generated from jv_data_formats.json and JRA-VAN standard schema.
+"""
 
-from src.parser.base import BaseParser
+from typing import List
+
+from src.parser.base import BaseParser, FieldDef
 
 
 class CHParser(BaseParser):
-    """Parser for CH record (Format 15).
+    """Parser for CH record with JRA-VAN standard schema.
 
-    Record type: １５．調教師マスタ
-    Total fields: 18
+    Uses English/Romanized field names matching JRA-VAN standard database.
     """
 
     record_type = "CH"
 
-    def _define_fields(self) -> List[Tuple[int, int, str]]:
-        """Define field positions and lengths.
+    def _define_fields(self) -> List[FieldDef]:
+        """Define field positions with JRA-VAN standard names and types.
 
         Returns:
-            List of tuples: (position, length, field_name)
+            List of FieldDef objects with type conversion settings
         """
         return [
-            (1, 2, 'レコード種別ID'),  # レコード種別ID
-            (3, 1, 'データ区分'),  # データ区分
-            (4, 8, 'データ作成年月日'),  # データ作成年月日
-            (12, 5, '調教師コード'),  # 調教師コード
-            (17, 1, '調教師抹消区分'),  # 調教師抹消区分
-            (18, 8, '調教師免許交付年月日'),  # 調教師免許交付年月日
-            (26, 8, '調教師免許抹消年月日'),  # 調教師免許抹消年月日
-            (34, 8, '生年月日'),  # 生年月日
-            (42, 34, '調教師名'),  # 調教師名
-            (76, 30, '調教師名半角ｶﾅ'),  # 調教師名半角ｶﾅ
-            (106, 8, '調教師名略称'),  # 調教師名略称
-            (114, 80, '調教師名欧字'),  # 調教師名欧字
-            (194, 1, '性別区分'),  # 性別区分
-            (195, 1, '調教師東西所属コード'),  # 調教師東西所属コード
-            (196, 20, '招待地域名'),  # 招待地域名
-            (216, 163, '最近重賞勝利情報'),  # <最近重賞勝利情報>
-            (705, 1052, '本年前年累計成績情報'),  # <本年･前年･累計成績情報>
-            (3861, 2, 'レコード区切'),  # レコード区切
+            FieldDef("RecordSpec", 0, 2, description="レコード種別ID"),
+            FieldDef("DataKubun", 2, 1, description="データ区分"),
+            FieldDef("MakeDate", 3, 8, convert_type="DATE", description="データ作成年月日"),
+            FieldDef("DelKubun", 11, 5, description="調教師コード"),
+            FieldDef("IssueDate", 16, 1, convert_type="DATE", description="調教師抹消区分"),
+            FieldDef("DelDate", 17, 8, convert_type="DATE", description="調教師免許交付年月日"),
+            FieldDef("BirthDate", 25, 8, convert_type="DATE", description="調教師免許抹消年月日"),
+            FieldDef("ChokyosiName", 33, 8, description="生年月日"),
+            FieldDef("ChokyosiNameKana", 41, 34, description="調教師名"),
+            FieldDef("ChokyosiRyakusyo", 75, 30, description="調教師名半角ｶﾅ"),
+            FieldDef("ChokyosiNameEng", 105, 8, description="調教師名略称"),
+            FieldDef("SexCD", 113, 80, description="調教師名欧字"),
+            FieldDef("TozaiCD", 193, 1, description="性別区分"),
+            FieldDef("Syotai", 194, 1, description="調教師東西所属コード"),
+            FieldDef("SaikinJyusyo1SaikinJyusyoid", 195, 20, description="招待地域名"),
+            FieldDef("SaikinJyusyo1Hondai", 215, 163, description="<最近重賞勝利情報>"),
+            FieldDef("SaikinJyusyo1Ryakusyo10", 704, 1052, description="<本年･前年･累計成績情報>"),
+            FieldDef("SaikinJyusyo1Ryakusyo6", 3860, 2, description="レコード区切"),
         ]

@@ -76,12 +76,12 @@ class TestRAParser:
 
         data = parser.parse(record)
         assert data is not None
-        assert data["headRecordSpec"] == "RA"
-        assert data["headDataKubun"] == "1"
-        assert data["idYear"] == "2024"
-        assert data["idMonthDay"] == "0601"
-        assert data["idJyoCD"] == "06"
-        assert data["idRaceNum"] == "11"
+        assert data["RecordSpec"] == "RA"
+        assert data["DataKubun"] == "1"
+        assert data["Year"] == 2024  # Now returns int
+        assert data["MonthDay"] == 601  # Now returns int
+        assert data["JyoCD"] == "06"
+        assert data["RaceNum"] == 11  # Now returns int
 
     def test_parse_invalid_record_type(self):
         """Test parsing with wrong record type."""
@@ -103,18 +103,18 @@ class TestRAParser:
         parser = RAParser()
         field_names = parser.get_field_names()
 
-        assert "headRecordSpec" in field_names
-        assert "idYear" in field_names
-        assert "RaceName" in field_names
+        assert "RecordSpec" in field_names
+        assert "Year" in field_names
+        assert "Hondai" in field_names  # Race name (main title)
         assert "Kyori" in field_names
 
     def test_get_field_def(self):
         """Test getting field definition."""
         parser = RAParser()
-        field_def = parser.get_field_def("headRecordSpec")
+        field_def = parser.get_field_def("RecordSpec")
 
         assert field_def is not None
-        assert field_def.name == "headRecordSpec"
+        assert field_def.name == "RecordSpec"
         assert field_def.start == 0
         assert field_def.length == 2
 
@@ -154,7 +154,7 @@ class TestSEParser:
 
         data = parser.parse(record)
         assert data is not None
-        assert data["headRecordSpec"] == "SE"
+        assert data["RecordSpec"] == "SE"
         assert data["KettoNum"] == "2024012345"
 
 
@@ -184,7 +184,7 @@ class TestHRParser:
 
         data = parser.parse(record)
         assert data is not None
-        assert data["headRecordSpec"] == "HR"
+        assert data["RecordSpec"] == "HR"
 
 
 class TestParserFactory:
@@ -193,7 +193,7 @@ class TestParserFactory:
     def test_factory_initialization(self):
         """Test factory initialization."""
         factory = ParserFactory()
-        assert len(factory.supported_types()) == 3
+        assert len(factory.supported_types()) == 38  # All JV-Data record types
         assert "RA" in factory.supported_types()
         assert "SE" in factory.supported_types()
         assert "HR" in factory.supported_types()
@@ -275,7 +275,7 @@ class TestParserFactory:
 
         data = factory.parse(record)
         assert data is not None
-        assert data["headRecordSpec"] == "RA"
+        assert data["RecordSpec"] == "RA"
 
     def test_parse_invalid_record(self):
         """Test parsing invalid record."""
