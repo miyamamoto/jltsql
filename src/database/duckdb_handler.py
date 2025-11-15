@@ -74,7 +74,7 @@ class DuckDBDatabase(BaseDatabase):
 
             # Set memory limit if specified
             if self.memory_limit:
-                self._connection.execute(f"SET memory_limit='{self.memory_limit}GB'")
+                self._connection.execute(f"SET memory_limit='{self.memory_limit}'")
 
             self._cursor = self._connection.cursor()
 

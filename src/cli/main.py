@@ -194,7 +194,7 @@ def fetch(ctx, date_from, date_to, data_spec, db, batch_size):
     if db:
         db_type = db
     else:
-        db_type = config.database.get("type", "duckdb")
+        db_type = config.get("database.type", "duckdb")
 
     console.print(f"[bold cyan]Fetching historical data from JRA-VAN...[/bold cyan]\n")
     console.print(f"  Date range: {date_from} → {date_to}")
@@ -205,16 +205,16 @@ def fetch(ctx, date_from, date_to, data_spec, db, batch_size):
     try:
         # Initialize database
         if db_type == "sqlite":
-            db_config = config.database if config else {"path": "data/keiba.db"}
+            db_config = config.get("databases.sqlite") if config else {"path": "data/keiba.db"}
             database = SQLiteDatabase(db_config)
         elif db_type == "duckdb":
-            db_config = config.database if config else {"path": "data/keiba.duckdb"}
+            db_config = config.get("databases.duckdb") if config else {"path": "data/keiba.duckdb"}
             database = DuckDBDatabase(db_config)
         elif db_type == "postgresql":
             if not config:
                 console.print("[red]Error:[/red] PostgreSQL requires configuration file.")
                 sys.exit(1)
-            database = PostgreSQLDatabase(config.database)
+            database = PostgreSQLDatabase(config.get("databases.postgresql"))
         else:
             console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
             sys.exit(1)
@@ -232,7 +232,7 @@ def fetch(ctx, date_from, date_to, data_spec, db, batch_size):
                 for table_name in missing_tables:
                     schema_manager.create_table(table_name)
 
-                console.print(f"[green]✓[/green] Created {len(missing_tables)} tables\n")
+                console.print(f"[green][OK][/green] Created {len(missing_tables)} tables\n")
 
             # Process data
             processor = BatchProcessor(
@@ -251,7 +251,7 @@ def fetch(ctx, date_from, date_to, data_spec, db, batch_size):
 
             # Show results
             console.print()
-            console.print("[bold green]✓ Fetch complete![/bold green]")
+            console.print("[bold green][OK] Fetch complete![/bold green]")
             console.print()
             console.print("[bold]Statistics:[/bold]")
             console.print(f"  Fetched:  {result['fetched']}")
@@ -299,7 +299,7 @@ def monitor(ctx, daemon, data_spec, interval, db):
     if db:
         db_type = db
     else:
-        db_type = config.database.get("type", "duckdb")
+        db_type = config.get("database.type", "duckdb")
 
     console.print(f"[bold cyan]Starting real-time monitoring...[/bold cyan]\n")
     console.print(f"  Data spec:  {data_spec}")
@@ -311,16 +311,16 @@ def monitor(ctx, daemon, data_spec, interval, db):
     try:
         # Initialize database
         if db_type == "sqlite":
-            db_config = config.database if config else {"path": "data/keiba.db"}
+            db_config = config.get("databases.sqlite") if config else {"path": "data/keiba.db"}
             database = SQLiteDatabase(db_config)
         elif db_type == "duckdb":
-            db_config = config.database if config else {"path": "data/keiba.duckdb"}
+            db_config = config.get("databases.duckdb") if config else {"path": "data/keiba.duckdb"}
             database = DuckDBDatabase(db_config)
         elif db_type == "postgresql":
             if not config:
                 console.print("[red]Error:[/red] PostgreSQL requires configuration file.")
                 sys.exit(1)
-            database = PostgreSQLDatabase(config.database)
+            database = PostgreSQLDatabase(config.get("databases.postgresql"))
         else:
             console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
             sys.exit(1)
@@ -338,7 +338,7 @@ def monitor(ctx, daemon, data_spec, interval, db):
                 for table_name in missing_tables:
                     schema_manager.create_table(table_name)
 
-                console.print(f"[green]✓[/green] Created {len(missing_tables)} tables\n")
+                console.print(f"[green][OK][/green] Created {len(missing_tables)} tables\n")
 
             # Start monitoring
             monitor_obj = RealtimeMonitor(
@@ -417,23 +417,23 @@ def create_tables(ctx, db, create_all, nl_only, rt_only):
     if db:
         db_type = db
     else:
-        db_type = config.database.get("type", "duckdb")
+        db_type = config.get("database.type", "duckdb")
 
     console.print(f"[bold cyan]Creating database tables ({db_type})...[/bold cyan]\n")
 
     try:
         # Initialize database
         if db_type == "sqlite":
-            db_config = config.database if config else {"path": "data/keiba.db"}
+            db_config = config.get("databases.sqlite") if config else {"path": "data/keiba.db"}
             database = SQLiteDatabase(db_config)
         elif db_type == "duckdb":
-            db_config = config.database if config else {"path": "data/keiba.duckdb"}
+            db_config = config.get("databases.duckdb") if config else {"path": "data/keiba.duckdb"}
             database = DuckDBDatabase(db_config)
         elif db_type == "postgresql":
             if not config:
                 console.print("[red]Error:[/red] PostgreSQL requires configuration file.")
                 sys.exit(1)
-            database = PostgreSQLDatabase(config.database)
+            database = PostgreSQLDatabase(config.get("databases.postgresql"))
         else:
             console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
             sys.exit(1)
@@ -475,7 +475,7 @@ def create_tables(ctx, db, create_all, nl_only, rt_only):
 
             # Show results
             console.print()
-            console.print(f"[green]✓[/green] Created {created_count} tables")
+            console.print(f"[green][OK][/green] Created {created_count} tables")
             if failed_count > 0:
                 console.print(f"[yellow]⚠[/yellow] Failed to create {failed_count} tables")
 
@@ -530,23 +530,23 @@ def create_indexes(ctx, db, table):
     if db:
         db_type = db
     else:
-        db_type = config.database.get("type", "duckdb")
+        db_type = config.get("database.type", "duckdb")
 
     console.print(f"[bold cyan]Creating database indexes ({db_type})...[/bold cyan]\n")
 
     try:
         # Initialize database
         if db_type == "sqlite":
-            db_config = config.database if config else {"path": "data/keiba.db"}
+            db_config = config.get("databases.sqlite") if config else {"path": "data/keiba.db"}
             database = SQLiteDatabase(db_config)
         elif db_type == "duckdb":
-            db_config = config.database if config else {"path": "data/keiba.duckdb"}
+            db_config = config.get("databases.duckdb") if config else {"path": "data/keiba.duckdb"}
             database = DuckDBDatabase(db_config)
         elif db_type == "postgresql":
             if not config:
                 console.print("[red]Error:[/red] PostgreSQL requires configuration file.")
                 sys.exit(1)
-            database = PostgreSQLDatabase(config.database)
+            database = PostgreSQLDatabase(config.get("databases.postgresql"))
         else:
             console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
             sys.exit(1)
@@ -562,30 +562,24 @@ def create_indexes(ctx, db, table):
 
                 if result:
                     index_count = index_manager.get_index_count(table)
-                    console.print(f"[green]✓[/green] Created {index_count} indexes for {table}")
+                    console.print(f"[green][OK][/green] Created {index_count} indexes for {table}")
                 else:
-                    console.print(f"[red]✗[/red] Failed to create indexes for {table}")
+                    console.print(f"[red][NG][/red] Failed to create indexes for {table}")
                     sys.exit(1)
             else:
                 console.print("Creating indexes for all tables...")
+                console.print("[cyan]Creating indexes...[/cyan]")
 
-                with Progress(
-                    SpinnerColumn(),
-                    TextColumn("[progress.description]{task.description}"),
-                    console=console
-                ) as progress:
-                    task = progress.add_task("[cyan]Creating indexes...", total=None)
+                results = index_manager.create_all_indexes()
 
-                    results = index_manager.create_all_indexes()
-
-                    progress.update(task, description="[green]Indexes created!")
+                console.print("[green]Indexes created![/green]")
 
                 # Show results
                 total_indexes = sum(results.values())
                 total_tables = len(results)
 
                 console.print()
-                console.print(f"[green]✓[/green] Created {total_indexes} indexes across {total_tables} tables")
+                console.print(f"[green][OK][/green] Created {total_indexes} indexes across {total_tables} tables")
 
                 # Show breakdown
                 console.print()
@@ -644,7 +638,7 @@ def export(ctx, table, output_format, output, where, db):
     if db:
         db_type = db
     else:
-        db_type = config.database.get("type", "duckdb")
+        db_type = config.get("database.type", "duckdb")
 
     console.print(f"[bold cyan]Exporting data from {table}...[/bold cyan]\n")
     console.print(f"  Database:      {db_type}")
@@ -657,16 +651,16 @@ def export(ctx, table, output_format, output, where, db):
     try:
         # Initialize database
         if db_type == "sqlite":
-            db_config = config.database if config else {"path": "data/keiba.db"}
+            db_config = config.get("databases.sqlite") if config else {"path": "data/keiba.db"}
             database = SQLiteDatabase(db_config)
         elif db_type == "duckdb":
-            db_config = config.database if config else {"path": "data/keiba.duckdb"}
+            db_config = config.get("databases.duckdb") if config else {"path": "data/keiba.duckdb"}
             database = DuckDBDatabase(db_config)
         elif db_type == "postgresql":
             if not config:
                 console.print("[red]Error:[/red] PostgreSQL requires configuration file.")
                 sys.exit(1)
-            database = PostgreSQLDatabase(config.database)
+            database = PostgreSQLDatabase(config.get("databases.postgresql"))
         else:
             console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
             sys.exit(1)
@@ -729,7 +723,7 @@ def export(ctx, table, output_format, output, where, db):
 
             # Show results
             console.print()
-            console.print(f"[bold green]✓ Export complete![/bold green]")
+            console.print(f"[bold green][OK] Export complete![/bold green]")
             console.print()
             console.print(f"  Records exported: {len(rows):,}")
             console.print(f"  Output file:      {output_path.absolute()}")
@@ -914,7 +908,7 @@ def start(ctx, specs, db, batch_size, no_create_tables):
     if db:
         db_type = db
     else:
-        db_type = config.database.get("type", "duckdb")
+        db_type = config.get("database.type", "duckdb")
 
     console.print("[bold cyan]Starting realtime monitoring service...[/bold cyan]\n")
     console.print(f"  Data specs:    {', '.join(data_specs)}")
@@ -926,16 +920,16 @@ def start(ctx, specs, db, batch_size, no_create_tables):
     try:
         # Initialize database
         if db_type == "sqlite":
-            db_config = config.database if config else {"path": "data/keiba.db"}
+            db_config = config.get("databases.sqlite") if config else {"path": "data/keiba.db"}
             database = SQLiteDatabase(db_config)
         elif db_type == "duckdb":
-            db_config = config.database if config else {"path": "data/keiba.duckdb"}
+            db_config = config.get("databases.duckdb") if config else {"path": "data/keiba.duckdb"}
             database = DuckDBDatabase(db_config)
         elif db_type == "postgresql":
             if not config:
                 console.print("[red]Error:[/red] PostgreSQL requires configuration file.")
                 sys.exit(1)
-            database = PostgreSQLDatabase(config.database)
+            database = PostgreSQLDatabase(config.get("databases.postgresql"))
         else:
             console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
             sys.exit(1)
@@ -951,7 +945,7 @@ def start(ctx, specs, db, batch_size, no_create_tables):
 
         # Start monitoring
         if monitor.start():
-            console.print("[bold green]✓ Monitoring service started![/bold green]\n")
+            console.print("[bold green][OK] Monitoring service started![/bold green]\n")
 
             status = monitor.get_status()
             console.print("[bold]Status:[/bold]")
@@ -979,10 +973,10 @@ def start(ctx, specs, db, batch_size, no_create_tables):
             except KeyboardInterrupt:
                 console.print("\n\n[yellow]Stopping monitoring...[/yellow]")
                 monitor.stop()
-                console.print("[green]✓ Monitoring stopped[/green]")
+                console.print("[green][OK] Monitoring stopped[/green]")
 
         else:
-            console.print("[red]✗ Failed to start monitoring service[/red]")
+            console.print("[red][NG] Failed to start monitoring service[/red]")
             sys.exit(1)
 
     except KeyboardInterrupt:

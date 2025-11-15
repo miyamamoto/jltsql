@@ -90,17 +90,17 @@ class QuickstartRunner:
         # Python バージョンチェック
         python_version = sys.version_info
         if python_version >= (3, 10):
-            print(f"✓ Python {python_version.major}.{python_version.minor}.{python_version.micro}")
+            print(f"[OK] Python {python_version.major}.{python_version.minor}.{python_version.micro}")
         else:
-            print(f"✗ Python {python_version.major}.{python_version.minor}.{python_version.micro} (3.10以上が必要)")
+            print(f"[NG] Python {python_version.major}.{python_version.minor}.{python_version.micro} (3.10以上が必要)")
             self.errors.append("Python 3.10以上が必要です")
             has_error = True
 
         # OS チェック (Windows)
         if sys.platform == "win32":
-            print("✓ Windows OS")
+            print("[OK] Windows OS")
         else:
-            print(f"✗ {sys.platform} (JV-LinkはWindows専用)")
+            print(f"[NG] {sys.platform} (JV-LinkはWindows専用)")
             self.errors.append("WindowsOSが必要です")
             has_error = True
 
@@ -108,17 +108,17 @@ class QuickstartRunner:
         try:
             import win32com.client
             win32com.client.Dispatch("JVDTLab.JVLink")
-            print("✓ JV-Link COM API")
+            print("[OK] JV-Link COM API")
         except Exception as e:
-            print(f"✗ JV-Link COM API ({e})")
+            print(f"[NG] JV-Link COM API ({e})")
             self.warnings.append("JV-Linkがインストールされていません（データ取得時に必要）")
 
         # config.yaml チェック
         config_path = self.project_root / "config" / "config.yaml"
         if config_path.exists():
-            print(f"✓ 設定ファイル: {config_path}")
+            print(f"[OK] 設定ファイル: {config_path}")
         else:
-            print(f"⚠ 設定ファイル未作成: {config_path}")
+            print(f"[!!] 設定ファイル未作成: {config_path}")
             self.warnings.append("config/config.yamlを作成してください（jltsql initで自動作成）")
 
         print()
@@ -143,17 +143,17 @@ class QuickstartRunner:
             )
 
             if result.returncode == 0:
-                print("✓ プロジェクト初期化完了")
+                print("[OK] プロジェクト初期化完了")
                 print()
                 return True
             else:
-                print(f"✗ 初期化失敗: {result.stderr}")
+                print(f"[NG] 初期化失敗: {result.stderr}")
                 self.errors.append(f"初期化失敗: {result.stderr}")
                 print()
                 return False
 
         except Exception as e:
-            print(f"✗ 初期化エラー: {e}")
+            print(f"[NG] 初期化エラー: {e}")
             self.errors.append(f"初期化エラー: {e}")
             print()
             return False
@@ -177,17 +177,17 @@ class QuickstartRunner:
             )
 
             if result.returncode == 0:
-                print("✓ テーブル作成完了 (NL_*: 38, RT_*: 19)")
+                print("[OK] テーブル作成完了 (NL_*: 38, RT_*: 19)")
                 print()
                 return True
             else:
-                print(f"✗ テーブル作成失敗: {result.stderr}")
+                print(f"[NG] テーブル作成失敗: {result.stderr}")
                 self.errors.append(f"テーブル作成失敗: {result.stderr}")
                 print()
                 return False
 
         except Exception as e:
-            print(f"✗ テーブル作成エラー: {e}")
+            print(f"[NG] テーブル作成エラー: {e}")
             self.errors.append(f"テーブル作成エラー: {e}")
             print()
             return False
@@ -211,17 +211,17 @@ class QuickstartRunner:
             )
 
             if result.returncode == 0:
-                print("✓ インデックス作成完了")
+                print("[OK] インデックス作成完了")
                 print()
                 return True
             else:
-                print(f"✗ インデックス作成失敗: {result.stderr}")
+                print(f"[NG] インデックス作成失敗: {result.stderr}")
                 self.errors.append(f"インデックス作成失敗: {result.stderr}")
                 print()
                 return False
 
         except Exception as e:
-            print(f"✗ インデックス作成エラー: {e}")
+            print(f"[NG] インデックス作成エラー: {e}")
             self.errors.append(f"インデックス作成エラー: {e}")
             print()
             return False
@@ -258,22 +258,22 @@ class QuickstartRunner:
             )
 
             if result.returncode == 0:
-                print("✓ データ取得完了")
+                print("[OK] データ取得完了")
                 print()
                 return True
             else:
-                print("✗ データ取得失敗")
+                print("[NG] データ取得失敗")
                 self.errors.append("データ取得失敗")
                 print()
                 return False
 
         except subprocess.TimeoutExpired:
-            print("✗ データ取得タイムアウト (10分)")
+            print("[NG] データ取得タイムアウト (10分)")
             self.errors.append("データ取得タイムアウト")
             print()
             return False
         except Exception as e:
-            print(f"✗ データ取得エラー: {e}")
+            print(f"[NG] データ取得エラー: {e}")
             self.errors.append(f"データ取得エラー: {e}")
             print()
             return False
@@ -301,7 +301,7 @@ class QuickstartRunner:
             return result.returncode == 0
 
         except Exception as e:
-            print(f"⚠ ステータス確認エラー: {e}")
+            print(f"[!!] ステータス確認エラー: {e}")
             print()
             return False
 
@@ -313,20 +313,20 @@ class QuickstartRunner:
         """
         print("=" * 70)
         if success:
-            print("✓ クイックスタート完了!")
+            print("[OK] クイックスタート完了!")
         else:
-            print("✗ クイックスタート失敗")
+            print("[NG] クイックスタート失敗")
         print("=" * 70)
 
         if self.warnings:
             print()
-            print("⚠ 警告:")
+            print("[!!] 警告:")
             for warning in self.warnings:
                 print(f"  - {warning}")
 
         if self.errors:
             print()
-            print("✗ エラー:")
+            print("[NG] エラー:")
             for error in self.errors:
                 print(f"  - {error}")
 

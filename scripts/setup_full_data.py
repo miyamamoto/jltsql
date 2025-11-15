@@ -113,7 +113,7 @@ class FullDataSetup:
             )
             return result.returncode == 0
         except Exception as e:
-            print(f"✗ セットアップ失敗: {e}")
+            print(f"[NG] セットアップ失敗: {e}")
             self.errors.append(f"基本セットアップ失敗: {e}")
             return False
 
@@ -135,17 +135,17 @@ class FullDataSetup:
             )
 
             if result.returncode == 0:
-                print(f"  ✓ {year}年 {spec} 完了")
+                print(f"  [OK] {year}年 {spec} 完了")
                 return True
             else:
-                print(f"  ✗ {year}年 {spec} 失敗")
+                print(f"  [NG] {year}年 {spec} 失敗")
                 return False
 
         except subprocess.TimeoutExpired:
-            print(f"  ✗ {year}年 {spec} タイムアウト")
+            print(f"  [NG] {year}年 {spec} タイムアウト")
             return False
         except Exception as e:
-            print(f"  ✗ {year}年 {spec} エラー: {e}")
+            print(f"  [NG] {year}年 {spec} エラー: {e}")
             return False
 
     def _start_monitor(self):
@@ -157,11 +157,11 @@ class FullDataSetup:
                 [sys.executable, "-m", "src.cli.main", "monitor", "--daemon"],
                 cwd=self.project_root,
             )
-            print("✓ リアルタイム監視を開始しました")
+            print("[OK] リアルタイム監視を開始しました")
             print()
             print("停止するには: jltsql stop")
         except Exception as e:
-            print(f"✗ 監視開始失敗: {e}")
+            print(f"[NG] 監視開始失敗: {e}")
             self.errors.append(f"監視開始失敗: {e}")
 
     def _print_summary(self):
@@ -173,12 +173,12 @@ class FullDataSetup:
 
         if self.errors:
             print()
-            print("⚠ エラーが発生しました:")
+            print("[!!] エラーが発生しました:")
             for error in self.errors:
                 print(f"  - {error}")
         else:
             print()
-            print("✓ 全てのデータ取得が完了しました！")
+            print("[OK] 全てのデータ取得が完了しました！")
 
         print()
         print("次のステップ:")
