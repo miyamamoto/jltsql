@@ -26,21 +26,26 @@ class DataImporter:
     Attributes:
         database: Database handler instance
         batch_size: Number of records to insert per batch
+        use_jravan_schema: Whether to use JRA-VAN standard table names
     """
 
     def __init__(
         self,
         database: BaseDatabase,
         batch_size: int = 1000,
+        use_jravan_schema: bool = False,
     ):
         """Initialize data importer.
 
         Args:
             database: Database handler instance
             batch_size: Records per batch (default: 1000)
+            use_jravan_schema: Use JRA-VAN standard table names (RACE, UMA_RACE, etc.)
+                               instead of jltsql names (NL_RA, NL_SE, etc.)
         """
         self.database = database
         self.batch_size = batch_size
+        self.use_jravan_schema = use_jravan_schema
 
         self._records_imported = 0
         self._records_failed = 0
@@ -113,7 +118,29 @@ class DataImporter:
         logger.info(
             "DataImporter initialized",
             batch_size=batch_size,
+            use_jravan_schema=use_jravan_schema,
         )
+
+    def _get_table_name(self, record_type: str) -> Optional[str]:
+        """Get table name for record type.
+
+        Args:
+            record_type: Record type code (e.g., "RA", "SE")
+
+        Returns:
+            Table name or None if not mapped
+        """
+        # Get base table name from mapping
+        table_name = self._table_map.get(record_type)
+        if not table_name:
+            return None
+
+        # Convert to JRA-VAN standard name if requested
+        if self.use_jravan_schema:
+            from src.database.table_mappings import JLTSQL_TO_JRAVAN
+            return JLTSQL_TO_JRAVAN.get(table_name, table_name)
+
+        return table_name
 
     def import_records(
         self,
@@ -151,14 +178,18 @@ class DataImporter:
         try:
             for record in records:
                 # Get record type and table name
-                # Note: Japanese parsers use 'レコード種別ID' for record type
-                record_type = record.get("レコード種別ID") or record.get("headRecordSpec")
+                # Note: Japanese parsers use 'レコード種別ID', JRA-VAN standard uses 'RecordSpec'
+                record_type = (
+                    record.get("レコード種別ID") or
+                    record.get("RecordSpec") or
+                    record.get("headRecordSpec")
+                )
                 if not record_type:
-                    logger.warning("Record missing record type field (レコード種別ID or headRecordSpec)")
+                    logger.warning("Record missing record type field")
                     self._records_failed += 1
                     continue
 
-                table_name = self._table_map.get(record_type)
+                table_name = self._get_table_name(record_type)
                 if not table_name:
                     logger.warning(
                         f"Unknown record type: {record_type}",
@@ -268,13 +299,17 @@ class DataImporter:
         Returns:
             True if successful, False otherwise
         """
-        # Note: Japanese parsers use 'レコード種別ID' for record type
-        record_type = record.get("レコード種別ID") or record.get("headRecordSpec")
+        # Note: Japanese parsers use 'レコード種別ID', JRA-VAN standard uses 'RecordSpec'
+        record_type = (
+            record.get("レコード種別ID") or
+            record.get("RecordSpec") or
+            record.get("headRecordSpec")
+        )
         if not record_type:
-            logger.warning("Record missing record type field (レコード種別ID or headRecordSpec)")
+            logger.warning("Record missing record type field")
             return False
 
-        table_name = self._table_map.get(record_type)
+        table_name = self._get_table_name(record_type)
         if not table_name:
             logger.warning(f"Unknown record type: {record_type}")
             return False

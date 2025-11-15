@@ -21,8 +21,10 @@ class FieldDef:
         name: Field name (matches database column name)
         start: Start position in record (0-indexed)
         length: Field length in bytes
-        type: Data type ('str', 'int', 'float')
+        type: Data type ('str', 'int', 'float') - legacy, use convert_type instead
         description: Field description
+        convert_type: Target type for conversion (e.g., 'DATE', 'INT', 'DECIMAL')
+        converter_kwargs: Additional kwargs for converter function
     """
 
     name: str
@@ -30,6 +32,8 @@ class FieldDef:
     length: int
     type: str = "str"
     description: str = ""
+    convert_type: Optional[str] = None
+    converter_kwargs: Dict[str, Any] = field(default_factory=dict)
 
 
 class BaseParser(ABC):
@@ -173,7 +177,21 @@ class BaseParser(ABC):
         # Strip whitespace
         value = raw_value.strip()
 
-        # Convert type if specified
+        # Use new convert_type if specified
+        if field_def.convert_type:
+            try:
+                from src.parser.converters import convert_value
+                return convert_value(value, field_def.convert_type, **field_def.converter_kwargs)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to convert field {field_def.name} to {field_def.convert_type}: {e}",
+                    field=field_def.name,
+                    value=value,
+                    target_type=field_def.convert_type,
+                )
+                return None
+
+        # Legacy type conversion (for backward compatibility)
         if field_def.type == "int" and value:
             try:
                 return int(value)
