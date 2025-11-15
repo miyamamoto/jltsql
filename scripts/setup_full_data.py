@@ -39,8 +39,10 @@ class FullDataSetup:
         print()
         print(f"取得期間: {self.args.from_year}年 ～ {self.current_year}年")
         print(f"データ仕様: DIFF (マスタ) + RACE (レース)")
-        if self.args.with_odds:
-            print(f"オッズ: O1, O2, O6")
+        if not self.args.without_odds:
+            print(f"オッズ: O1, O2, O6 (含む)")
+        else:
+            print(f"オッズ: なし")
         if self.args.start_monitor:
             print(f"リアルタイム監視: 有効")
         print()
@@ -77,8 +79,8 @@ class FullDataSetup:
                 if not self.args.continue_on_error:
                     return 1
 
-            # オッズデータ (オプション)
-            if self.args.with_odds:
+            # オッズデータ (デフォルトで含む)
+            if not self.args.without_odds:
                 for odds_spec in ["O1", "O2", "O6"]:
                     if not self._load_year_data(year, odds_spec):
                         self.errors.append(f"{year}年 {odds_spec}取得失敗")
@@ -193,31 +195,31 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用例:
-  # 2024年以降の全データを取得
+  # 2024年以降の全データを取得（オッズ含む）
   python scripts/setup_full_data.py --from-year 2024
 
-  # 2024年以降 + オッズデータも取得
-  python scripts/setup_full_data.py --from-year 2024 --with-odds
-
-  # 2024年以降 + リアルタイム監視も開始
+  # 2024年以降 + リアルタイム監視も開始（オッズ含む）
   python scripts/setup_full_data.py --from-year 2024 --start-monitor
 
+  # オッズデータを除外する場合
+  python scripts/setup_full_data.py --from-year 2024 --without-odds
+
   # 確認なしで自動実行
-  python scripts/setup_full_data.py --from-year 2024 -y
+  python scripts/setup_full_data.py --from-year 2024 --start-monitor -y
 
 処理内容:
   1. 基本セットアップ (init + create-tables + create-indexes)
   2. 各年のDIFF (マスタデータ) 取得
   3. 各年のRACE (レースデータ) 取得
-  4. オプション: 各年のオッズデータ取得
+  4. デフォルト: 各年のオッズデータ取得 (O1, O2, O6)
   5. オプション: リアルタイム監視開始
 
 データ仕様:
   DIFF : マスタデータ (競走馬、騎手、調教師など)
   RACE : レースデータ (レース詳細、出走馬、払戻)
-  O1   : 単勝・複勝オッズ
-  O2   : 馬連オッズ
-  O6   : 3連複・3連単オッズ
+  O1   : 単勝・複勝オッズ（デフォルトで含む）
+  O2   : 馬連オッズ（デフォルトで含む）
+  O6   : 3連複・3連単オッズ（デフォルトで含む）
         """,
     )
 
@@ -236,9 +238,9 @@ def main():
     )
 
     parser.add_argument(
-        "--with-odds",
+        "--without-odds",
         action="store_true",
-        help="オッズデータ (O1, O2, O6) も取得する",
+        help="オッズデータ (O1, O2, O6) を取得しない",
     )
 
     parser.add_argument(
