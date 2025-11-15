@@ -1,7 +1,7 @@
 """Parser for WH record - JRA-VAN Standard compliant.
 
 This parser uses JRA-VAN standard field names and type conversions.
-Auto-generated from jv_data_formats.json.
+Generated from jv_data_formats.json and JRA-VAN standard schema.
 """
 
 from typing import List
@@ -32,8 +32,8 @@ class WHParser(BaseParser):
             FieldDef("JyoCD", 19, 2, description="競馬場コード"),
             FieldDef("Kaiji", 21, 2, convert_type="SMALLINT", description="開催回[第N回]"),
             FieldDef("Nichiji", 23, 2, convert_type="SMALLINT", description="開催日目[N日目]"),
-            FieldDef("RaceNum", 25, 2, convert_type="SMALLINT", description="レース番号"),
-            FieldDef("発表月日時分", 27, 8, description="発表月日時分"),
-            FieldDef("<馬体重情報>", 35, 45, description="<馬体重情報>"),
-            FieldDef("RecordDelimiter", 845, 2, description="レコード区切"),
+            FieldDef("HappyoTime", 25, 2, convert_type="TIME", description="レース番号"),
+            FieldDef("HenkoID", 27, 8, description="発表月日時分"),
+            FieldDef("AtoTenkoCD", 35, 45, description="<馬体重情報>"),
+            FieldDef("AtoSibaBabaCD", 845, 2, description="レコード区切"),
         ]

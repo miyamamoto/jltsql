@@ -1,7 +1,7 @@
 """Parser for TC record - JRA-VAN Standard compliant.
 
 This parser uses JRA-VAN standard field names and type conversions.
-Auto-generated from jv_data_formats.json.
+Generated from jv_data_formats.json and JRA-VAN standard schema.
 """
 
 from typing import List
@@ -33,8 +33,8 @@ class TCParser(BaseParser):
             FieldDef("Kaiji", 21, 2, convert_type="SMALLINT", description="開催回[第N回]"),
             FieldDef("Nichiji", 23, 2, convert_type="SMALLINT", description="開催日目[N日目]"),
             FieldDef("RaceNum", 25, 2, convert_type="SMALLINT", description="レース番号"),
-            FieldDef("発表月日時分", 27, 8, description="発表月日時分"),
-            FieldDef("変更後_発走時刻", 35, 4, description="変更後 発走時刻"),
-            FieldDef("変更前_発走時刻", 39, 4, description="変更前 発走時刻"),
-            FieldDef("RecordDelimiter", 43, 2, description="レコード区切"),
+            FieldDef("HappyoTime", 27, 8, convert_type="TIME", description="発表月日時分"),
+            FieldDef("AtoJi", 35, 4, description="変更後 発走時刻"),
+            FieldDef("AtoFun", 39, 4, description="変更前 発走時刻"),
+            FieldDef("MaeJi", 43, 2, description="レコード区切"),
         ]

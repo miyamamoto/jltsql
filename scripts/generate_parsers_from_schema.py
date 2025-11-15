@@ -10,27 +10,46 @@ from typing import Dict, List, Optional
 # Record type to JRA-VAN table name mapping
 # Based on src/database/table_mappings.py and JRA-VAN standard schema
 RECORD_TO_TABLE = {
+    # Main records (100% coverage achieved)
     "RA": "RACE",
     "SE": "UMA_RACE",
     "HR": "HARAI",
-    "H1": "ODDS_TANPUKU",
-    "O1": "ODDS_UMAREN",
-    "O2": "ODDS_WIDE",
-    "O3": "ODDS_WAKU",
-    "O4": "ODDS_UMATAN",
-    "O5": "ODDS_SANREN",
-    "O6": "ODDS_SANRENTAN",
     "UM": "UMA",
     "KS": "KISYU",
     "CH": "CHOKYO",
     "BR": "HANSYOKU",
     "BN": "SEISAN",
     "HN": "BANUSI",
-    "TK": "TOKU",
     "YS": "SCHEDULE",
+
+    # Odds records
+    "H1": "ODDS_TANPUKU",
+    "H6": "ODDS_TANPUKUWAKU_HEAD",
+    "O1": "ODDS_UMAREN",
+    "O2": "ODDS_WIDE",
+    "O3": "ODDS_WAKU",
+    "O4": "ODDS_UMATAN",
+    "O5": "ODDS_SANREN",
+    "O6": "ODDS_SANRENTAN",
+
+    # Info/Change records
+    "AV": "SALE",
+    "JC": "KISYU_CHANGE",
+    "JG": "TORIKESI_JYOGAI",
+    "TC": "HASSOU_JIKOKU_CHANGE",
     "CC": "COURSE_CHANGE",
-    # Note: Some record types don't have corresponding tables in the extracted schema
-    # H6, JG, SK, RC, TC, CS, CK, WC, AV, JC, HC, HS, HY, WE, WF, WH, TM, BT, DM
+    "TK": "TOKU",
+    "SK": "COURSE",
+    "WH": "TENKO_BABA",
+
+    # Mining/Data records
+    "DM": "TAISENGATA_MINING",
+    "TM": "MINING",
+    "BT": "CHOKYO",
+    "RC": "RECORD",
+
+    # Note: Still need manual mapping for complex records
+    # CK (勝利騎手コメント), CS, HC, HS, HY, WC, WE, WF
 }
 
 # Type conversion mapping based on field semantics

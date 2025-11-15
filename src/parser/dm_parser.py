@@ -1,7 +1,7 @@
 """Parser for DM record - JRA-VAN Standard compliant.
 
 This parser uses JRA-VAN standard field names and type conversions.
-Auto-generated from jv_data_formats.json.
+Generated from jv_data_formats.json and JRA-VAN standard schema.
 """
 
 from typing import List
@@ -33,7 +33,7 @@ class DMParser(BaseParser):
             FieldDef("Kaiji", 21, 2, convert_type="SMALLINT", description="開催回[第N回]"),
             FieldDef("Nichiji", 23, 2, convert_type="SMALLINT", description="開催日目[N日目]"),
             FieldDef("RaceNum", 25, 2, convert_type="SMALLINT", description="レース番号"),
-            FieldDef("データ作成時分", 27, 4, description="データ作成時分"),
-            FieldDef("<マイニング予想>", 31, 15, description="<マイニング予想>"),
-            FieldDef("RecordDelimiter", 301, 2, description="レコード区切"),
+            FieldDef("MakeHM", 27, 4, description="データ作成時分"),
+            FieldDef("Umaban1", 31, 15, description="<マイニング予想>"),
+            FieldDef("TMScore1", 301, 2, description="レコード区切"),
         ]

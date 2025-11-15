@@ -1,7 +1,7 @@
 """Parser for H6 record - JRA-VAN Standard compliant.
 
 This parser uses JRA-VAN standard field names and type conversions.
-Auto-generated from jv_data_formats.json.
+Generated from jv_data_formats.json and JRA-VAN standard schema.
 """
 
 from typing import List
@@ -33,12 +33,12 @@ class H6Parser(BaseParser):
             FieldDef("Kaiji", 21, 2, convert_type="SMALLINT", description="開催回[第N回]"),
             FieldDef("Nichiji", 23, 2, convert_type="SMALLINT", description="開催日目[N日目]"),
             FieldDef("RaceNum", 25, 2, convert_type="SMALLINT", description="レース番号"),
-            FieldDef("TorokuTosu", 27, 2, convert_type="SMALLINT", description="登録頭数"),
-            FieldDef("SyussoTosu", 29, 2, convert_type="SMALLINT", description="出走頭数"),
-            FieldDef("発売フラグ　3連単", 31, 1, description="発売フラグ　3連単"),
-            FieldDef("返還馬番情報(馬番01～18)", 32, 1, description="返還馬番情報(馬番01～18)"),
-            FieldDef("<3連単票数>", 50, 21, description="<3連単票数>"),
-            FieldDef("3連単票数合計", 102866, 11, description="3連単票数合計"),
-            FieldDef("3連単返還票数合計", 102877, 11, description="3連単返還票数合計"),
-            FieldDef("RecordDelimiter", 102888, 2, description="レコード区切"),
+            FieldDef("HappyoTime", 27, 2, convert_type="TIME", description="登録頭数"),
+            FieldDef("TorokuTosu", 29, 2, convert_type="SMALLINT", description="出走頭数"),
+            FieldDef("SyussoTosu", 31, 1, convert_type="SMALLINT", description="発売フラグ　3連単"),
+            FieldDef("TansyoFlag", 32, 1, description="返還馬番情報(馬番01～18)"),
+            FieldDef("FukusyoFlag", 50, 21, description="<3連単票数>"),
+            FieldDef("WakurenFlag", 102866, 11, description="3連単票数合計"),
+            FieldDef("FukuChakuBaraiKey", 102877, 11, description="3連単返還票数合計"),
+            FieldDef("TotalHyosuTansyo", 102888, 2, description="レコード区切"),
         ]
