@@ -39,5 +39,5 @@ class CCParser(BaseParser):
             FieldDef("MaeKyori", 41, 4, description="変更前 距離"),
             FieldDef("MaeTruckCD", 45, 2, description="変更前 トラックコード"),
             FieldDef("JiyuCD", 47, 1, description="事由区分"),
-            FieldDef("レコード区切", 48, 2, description="レコード区切"),
+            FieldDef("RecordDelimiter", 48, 2, description="レコード区切"),
         ]

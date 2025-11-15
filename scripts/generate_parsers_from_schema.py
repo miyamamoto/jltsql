@@ -7,6 +7,11 @@ import re
 from pathlib import Path
 from typing import Dict, List, Optional
 
+# Import comprehensive field mapping
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
+from comprehensive_field_mapping import map_field_name
+
 # Record type to JRA-VAN table name mapping
 # Based on src/database/table_mappings.py and JRA-VAN standard schema
 RECORD_TO_TABLE = {
@@ -178,17 +183,20 @@ def generate_parser(
     # Generate field definitions
     field_defs = []
     for i, jv_field in enumerate(jv_fields):
-        # Get field name from schema (by order/index)
+        japanese_name = jv_field["name"]
+
+        # Get field name: prefer schema, fallback to mapping, last resort Japanese
         if i < len(schema_fields):
             field_name = schema_fields[i]
         else:
-            # Fallback: use Japanese name if schema doesn't have enough fields
-            field_name = jv_field["name"]
-            print(f"  Warning: Using Japanese name for field {i+1}: {field_name}")
+            # Try comprehensive mapping
+            field_name = map_field_name(japanese_name)
+            if field_name == japanese_name and not (field_name.startswith("<") and field_name.endswith(">")):
+                print(f"  Warning: No mapping for field {i+1}: {field_name}")
 
         position = jv_field["position"] - 1  # Convert to 0-indexed
         length = jv_field["length"]
-        japanese_desc = jv_field["name"]
+        japanese_desc = japanese_name
         convert_type = get_convert_type(field_name)
 
         if convert_type:

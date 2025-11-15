@@ -44,5 +44,5 @@ class JCParser(BaseParser):
             FieldDef("MaeKisyuCode", 119, 5, description="騎手コード"),
             FieldDef("MaeKisyuName", 124, 34, description="騎手名"),
             FieldDef("MaeMinaraiCD", 158, 1, description="騎手見習コード"),
-            FieldDef("レコード区切", 159, 2, description="レコード区切"),
+            FieldDef("RecordDelimiter", 159, 2, description="レコード区切"),
         ]
