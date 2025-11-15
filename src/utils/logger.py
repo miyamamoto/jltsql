@@ -2,11 +2,13 @@
 
 import logging
 import logging.config
+import logging.handlers
 import sys
 from pathlib import Path
 from typing import Optional
 
 import structlog
+import yaml
 
 
 def setup_logging(
@@ -134,5 +136,91 @@ def setup_logging_from_config(config: dict) -> None:
     )
 
 
+def setup_logging_from_yaml(config_path: Optional[str] = None) -> None:
+    """Setup logging from YAML configuration file.
+
+    This function loads logging configuration from a YAML file and applies it.
+    The YAML file should follow Python's logging.config.dictConfig format.
+
+    Supports:
+    - RotatingFileHandler: Size-based log rotation
+    - TimedRotatingFileHandler: Time-based log rotation (hourly, daily, weekly)
+    - Multiple handlers with different rotation strategies
+    - Custom formatters and log levels per logger
+
+    Args:
+        config_path: Path to logging.yaml file. If None, uses default config/logging.yaml
+
+    Examples:
+        >>> setup_logging_from_yaml()  # Uses default config
+        >>> setup_logging_from_yaml("custom_logging.yaml")
+
+    Raises:
+        FileNotFoundError: If config file doesn't exist
+        yaml.YAMLError: If config file is invalid YAML
+    """
+    if config_path is None:
+        project_root = Path(__file__).parent.parent.parent
+        config_path = str(project_root / "config" / "logging.yaml")
+
+    config_file = Path(config_path)
+    if not config_file.exists():
+        raise FileNotFoundError(f"Logging config file not found: {config_path}")
+
+    # Load YAML configuration
+    with open(config_file, 'r', encoding='utf-8') as f:
+        config_dict = yaml.safe_load(f)
+
+    # Create log directory if it doesn't exist
+    if 'handlers' in config_dict:
+        for handler_name, handler_config in config_dict['handlers'].items():
+            if 'filename' in handler_config:
+                log_file = Path(handler_config['filename'])
+                log_file.parent.mkdir(parents=True, exist_ok=True)
+
+    # Apply logging configuration
+    logging.config.dictConfig(config_dict)
+
+
+def get_rotation_info() -> dict:
+    """Get information about current log rotation settings.
+
+    Returns:
+        Dictionary with rotation information for each handler
+
+    Examples:
+        >>> info = get_rotation_info()
+        >>> print(info['file']['type'])  # 'RotatingFileHandler'
+        >>> print(info['file']['maxBytes'])  # 104857600
+    """
+    rotation_info = {}
+
+    for handler in logging.getLogger().handlers:
+        handler_name = handler.__class__.__name__
+        info = {'type': handler_name}
+
+        if isinstance(handler, logging.handlers.RotatingFileHandler):
+            info.update({
+                'filename': handler.baseFilename,
+                'maxBytes': handler.maxBytes,
+                'backupCount': handler.backupCount,
+            })
+        elif isinstance(handler, logging.handlers.TimedRotatingFileHandler):
+            info.update({
+                'filename': handler.baseFilename,
+                'when': handler.when,
+                'interval': handler.interval,
+                'backupCount': handler.backupCount,
+            })
+
+        rotation_info[handler_name] = info
+
+    return rotation_info
+
+
 # Configure default logging on module import
-setup_logging()
+# Try to load from YAML first, fall back to basic setup
+try:
+    setup_logging_from_yaml()
+except (FileNotFoundError, yaml.YAMLError):
+    setup_logging()

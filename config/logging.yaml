@@ -10,10 +10,6 @@ formatters:
     format: '%(asctime)s [%(levelname)s] %(name)s:%(funcName)s:%(lineno)d: %(message)s'
     datefmt: '%Y-%m-%d %H:%M:%S'
 
-  json:
-    '()': pythonjsonlogger.jsonlogger.JsonFormatter
-    format: '%(asctime)s %(name)s %(levelname)s %(message)s'
-
 handlers:
   console:
     class: logging.StreamHandler
@@ -21,22 +17,47 @@ handlers:
     formatter: standard
     stream: ext://sys.stdout
 
+  # サイズベースのローテーション (デフォルト)
   file:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
     formatter: detailed
     filename: ./logs/jltsql.log
     maxBytes: 104857600  # 100MB
-    backupCount: 5
+    backupCount: 10
     encoding: utf-8
 
+  # エラーログ用のローテーション
   error_file:
     class: logging.handlers.RotatingFileHandler
     level: ERROR
     formatter: detailed
     filename: ./logs/jltsql_error.log
     maxBytes: 10485760  # 10MB
-    backupCount: 3
+    backupCount: 5
+    encoding: utf-8
+
+  # 時間ベースのローテーション (日次)
+  # 使用する場合は、rootとloggers設定で'file'の代わりに'timed_file'を指定
+  timed_file:
+    class: logging.handlers.TimedRotatingFileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: ./logs/jltsql_daily.log
+    when: midnight  # midnight, H (hourly), D (daily), W0-W6 (weekday)
+    interval: 1
+    backupCount: 30  # 30日分保持
+    encoding: utf-8
+
+  # 時間ベースのエラーログローテーション
+  timed_error_file:
+    class: logging.handlers.TimedRotatingFileHandler
+    level: ERROR
+    formatter: detailed
+    filename: ./logs/jltsql_error_daily.log
+    when: midnight
+    interval: 1
+    backupCount: 14  # 14日分保持
     encoding: utf-8
 
 loggers:
