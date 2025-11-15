@@ -45,13 +45,23 @@ copy config\config.yaml.example config\config.yaml
 
 ## クイックスタート
 
-### 自動セットアップ（推奨）
+### 完全自動セットアップ（最も簡単）
 
 ```bash
-# 基本セットアップ (init + create-tables + create-indexes)
+# 2024年以降の全データ + リアルタイム監視まで一括セットアップ
+python scripts/setup_full_data.py --from-year 2024 --start-monitor
+
+# オッズデータも含める場合
+python scripts/setup_full_data.py --from-year 2024 --with-odds --start-monitor
+```
+
+### 基本セットアップのみ
+
+```bash
+# 初期セットアップ (init + create-tables + create-indexes)
 python scripts/quickstart.py
 
-# データ取得も自動実行
+# サンプルデータ取得
 python scripts/quickstart.py --fetch --from 20240101 --to 20240131 --spec RACE
 ```
 
