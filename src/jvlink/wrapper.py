@@ -86,10 +86,10 @@ class JVLinkWrapper:
             raise JVLinkError(f"Failed to create JV-Link COM object: {e}")
 
     def jv_set_service_key(self, service_key: str) -> int:
-        """Set JV-Link service key programmatically.
+        """Set JV-Link service key via Windows registry.
 
-        This method allows setting the service key from the application
-        without requiring registry configuration or JRA-VAN DataLab application.
+        This method sets the service key directly in the Windows registry,
+        bypassing the unreliable JVSetServiceKey API which returns error -100.
 
         Args:
             service_key: JV-Link service key (format: XXXX-XXXX-XXXX-XXXX-X)
@@ -102,18 +102,31 @@ class JVLinkWrapper:
 
         Examples:
             >>> wrapper = JVLinkWrapper()
-            >>> wrapper.jv_set_service_key("1UJC-VRFM-24YD-K2W4-4")
+            >>> wrapper.jv_set_service_key("5UJC-VRFM-448X-F3V4-4")
             0
             >>> wrapper.jv_init()
         """
         try:
-            result = self._jvlink.JVSetServiceKey(service_key)
-            if result == JV_RT_SUCCESS:
-                logger.info("Service key set successfully")
+            import subprocess
+            import time
+
+            # Set service key in Windows registry
+            # IMPORTANT: JVSetServiceKey API is unreliable (returns -100), use registry instead
+            reg_key = r"HKLM\SOFTWARE\JRA-VAN\JV-Link"
+            result = subprocess.run(
+                ['reg', 'add', reg_key, '/v', 'ServiceKey', '/t', 'REG_SZ', '/d', service_key, '/f'],
+                capture_output=True,
+                text=True
+            )
+
+            if result.returncode == 0:
+                logger.info("Service key set successfully via registry")
+                # Wait a bit for registry to be flushed
+                time.sleep(0.5)
+                return JV_RT_SUCCESS
             else:
-                logger.error("Failed to set service key", error_code=result)
-                raise JVLinkError("Failed to set service key", error_code=result)
-            return result
+                logger.error("Failed to set service key in registry", error=result.stderr)
+                raise JVLinkError(f"Failed to set service key in registry: {result.stderr}")
         except Exception as e:
             if isinstance(e, JVLinkError):
                 raise
