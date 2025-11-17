@@ -3,6 +3,7 @@
 This module provides the base class for fetching JV-Data from JV-Link.
 """
 
+import time
 from abc import ABC, abstractmethod
 from typing import Iterator, Optional
 
@@ -10,6 +11,7 @@ from src.jvlink.constants import JV_READ_NO_MORE_DATA, JV_READ_SUCCESS
 from src.jvlink.wrapper import JVLinkWrapper
 from src.parser.factory import ParserFactory
 from src.utils.logger import get_logger
+from src.utils.progress import JVLinkProgressDisplay
 
 logger = get_logger(__name__)
 
@@ -35,7 +37,12 @@ class BaseFetcher(ABC):
         parser_factory: Parser factory instance
     """
 
-    def __init__(self, sid: str = "UNKNOWN", service_key: Optional[str] = None):
+    def __init__(
+        self,
+        sid: str = "UNKNOWN",
+        service_key: Optional[str] = None,
+        show_progress: bool = True,
+    ):
         """Initialize base fetcher.
 
         Args:
@@ -44,6 +51,7 @@ class BaseFetcher(ABC):
                         programmatically without requiring registry configuration.
                         If not provided, the service key must be configured in
                         JRA-VAN DataLab application or registry.
+            show_progress: Show stylish progress display (default: True)
         """
         self.jvlink = JVLinkWrapper(sid)
         self.parser_factory = ParserFactory()
@@ -51,6 +59,9 @@ class BaseFetcher(ABC):
         self._records_parsed = 0
         self._records_failed = 0
         self._service_key = service_key
+        self.show_progress = show_progress
+        self.progress_display: Optional[JVLinkProgressDisplay] = None
+        self._start_time = None
 
         logger.info(f"{self.__class__.__name__} initialized", sid=sid,
                    has_service_key=service_key is not None)
@@ -70,12 +81,19 @@ class BaseFetcher(ABC):
         """
         pass
 
-    def _fetch_and_parse(self) -> Iterator[dict]:
+    def _fetch_and_parse(self, task_id: Optional[int] = None) -> Iterator[dict]:
         """Internal method to fetch and parse records.
+
+        Args:
+            task_id: Progress task ID (optional)
 
         Yields:
             Dictionary of parsed record data
         """
+        self._start_time = time.time()
+        last_update_time = self._start_time
+        update_interval = 0.1  # Update progress every 0.1 seconds
+
         while True:
             try:
                 # Read next record
@@ -90,6 +108,8 @@ class BaseFetcher(ABC):
                 if ret_code == JV_READ_SUCCESS:
                     # Complete (0)
                     logger.info("Read complete - no more data")
+                    if self.progress_display and task_id is not None:
+                        self.progress_display.update(task_id, status="読込完了")
                     break
 
                 elif ret_code == JV_READ_NO_MORE_DATA:
@@ -121,6 +141,29 @@ class BaseFetcher(ABC):
                             record_num=self._records_fetched,
                             error=str(e),
                         )
+
+                    # Update progress display
+                    current_time = time.time()
+                    if (
+                        self.progress_display
+                        and task_id is not None
+                        and (current_time - last_update_time) >= update_interval
+                    ):
+                        elapsed = current_time - self._start_time
+                        speed = self._records_fetched / elapsed if elapsed > 0 else 0
+
+                        self.progress_display.update(
+                            task_id,
+                            advance=1,
+                            status=f"{self._records_fetched:,} 件処理中",
+                        )
+                        self.progress_display.update_stats(
+                            fetched=self._records_fetched,
+                            parsed=self._records_parsed,
+                            failed=self._records_failed,
+                            speed=speed,
+                        )
+                        last_update_time = current_time
 
                 else:
                     # Error (< -1)

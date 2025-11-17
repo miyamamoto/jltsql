@@ -9,6 +9,7 @@ from typing import Iterator, Optional
 
 from src.fetcher.base import BaseFetcher, FetcherError
 from src.utils.logger import get_logger
+from src.utils.progress import JVLinkProgressDisplay
 
 logger = get_logger(__name__)
 
@@ -60,10 +61,23 @@ class HistoricalFetcher(BaseFetcher):
             ...     # Process record
             ...     pass
         """
+        # Create progress display if enabled
+        if self.show_progress:
+            self.progress_display = JVLinkProgressDisplay()
+            self.progress_display.start()
+
+        download_task_id = None
+        fetch_task_id = None
+
         try:
             # Initialize JV-Link
             logger.info("Initializing JV-Link", has_service_key=self._service_key is not None)
-            self.jvlink.jv_init(service_key=self._service_key)
+            if self.progress_display:
+                self.progress_display.print_info(f"JV-Link初期化中... (data_spec={data_spec})")
+
+            # Note: Service key must be pre-configured in Windows registry
+            # jv_init() does not accept service_key parameter
+            self.jvlink.jv_init()
 
             # Convert dates to fromtime format
             # fromtime format: "YYYYMMDDhhmmss" (single timestamp)
@@ -102,6 +116,10 @@ class HistoricalFetcher(BaseFetcher):
                     fromtime=fromtime,
                     note="No new data since this timestamp",
                 )
+                if self.progress_display:
+                    self.progress_display.print_warning(
+                        f"データなし: {data_spec} (from={from_date})"
+                    )
                 return  # No data to fetch
 
             # Wait for download to complete if needed (download_count > 0)
@@ -110,13 +128,25 @@ class HistoricalFetcher(BaseFetcher):
                     "Download in progress, waiting for completion",
                     download_count=download_count,
                 )
-                self._wait_for_download()
+                if self.progress_display:
+                    download_task_id = self.progress_display.add_download_task(
+                        f"{data_spec} ダウンロード",
+                        total=100,
+                    )
+                self._wait_for_download(download_task_id)
 
             # Reset statistics
             self.reset_statistics()
 
+            # Create fetch progress task
+            if self.progress_display:
+                fetch_task_id = self.progress_display.add_task(
+                    f"{data_spec} レコード取得",
+                    total=read_count,
+                )
+
             # Fetch and parse records
-            for data in self._fetch_and_parse():
+            for data in self._fetch_and_parse(fetch_task_id):
                 yield data
 
             # Log summary
@@ -126,8 +156,17 @@ class HistoricalFetcher(BaseFetcher):
                 **stats,
             )
 
+            if self.progress_display:
+                self.progress_display.print_success(
+                    f"完了: {data_spec} - "
+                    f"{stats['records_parsed']:,}件取得 "
+                    f"(失敗: {stats['records_failed']}件)"
+                )
+
         except Exception as e:
             logger.error("Failed to fetch historical data", error=str(e))
+            if self.progress_display:
+                self.progress_display.print_error(f"エラー: {str(e)}")
             raise FetcherError(f"Historical fetch failed: {e}")
 
         finally:
@@ -138,6 +177,10 @@ class HistoricalFetcher(BaseFetcher):
                     logger.info("Data stream closed")
             except Exception as e:
                 logger.warning(f"Failed to close stream: {e}")
+
+            # Stop progress display
+            if self.progress_display:
+                self.progress_display.stop()
 
     def fetch_with_date_range(
         self,
@@ -170,12 +213,15 @@ class HistoricalFetcher(BaseFetcher):
 
         yield from self.fetch(data_spec, from_date, to_date, option)
 
-    def _wait_for_download(self, timeout: int = 600, interval: float = 1.0):
+    def _wait_for_download(
+        self, download_task_id: Optional[int] = None, timeout: int = 600, interval: float = 0.5
+    ):
         """Wait for JV-Link download to complete.
 
         Args:
+            download_task_id: Progress task ID for download (optional)
             timeout: Maximum wait time in seconds (default: 600 = 10 minutes)
-            interval: Status check interval in seconds (default: 1.0)
+            interval: Status check interval in seconds (default: 0.5)
 
         Raises:
             FetcherError: If download fails or times out
@@ -199,15 +245,29 @@ class HistoricalFetcher(BaseFetcher):
 
                 if status != last_status:
                     if status > 0:
+                        percentage = status / 100
                         logger.info(
                             "Download in progress",
-                            progress_percent=status / 100,
+                            progress_percent=percentage,
                             elapsed_seconds=int(elapsed),
                         )
+                        # Update progress display
+                        if self.progress_display and download_task_id is not None:
+                            self.progress_display.update_download(
+                                download_task_id,
+                                completed=status,
+                                status=f"{percentage:.1f}% - {int(elapsed)}秒経過",
+                            )
                     last_status = status
 
                 if status == 0:
                     logger.info("Download completed", elapsed_seconds=int(elapsed))
+                    if self.progress_display and download_task_id is not None:
+                        self.progress_display.update_download(
+                            download_task_id,
+                            completed=100,
+                            status="完了",
+                        )
                     return  # Download complete
 
                 if status < 0:

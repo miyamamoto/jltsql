@@ -30,6 +30,12 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
+# Add project root to path for imports
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+from src.utils.lock_manager import ProcessLock, ProcessLockError
+
 
 class QuickstartRunner:
     """完全自動セットアップ実行クラス"""
@@ -89,8 +95,8 @@ class QuickstartRunner:
             print("  5. リアルタイム監視開始（速報データ → RT_テーブル）")
         print()
 
-        # 期間表示（--yearsが使われた場合はそれも表示）
-        if hasattr(self.args, 'years') and self.args.years:
+        # 期間表示（--fromが手動指定されていない場合のみ「過去X年間」を表示）
+        if self.args._years_used:
             print(f"データ期間: 過去{self.args.years}年間 ({self.args.from_date} ～ {self.args.to_date})")
         else:
             print(f"データ期間: {self.args.from_date} ～ {self.args.to_date}")
@@ -207,6 +213,8 @@ class QuickstartRunner:
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
+                errors='replace',
                 timeout=30,
             )
 
@@ -237,6 +245,8 @@ class QuickstartRunner:
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
+                errors='replace',
                 timeout=60,
             )
 
@@ -267,6 +277,8 @@ class QuickstartRunner:
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
+                errors='replace',
                 timeout=120,
             )
 
@@ -343,14 +355,24 @@ class QuickstartRunner:
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
+                errors='replace',  # Unicode decoding errors を無視
                 timeout=600,  # 10分
             )
+
+            # エラー詳細をログ
+            if result.returncode != 0:
+                if result.stderr:
+                    # デバッグ用にエラーを記録（本番では表示しない）
+                    self.errors.append(f"{spec}: {result.stderr[:200]}")
 
             return result.returncode == 0
 
         except subprocess.TimeoutExpired:
+            self.errors.append(f"{spec}: タイムアウト")
             return False
-        except Exception:
+        except Exception as e:
+            self.errors.append(f"{spec}: {str(e)[:200]}")
             return False
 
     def _run_monitor(self) -> bool:
@@ -419,9 +441,9 @@ class QuickstartRunner:
         """サマリー出力"""
         print("=" * 80)
         if success:
-            print("✅ セットアップ完了！")
+            print("[OK] セットアップ完了！")
         else:
-            print("❌ セットアップ失敗")
+            print("[NG] セットアップ失敗")
         print("=" * 80)
         print()
 
@@ -434,14 +456,14 @@ class QuickstartRunner:
 
         # 警告
         if self.warnings:
-            print("⚠️  警告:")
+            print("[!!] 警告:")
             for warning in self.warnings:
                 print(f"  - {warning}")
             print()
 
         # エラー
         if self.errors:
-            print("❌ エラー:")
+            print("[NG] エラー:")
             for error in self.errors:
                 print(f"  - {error}")
             print()
@@ -545,6 +567,9 @@ def main():
     # デフォルト期間を計算
     today = datetime.now()
 
+    # --fromが手動指定されたかを記録
+    args._years_used = (args.from_date is None)
+
     # --from が指定されていない場合、--years から計算
     if args.from_date is None:
         args.from_date = (today - timedelta(days=365 * args.years)).strftime("%Y%m%d")
@@ -560,9 +585,19 @@ def main():
     except ValueError:
         parser.error("日付は YYYYMMDD 形式で指定してください (例: 20240101)")
 
-    # セットアップ実行
-    runner = QuickstartRunner(args)
-    sys.exit(runner.run())
+    # セットアップ実行（プロセスロック付き）
+    try:
+        with ProcessLock("quickstart"):
+            runner = QuickstartRunner(args)
+            sys.exit(runner.run())
+    except ProcessLockError as e:
+        print()
+        print("[NG] " + str(e))
+        print()
+        print("他のquickstartプロセスが実行中です。")
+        print("完了まで待つか、手動でロックファイルを削除してください。")
+        print()
+        sys.exit(1)
 
 
 if __name__ == "__main__":

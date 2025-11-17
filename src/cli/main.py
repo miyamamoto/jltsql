@@ -31,21 +31,21 @@ logger = get_logger(__name__)
     is_flag=True,
     help="Enable verbose output (DEBUG level)",
 )
-@click.version_option(version=__version__, prog_name="jltsql")
+@click.version_option(version=__version__, prog_name="jrvltsql")
 @click.pass_context
 def cli(ctx, config, verbose):
-    """JLTSQL - JRA-VAN Link To SQL
+    """JRVLTSQL - JRA-VAN Link To SQL
 
     JRA-VAN DataLabの競馬データをSQLite/DuckDB/PostgreSQLに
     リアルタイムインポートするツール
 
     \b
     使用例:
-      jltsql init                     # プロジェクト初期化
-      jltsql fetch --from 2024-01-01  # データ取得
-      jltsql monitor --daemon         # リアルタイム監視開始
+      jrvltsql init                     # プロジェクト初期化
+      jrvltsql fetch --from 2024-01-01  # データ取得
+      jrvltsql monitor --daemon         # リアルタイム監視開始
 
-    詳細: https://github.com/yourusername/jltsql
+    詳細: https://github.com/miyamamoto/jrvltsql
     """
     # Store context
     ctx.ensure_object(dict)

@@ -151,6 +151,9 @@ config/config.yaml
 # PID files
 *.pid
 
+# Process lock files
+.locks/
+
 # Temporary files
 *.tmp
 *.temp
