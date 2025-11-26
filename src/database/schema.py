@@ -1003,16 +1003,15 @@ SCHEMAS = {
             HaronTimeL3 TEXT,
             KettoNum1 TEXT,
             Bamei1 TEXT,
-            KettoNum2 TEXT,
-            Bamei2 TEXT,
-            KettoNum3 TEXT,
-            Bamei3 TEXT,
             TimeDiff TEXT,
             RecordUpKubun TEXT,
             DMKubun TEXT,
             DMTime TEXT,
             DMGosaP TEXT,
-            DMGosaM TEXT
+            DMGosaM TEXT,
+            DMJyuni TEXT,
+            KyakusituKubun TEXT,
+            reserved5 TEXT
         )
     """,
     "NL_SK": """
@@ -1131,6 +1130,7 @@ SCHEMAS = {
             RecordSpec TEXT,
             DataKubun TEXT,
             MakeDate TEXT,
+            KettoNum TEXT,
             DelKubun TEXT,
             RegDate TEXT,
             DelDate TEXT,
@@ -1187,15 +1187,7 @@ SCHEMAS = {
             RuikeiFukaSyogai TEXT,
             RuikeiSyutokuHeichi TEXT,
             RuikeiSyutokuSyogai TEXT,
-            SogoChakukaisu1 TEXT,
-            SogoChakukaisu2 TEXT,
-            SogoChakukaisu3 TEXT,
-            SogoChakukaisu4 TEXT,
-            SogoChakukaisu5 TEXT,
-            SogoChakukaisu6 TEXT,
-            ChuoChakukaisu1 TEXT,
-            ChuoChakukaisu2 TEXT,
-            ChuoChakukaisu3 TEXT
+            reserved1 TEXT
         )
     """,
 
@@ -1863,16 +1855,15 @@ SCHEMAS = {
             HaronTimeL3 TEXT,
             KettoNum1 TEXT,
             Bamei1 TEXT,
-            KettoNum2 TEXT,
-            Bamei2 TEXT,
-            KettoNum3 TEXT,
-            Bamei3 TEXT,
             TimeDiff TEXT,
             RecordUpKubun TEXT,
             DMKubun TEXT,
             DMTime TEXT,
             DMGosaP TEXT,
-            DMGosaM TEXT
+            DMGosaM TEXT,
+            DMJyuni TEXT,
+            KyakusituKubun TEXT,
+            reserved5 TEXT
         )
     """,
     "RT_TC": """

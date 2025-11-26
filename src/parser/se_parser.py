@@ -234,41 +234,39 @@ class SEParser:
             # 59. 後3ハロンタイム (位置:391, 長さ:3)
             result["HaronTimeL3"] = self.decode_field(data[390:393])
 
-            # 60. <1着馬(相手馬)情報> (位置:394, 長さ:0)
-            result["KettoNum1"] = self.decode_field(data[393:393])
-
+            # 60. <1着馬(相手馬)情報> (位置:394, 長さ:46)
             # 61. 　　血統登録番号 (位置:394, 長さ:10)
-            result["Bamei1"] = self.decode_field(data[393:403])
+            result["KettoNum1"] = self.decode_field(data[393:403])
 
             # 62. 　　馬名 (位置:404, 長さ:36)
-            result["KettoNum2"] = self.decode_field(data[403:439])
+            result["Bamei1"] = self.decode_field(data[403:439])
 
             # 63. タイム差 (位置:440, 長さ:4)
-            result["Bamei2"] = self.decode_field(data[439:443])
+            result["TimeDiff"] = self.decode_field(data[439:443])
 
             # 64. レコード更新区分 (位置:444, 長さ:1)
-            result["KettoNum3"] = self.decode_field(data[443:444])
+            result["RecordUpKubun"] = self.decode_field(data[443:444])
 
             # 65. マイニング区分 (位置:445, 長さ:1)
-            result["Bamei3"] = self.decode_field(data[444:445])
+            result["DMKubun"] = self.decode_field(data[444:445])
 
             # 66. マイニング予想走破タイム (位置:446, 長さ:5)
-            result["TimeDiff"] = self.decode_field(data[445:450])
+            result["DMTime"] = self.decode_field(data[445:450])
 
             # 67. マイニング予想誤差(信頼度)＋ (位置:451, 長さ:4)
-            result["RecordUpKubun"] = self.decode_field(data[450:454])
+            result["DMGosaP"] = self.decode_field(data[450:454])
 
             # 68. マイニング予想誤差(信頼度)－ (位置:455, 長さ:4)
-            result["DMKubun"] = self.decode_field(data[454:458])
+            result["DMGosaM"] = self.decode_field(data[454:458])
 
             # 69. マイニング予想順位 (位置:459, 長さ:2)
-            result["DMTime"] = self.decode_field(data[458:460])
+            result["DMJyuni"] = self.decode_field(data[458:460])
 
             # 70. 今回レース脚質判定 (位置:461, 長さ:1)
-            result["DMGosaP"] = self.decode_field(data[460:461])
+            result["KyakusituKubun"] = self.decode_field(data[460:461])
 
             # 71. レコード区切 (位置:462, 長さ:2)
-            result["DMGosaM"] = self.decode_field(data[461:463])
+            result["reserved5"] = self.decode_field(data[461:463])
 
             return result
 
