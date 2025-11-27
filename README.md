@@ -4,7 +4,7 @@ JRA-VAN DataLabの競馬データをSQLite/PostgreSQLにインポートするPyt
 
 [![Tests](https://github.com/miyamamoto/jrvltsql/actions/workflows/test.yml/badge.svg)](https://github.com/miyamamoto/jrvltsql/actions/workflows/test.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.10+%20(32bit)-blue.svg)](https://www.python.org/downloads/)
 
 ## 特徴
 
@@ -17,12 +17,29 @@ JRA-VAN DataLabの競馬データをSQLite/PostgreSQLにインポートするPyt
 ## 必要要件
 
 - Windows 10/11（JV-Link COM API）
-- Python 3.10+ **(32bit only)**
+- **Python 3.10+ (32bit版のみ)** ← JV-Link COM APIが32bit専用のため
 - JRA-VAN DataLab会員（月額2,090円）
 
 ### ⚠️ 重要な制約事項
 
-**JV-Link COM APIはWindowsのデスクトップセッションが必要です：**
+**1. Python 32bit版が必須です：**
+
+JV-Link COM APIは32bit専用のため、**Python 32bit版**が必要です。64bit版では動作しません。
+
+```bash
+# Pythonのビット数を確認
+python -c "import struct; print(struct.calcsize('P') * 8, 'bit')"
+```
+
+**Python 32bit版のインストール方法：**
+1. [Python公式サイト](https://www.python.org/downloads/windows/)から「Windows installer (32-bit)」をダウンロード
+2. インストール時に「Add Python to PATH」にチェック
+3. 既に64bit版がある場合は、Pythonランチャーで指定可能：
+   ```bash
+   py -3.12-32 scripts/quickstart.py  # Python 3.12 32bit版を指定
+   ```
+
+**2. Windowsデスクトップセッションが必要です：**
 
 - ✅ **Windowsローカルでの実行**: 正常に動作
 - ✅ **RDP（リモートデスクトップ）経由**: 正常に動作
