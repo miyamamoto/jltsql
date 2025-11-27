@@ -17,7 +17,7 @@ JRA-VAN DataLabの競馬データをSQLite/PostgreSQLにインポートするPyt
 ## 必要要件
 
 - Windows 10/11（JV-Link COM API）
-- Python 3.10+ (32bit only)
+- Python 3.10+ **(32bit only)**
 - JRA-VAN DataLab会員（月額2,090円）
 
 ### ⚠️ 重要な制約事項
