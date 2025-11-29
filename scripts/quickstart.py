@@ -45,6 +45,73 @@ def interactive_setup() -> dict:
         return _interactive_setup_simple()
 
 
+def _check_service_key() -> tuple[bool, str]:
+    """サービスキーの設定状況を確認"""
+    import os
+
+    # 環境変数をチェック
+    env_key = os.environ.get("JVLINK_SERVICE_KEY", "")
+    if env_key and len(env_key) >= 10:
+        return True, env_key
+
+    # config.yamlをチェック
+    config_path = project_root / "config" / "config.yaml"
+    if config_path.exists():
+        try:
+            import yaml
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = yaml.safe_load(f)
+            key = config.get("jvlink", {}).get("service_key", "")
+            if key and not key.startswith("${") and len(key) >= 10:
+                return True, key
+        except Exception:
+            pass
+
+    return False, ""
+
+
+def _save_service_key(service_key: str) -> bool:
+    """サービスキーをconfig.yamlに保存"""
+    import yaml
+
+    config_dir = project_root / "config"
+    config_dir.mkdir(exist_ok=True)
+
+    config_path = config_dir / "config.yaml"
+
+    # 既存の設定を読み込む
+    if config_path.exists():
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = yaml.safe_load(f) or {}
+        except Exception:
+            config = {}
+    else:
+        config = {}
+
+    # jvlinkセクションを更新
+    if "jvlink" not in config:
+        config["jvlink"] = {}
+    config["jvlink"]["service_key"] = service_key
+
+    # databasesセクションがなければデフォルトを追加
+    if "databases" not in config:
+        config["databases"] = {
+            "sqlite": {
+                "enabled": True,
+                "path": "./data/keiba.db",
+            }
+        }
+
+    # 保存
+    try:
+        with open(config_path, "w", encoding="utf-8") as f:
+            yaml.dump(config, f, allow_unicode=True, default_flow_style=False)
+        return True
+    except Exception:
+        return False
+
+
 def _interactive_setup_rich() -> dict:
     """Rich UIで対話形式設定"""
     console.clear()
@@ -59,6 +126,38 @@ def _interactive_setup_rich() -> dict:
     console.print()
 
     settings = {}
+
+    # サービスキーの確認
+    console.print("[bold]0. JV-Link サービスキー[/bold]")
+    console.print("[dim]JRA-VAN DataLab会員のサービスキーが必要です[/dim]")
+    console.print()
+
+    has_key, existing_key = _check_service_key()
+
+    if has_key:
+        masked_key = existing_key[:4] + "-****-****-****-" + existing_key[-1]
+        console.print(f"  [green]OK[/green] サービスキー設定済み: {masked_key}")
+        console.print()
+    else:
+        console.print("  [yellow]未設定[/yellow] サービスキーが設定されていません")
+        console.print()
+        console.print("[dim]サービスキーは JRA-VAN DataLab 会員ページで確認できます[/dim]")
+        console.print("[dim]https://jra-van.jp/dlb/[/dim]")
+        console.print()
+
+        service_key = Prompt.ask("サービスキーを入力 (例: XXXX-XXXX-XXXX-XXXX-X)")
+
+        if service_key and len(service_key) >= 10:
+            if _save_service_key(service_key):
+                console.print("  [green]OK[/green] サービスキーを保存しました")
+            else:
+                console.print("  [red]NG[/red] 保存に失敗しました")
+                console.print("[yellow]環境変数 JVLINK_SERVICE_KEY に設定してください[/yellow]")
+        else:
+            console.print("[red]サービスキーが無効です。セットアップを中止します。[/red]")
+            sys.exit(1)
+
+        console.print()
 
     # データ収集期間の選択
     console.print("[bold]1. データ収集期間[/bold]")
@@ -152,6 +251,34 @@ def _interactive_setup_simple() -> dict:
     print()
 
     settings = {}
+
+    # サービスキーの確認
+    print("0. JV-Link サービスキー")
+    print()
+
+    has_key, existing_key = _check_service_key()
+
+    if has_key:
+        masked_key = existing_key[:4] + "-****-****-****-" + existing_key[-1]
+        print(f"  [OK] サービスキー設定済み: {masked_key}")
+    else:
+        print("  [未設定] サービスキーが設定されていません")
+        print()
+        print("  サービスキーは JRA-VAN DataLab 会員ページで確認できます")
+        print("  https://jra-van.jp/dlb/")
+        print()
+        service_key = input("サービスキーを入力: ").strip()
+
+        if service_key and len(service_key) >= 10:
+            if _save_service_key(service_key):
+                print("  [OK] サービスキーを保存しました")
+            else:
+                print("  [NG] 保存に失敗しました")
+        else:
+            print("[NG] サービスキーが無効です。セットアップを中止します。")
+            sys.exit(1)
+
+    print()
 
     # データ収集期間
     print("1. データ収集期間を選択してください:")
