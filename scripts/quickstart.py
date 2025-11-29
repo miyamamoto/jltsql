@@ -6,11 +6,10 @@
 1. プロジェクト初期化
 2. テーブル・インデックス作成
 3. すべてのデータ取得（蓄積系データ）
-4. リアルタイム監視の開始
+4. リアルタイム監視の開始（オプション）
 """
 
 import argparse
-import os
 import subprocess
 import sys
 import time
@@ -25,11 +24,8 @@ try:
     from rich.console import Console
     from rich.panel import Panel
     from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
-    from rich.prompt import Prompt, Confirm
+    from rich.prompt import Prompt, Confirm, IntPrompt
     from rich.table import Table
-    from rich.text import Text
-    from rich.live import Live
-    from rich.layout import Layout
     from rich import box
     RICH_AVAILABLE = True
 except ImportError:
@@ -39,6 +35,187 @@ from src.utils.lock_manager import ProcessLock, ProcessLockError
 
 
 console = Console() if RICH_AVAILABLE else None
+
+
+def interactive_setup() -> dict:
+    """対話形式で設定を収集"""
+    if RICH_AVAILABLE:
+        return _interactive_setup_rich()
+    else:
+        return _interactive_setup_simple()
+
+
+def _interactive_setup_rich() -> dict:
+    """Rich UIで対話形式設定"""
+    console.clear()
+    console.print()
+    console.print(Panel(
+        "[bold]JRA-VAN DataLab -> SQLite[/bold]\n"
+        "[dim]競馬データベース自動セットアップ[/dim]",
+        title="[bold blue]JLTSQL[/bold blue]",
+        border_style="blue",
+        padding=(1, 2),
+    ))
+    console.print()
+
+    settings = {}
+
+    # データ収集期間の選択
+    console.print("[bold]1. データ収集期間[/bold]")
+    console.print()
+
+    period_table = Table(show_header=False, box=box.SIMPLE, padding=(0, 2))
+    period_table.add_column("No", style="cyan", width=4)
+    period_table.add_column("Option")
+    period_table.add_column("Description", style="dim")
+
+    period_table.add_row("1", "過去1年間", "直近のデータのみ（高速）")
+    period_table.add_row("2", "過去5年間", "中期分析向け")
+    period_table.add_row("3", "過去10年間", "[yellow]推奨[/yellow]")
+    period_table.add_row("4", "過去20年間", "長期分析向け")
+    period_table.add_row("5", "全データ", "1986年以降すべて（時間がかかります）")
+
+    console.print(period_table)
+    console.print()
+
+    choice = Prompt.ask(
+        "選択",
+        choices=["1", "2", "3", "4", "5"],
+        default="3"
+    )
+
+    today = datetime.now()
+    if choice == "1":
+        settings['years'] = 1
+        settings['from_date'] = (today - timedelta(days=365)).strftime("%Y%m%d")
+    elif choice == "2":
+        settings['years'] = 5
+        settings['from_date'] = (today - timedelta(days=365 * 5)).strftime("%Y%m%d")
+    elif choice == "3":
+        settings['years'] = 10
+        settings['from_date'] = (today - timedelta(days=365 * 10)).strftime("%Y%m%d")
+    elif choice == "4":
+        settings['years'] = 20
+        settings['from_date'] = (today - timedelta(days=365 * 20)).strftime("%Y%m%d")
+    else:  # 5: 全データ
+        settings['years'] = None
+        settings['from_date'] = "19860101"
+
+    settings['to_date'] = today.strftime("%Y%m%d")
+    console.print()
+
+    # オッズデータ
+    console.print("[bold]2. オッズデータ[/bold]")
+    console.print("[dim]オッズデータは容量が大きいため、除外することもできます[/dim]")
+    console.print()
+    settings['no_odds'] = not Confirm.ask("オッズデータを取得しますか？", default=True)
+    console.print()
+
+    # リアルタイム監視
+    console.print("[bold]3. リアルタイム監視[/bold]")
+    console.print("[dim]開催日にリアルタイムでデータを取得するデーモンプロセス[/dim]")
+    console.print()
+    settings['no_monitor'] = not Confirm.ask("リアルタイム監視を開始しますか？", default=False)
+    console.print()
+
+    # 確認
+    console.print(Panel("[bold]設定確認[/bold]", border_style="blue"))
+
+    confirm_table = Table(show_header=False, box=None, padding=(0, 1))
+    confirm_table.add_column("Key", style="dim")
+    confirm_table.add_column("Value", style="white")
+
+    if settings['years']:
+        confirm_table.add_row("期間", f"過去{settings['years']}年間")
+    else:
+        confirm_table.add_row("期間", "全データ (1986年～)")
+    confirm_table.add_row("開始日", settings['from_date'])
+    confirm_table.add_row("終了日", settings['to_date'])
+    confirm_table.add_row("オッズ", "[red]除外[/red]" if settings['no_odds'] else "[green]取得[/green]")
+    confirm_table.add_row("監視", "[green]開始[/green]" if not settings['no_monitor'] else "[yellow]なし[/yellow]")
+
+    console.print(confirm_table)
+    console.print()
+
+    if not Confirm.ask("[bold]この設定でセットアップを開始しますか？[/bold]", default=True):
+        console.print("[yellow]キャンセルしました[/yellow]")
+        sys.exit(0)
+
+    return settings
+
+
+def _interactive_setup_simple() -> dict:
+    """シンプルな対話形式設定"""
+    print("=" * 60)
+    print("JLTSQL セットアップ")
+    print("=" * 60)
+    print()
+
+    settings = {}
+
+    # データ収集期間
+    print("1. データ収集期間を選択してください:")
+    print("   1) 過去1年間")
+    print("   2) 過去5年間")
+    print("   3) 過去10年間 (推奨)")
+    print("   4) 過去20年間")
+    print("   5) 全データ (1986年～)")
+    print()
+
+    choice = input("選択 [3]: ").strip() or "3"
+
+    today = datetime.now()
+    if choice == "1":
+        settings['years'] = 1
+        settings['from_date'] = (today - timedelta(days=365)).strftime("%Y%m%d")
+    elif choice == "2":
+        settings['years'] = 5
+        settings['from_date'] = (today - timedelta(days=365 * 5)).strftime("%Y%m%d")
+    elif choice == "4":
+        settings['years'] = 20
+        settings['from_date'] = (today - timedelta(days=365 * 20)).strftime("%Y%m%d")
+    elif choice == "5":
+        settings['years'] = None
+        settings['from_date'] = "19860101"
+    else:
+        settings['years'] = 10
+        settings['from_date'] = (today - timedelta(days=365 * 10)).strftime("%Y%m%d")
+
+    settings['to_date'] = today.strftime("%Y%m%d")
+    print()
+
+    # オッズデータ
+    print("2. オッズデータを取得しますか？ [Y/n]: ", end="")
+    odds_choice = input().strip().lower()
+    settings['no_odds'] = odds_choice in ('n', 'no')
+    print()
+
+    # リアルタイム監視
+    print("3. リアルタイム監視を開始しますか？ [y/N]: ", end="")
+    monitor_choice = input().strip().lower()
+    settings['no_monitor'] = monitor_choice not in ('y', 'yes')
+    print()
+
+    # 確認
+    print("-" * 60)
+    print("設定確認:")
+    if settings['years']:
+        print(f"  期間: 過去{settings['years']}年間")
+    else:
+        print("  期間: 全データ (1986年～)")
+    print(f"  開始日: {settings['from_date']}")
+    print(f"  終了日: {settings['to_date']}")
+    print(f"  オッズ: {'除外' if settings['no_odds'] else '取得'}")
+    print(f"  監視: {'開始' if not settings['no_monitor'] else 'なし'}")
+    print("-" * 60)
+    print()
+
+    confirm = input("この設定でセットアップを開始しますか？ [Y/n]: ").strip().lower()
+    if confirm in ('n', 'no'):
+        print("キャンセルしました")
+        sys.exit(0)
+
+    return settings
 
 
 class QuickstartRunner:
@@ -72,16 +249,14 @@ class QuickstartRunner:
         ("MING", "当日発表", 2),
     ]
 
-    def __init__(self, args):
-        self.args = args
+    def __init__(self, settings: dict):
+        self.settings = settings
         self.project_root = Path(__file__).parent.parent
         self.errors = []
         self.warnings = []
         self.stats = {
             'specs_success': 0,
             'specs_failed': 0,
-            'specs_skipped': 0,
-            'total_records': 0,
         }
 
     def run(self) -> int:
@@ -93,63 +268,6 @@ class QuickstartRunner:
 
     def _run_rich(self) -> int:
         """Rich UIで実行"""
-        console.clear()
-
-        # ヘッダー
-        header = Text()
-        header.append("╭─", style="blue")
-        header.append(" JLTSQL ", style="bold white")
-        header.append("─╮", style="blue")
-        console.print()
-        console.print(Panel(
-            "[bold]JRA-VAN DataLab → SQLite[/bold]\n"
-            "[dim]競馬データベース自動セットアップ[/dim]",
-            title="[bold blue]JLTSQL[/bold blue]",
-            border_style="blue",
-            padding=(1, 2),
-        ))
-        console.print()
-
-        # セットアップ内容
-        steps_table = Table(show_header=False, box=box.SIMPLE, padding=(0, 2))
-        steps_table.add_column("Step", style="cyan", width=4)
-        steps_table.add_column("Description")
-
-        steps = [
-            ("1.", "プロジェクト初期化"),
-            ("2.", "テーブル作成 (57テーブル)"),
-            ("3.", "インデックス作成 (61個)"),
-            ("4.", "データ取得 (全20スペック)"),
-        ]
-        if not self.args.no_monitor:
-            steps.append(("5.", "リアルタイム監視開始"))
-
-        for num, desc in steps:
-            steps_table.add_row(num, desc)
-
-        console.print(steps_table)
-        console.print()
-
-        # 設定情報
-        info_table = Table(show_header=False, box=None, padding=(0, 1))
-        info_table.add_column("Key", style="dim")
-        info_table.add_column("Value", style="white")
-
-        if self.args._years_used:
-            info_table.add_row("期間", f"過去{self.args.years}年間")
-        info_table.add_row("開始", self.args.from_date)
-        info_table.add_row("終了", self.args.to_date)
-        if self.args.no_odds:
-            info_table.add_row("オッズ", "[yellow]除外[/yellow]")
-
-        console.print(Panel(info_table, title="[dim]設定[/dim]", border_style="dim"))
-        console.print()
-
-        # 確認
-        if not self._confirm_rich():
-            console.print("[yellow]キャンセルしました[/yellow]")
-            return 0
-
         console.print()
 
         # 実行
@@ -199,7 +317,7 @@ class QuickstartRunner:
             return 1
 
         # 6. リアルタイム監視
-        if not self.args.no_monitor:
+        if not self.settings.get('no_monitor', True):
             console.print()
             with console.status("[cyan]リアルタイム監視を開始中...", spinner="dots"):
                 if not self._run_monitor():
@@ -208,15 +326,6 @@ class QuickstartRunner:
         # 完了
         self._print_summary_rich(success=True)
         return 0
-
-    def _confirm_rich(self) -> bool:
-        """Rich UIで確認"""
-        if self.args.yes:
-            return True
-        try:
-            return Confirm.ask("[bold]セットアップを開始しますか？[/bold]", default=True)
-        except (KeyboardInterrupt, EOFError):
-            return False
 
     def _check_prerequisites_rich(self) -> bool:
         """前提条件チェック（Rich版）"""
@@ -242,7 +351,7 @@ class QuickstartRunner:
         try:
             import win32com.client
             win32com.client.Dispatch("JVDTLab.JVLink")
-            checks.append(("JV-Link", "インストール済み", True))
+            checks.append(("JV-Link", "OK", True))
         except Exception:
             checks.append(("JV-Link", "未インストール", False))
             has_error = True
@@ -257,7 +366,7 @@ class QuickstartRunner:
     def _run_fetch_all_rich(self) -> bool:
         """データ取得（Rich UI）"""
         specs_to_fetch = self.DATA_SPECS.copy()
-        if not self.args.no_odds:
+        if not self.settings.get('no_odds', False):
             specs_to_fetch.extend(self.ODDS_SPECS)
 
         total_specs = len(specs_to_fetch)
@@ -277,7 +386,7 @@ class QuickstartRunner:
         ) as progress:
 
             main_task = progress.add_task(
-                f"[cyan]データ取得中...",
+                "[cyan]データ取得中...",
                 total=total_specs
             )
 
@@ -295,7 +404,7 @@ class QuickstartRunner:
                     self.stats['specs_failed'] += 1
 
                 progress.update(main_task, advance=1)
-                time.sleep(0.5)  # API負荷軽減
+                time.sleep(0.5)
 
         return self.stats['specs_success'] > 0
 
@@ -323,7 +432,7 @@ class QuickstartRunner:
             console.print("[dim]次のステップ:[/dim]")
             console.print("  [cyan]jltsql status[/cyan]    - ステータス確認")
             console.print("  [cyan]jltsql export[/cyan]    - データエクスポート")
-            if not self.args.no_monitor:
+            if not self.settings.get('no_monitor', True):
                 console.print("  [cyan]jltsql monitor --stop[/cyan] - 監視停止")
         else:
             console.print(Panel(
@@ -334,7 +443,7 @@ class QuickstartRunner:
             if self.errors:
                 console.print()
                 console.print("[red]エラー:[/red]")
-                for error in self.errors[:5]:  # 最初の5件のみ
+                for error in self.errors[:5]:
                     safe_error = str(error)[:80]
                     console.print(f"  [dim]•[/dim] {safe_error}")
 
@@ -343,20 +452,11 @@ class QuickstartRunner:
     # === シンプル版（richなしの場合）===
 
     def _run_simple(self) -> int:
-        """シンプルなテキストUIで実行（richなしの場合）"""
-        print("=" * 60)
-        print("JLTSQL セットアップ")
-        print("=" * 60)
+        """シンプルなテキストUIで実行"""
         print()
-        print(f"期間: {self.args.from_date} ～ {self.args.to_date}")
-        print()
-
-        if not self._confirm_simple():
-            print("キャンセルしました。")
-            return 0
 
         # 1. 前提条件
-        print("\n[1/5] 前提条件チェック...")
+        print("[1/5] 前提条件チェック...")
         if not self._check_prerequisites_simple():
             return 1
 
@@ -384,7 +484,7 @@ class QuickstartRunner:
             return 1
 
         # 6. 監視
-        if not self.args.no_monitor:
+        if not self.settings.get('no_monitor', True):
             print("\nリアルタイム監視を開始中...")
             self._run_monitor()
 
@@ -393,21 +493,10 @@ class QuickstartRunner:
         print("=" * 60)
         return 0
 
-    def _confirm_simple(self) -> bool:
-        """シンプルな確認"""
-        if self.args.yes:
-            return True
-        try:
-            response = input("実行しますか？ [Y/n]: ").strip().lower()
-            return response in ('', 'y', 'yes')
-        except (KeyboardInterrupt, EOFError):
-            return False
-
     def _check_prerequisites_simple(self) -> bool:
         """前提条件チェック（シンプル版）"""
         has_error = False
 
-        # Python
         v = sys.version_info
         if v >= (3, 10):
             print(f"  [OK] Python {v.major}.{v.minor}")
@@ -415,14 +504,12 @@ class QuickstartRunner:
             print(f"  [NG] Python {v.major}.{v.minor} (3.10以上が必要)")
             has_error = True
 
-        # OS
         if sys.platform == "win32":
             print("  [OK] Windows")
         else:
             print(f"  [NG] {sys.platform} (Windowsが必要)")
             has_error = True
 
-        # JV-Link
         try:
             import win32com.client
             win32com.client.Dispatch("JVDTLab.JVLink")
@@ -436,7 +523,7 @@ class QuickstartRunner:
     def _run_fetch_all_simple(self) -> bool:
         """データ取得（シンプル版）"""
         specs = self.DATA_SPECS.copy()
-        if not self.args.no_odds:
+        if not self.settings.get('no_odds', False):
             specs.extend(self.ODDS_SPECS)
 
         total = len(specs)
@@ -519,8 +606,8 @@ class QuickstartRunner:
         try:
             cmd = [
                 sys.executable, "-m", "src.cli.main", "fetch",
-                "--from", self.args.from_date,
-                "--to", self.args.to_date,
+                "--from", self.settings['from_date'],
+                "--to", self.settings['to_date'],
                 "--spec", spec,
                 "--option", str(option),
             ]
@@ -564,35 +651,61 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    parser.add_argument("--years", type=int, default=10, help="過去N年間 (デフォルト: 10)")
+    parser.add_argument("--years", type=int, default=None, help="過去N年間")
     parser.add_argument("--from", dest="from_date", default=None, help="開始日 (YYYYMMDD)")
     parser.add_argument("--to", dest="to_date", default=None, help="終了日 (YYYYMMDD)")
+    parser.add_argument("--all", action="store_true", help="全データ (1986年～)")
     parser.add_argument("--no-odds", action="store_true", help="オッズ除外")
     parser.add_argument("--no-monitor", action="store_true", help="監視なし")
-    parser.add_argument("-y", "--yes", action="store_true", help="確認スキップ")
+    parser.add_argument("--monitor", action="store_true", help="監視開始")
+    parser.add_argument("-y", "--yes", action="store_true", help="確認スキップ（非対話モード）")
+    parser.add_argument("-i", "--interactive", action="store_true", help="対話モード（デフォルト）")
 
     args = parser.parse_args()
 
-    # 期間計算
-    today = datetime.now()
-    args._years_used = (args.from_date is None)
+    # 対話モードかどうかを判定
+    # コマンドライン引数が指定されていなければ対話モード
+    use_interactive = args.interactive or (
+        args.years is None and
+        args.from_date is None and
+        not args.all and
+        not args.yes
+    )
 
-    if args.from_date is None:
-        args.from_date = (today - timedelta(days=365 * args.years)).strftime("%Y%m%d")
-    if args.to_date is None:
-        args.to_date = today.strftime("%Y%m%d")
+    if use_interactive:
+        # 対話形式で設定を収集
+        settings = interactive_setup()
+    else:
+        # コマンドライン引数から設定を構築
+        settings = {}
+        today = datetime.now()
 
-    # 日付検証
-    try:
-        datetime.strptime(args.from_date, "%Y%m%d")
-        datetime.strptime(args.to_date, "%Y%m%d")
-    except ValueError:
-        parser.error("日付は YYYYMMDD 形式で指定してください")
+        if args.all:
+            settings['years'] = None
+            settings['from_date'] = "19860101"
+        elif args.from_date:
+            settings['from_date'] = args.from_date
+            settings['years'] = None
+        else:
+            years = args.years or 10
+            settings['years'] = years
+            settings['from_date'] = (today - timedelta(days=365 * years)).strftime("%Y%m%d")
+
+        settings['to_date'] = args.to_date or today.strftime("%Y%m%d")
+        settings['no_odds'] = args.no_odds
+        settings['no_monitor'] = not args.monitor if args.monitor else args.no_monitor
+
+        # 日付検証
+        try:
+            datetime.strptime(settings['from_date'], "%Y%m%d")
+            datetime.strptime(settings['to_date'], "%Y%m%d")
+        except ValueError:
+            parser.error("日付は YYYYMMDD 形式で指定してください")
 
     # 実行
     try:
         with ProcessLock("quickstart"):
-            runner = QuickstartRunner(args)
+            runner = QuickstartRunner(settings)
             sys.exit(runner.run())
     except ProcessLockError as e:
         if RICH_AVAILABLE:
