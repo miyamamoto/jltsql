@@ -249,8 +249,8 @@ class QuickstartRunner:
 
         # 結果表示
         for name, value, ok in checks:
-            status = "[green]✓[/green]" if ok else "[red]✗[/red]"
-            console.print(f"  {status} {name}: {value}")
+            status = "[green]OK[/green]" if ok else "[red]NG[/red]"
+            console.print(f"  [{status}] {name}: {value}")
 
         return not has_error
 
