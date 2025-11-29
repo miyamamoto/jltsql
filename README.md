@@ -14,233 +14,106 @@ JRA-VAN DataLabの競馬データをSQLite/PostgreSQLにインポートするPyt
 - **レジストリー不要**: 設定ファイル/環境変数でサービスキーを管理
 - **バッチ処理最適化**: 1000件/batch + 50+インデックス
 
-## 必要要件
+## クイックスタート
 
-- Windows 10/11（JV-Link COM API）
-- **Python 3.10+ (32bit版のみ)** ← JV-Link COM APIが32bit専用のため
-- JRA-VAN DataLab会員（月額2,090円）
-
-### ⚠️ 重要な制約事項
-
-**1. Python 32bit版が必須です：**
-
-JV-Link COM APIは32bit専用のため、**Python 32bit版**が必要です。64bit版では動作しません。
-
-```bash
-# Pythonのビット数を確認
-python -c "import struct; print(struct.calcsize('P') * 8, 'bit')"
-```
-
-**Python 32bit版のインストール方法：**
-1. [Python公式サイト](https://www.python.org/downloads/windows/)から「Windows installer (32-bit)」をダウンロード
-2. インストール時に「Add Python to PATH」にチェック
-3. 既に64bit版がある場合は、Pythonランチャーで指定可能：
-   ```bash
-   py -3.12-32 scripts/quickstart.py  # Python 3.12 32bit版を指定
-   ```
-
-**2. Windowsデスクトップセッションが必要です：**
-
-- ✅ **Windowsローカルでの実行**: 正常に動作
-- ✅ **RDP（リモートデスクトップ）経由**: 正常に動作
-- ❌ **SSH経由での実行**: GUIダイアログが表示されず、ハングする
-- ❌ **バックグラウンドサービス**: GUIダイアログが表示されず、ハングする
-
-**推奨実行環境**:
-1. Windowsマシンに直接ログインして実行
-2. またはRDP（リモートデスクトップ）経由で接続
-3. コマンドプロンプトまたはPowerShellから実行
-
-## インストール
-
-### pipでインストール（推奨）
+### 1. インストール
 
 ```bash
 pip install git+https://github.com/miyamamoto/jrvltsql.git
 ```
 
-これで `jltsql` コマンドが使えるようになります。
-
-### 開発者向け（ソースからインストール）
+### 2. セットアップ
 
 ```bash
-git clone https://github.com/miyamamoto/jrvltsql.git
-cd jrvltsql
-pip install -e ".[dev]"
+# 対話形式で初期設定（サービスキー入力 → 過去10年分のデータ取得）
+jltsql quickstart
 ```
+
+これだけで完了です。
+
+## 必要要件
+
+| 項目 | 要件 |
+|------|------|
+| OS | Windows 10/11 |
+| Python | 3.10+ **(32bit版のみ)** |
+| 会員 | JRA-VAN DataLab（月額2,090円） |
+
+### Python 32bit版について
+
+JV-Link COM APIは32bit専用のため、**Python 32bit版が必須**です。
+
+```bash
+# ビット数を確認
+python -c "import struct; print(struct.calcsize('P') * 8, 'bit')"
+```
+
+64bit版しかない場合は、[Python公式サイト](https://www.python.org/downloads/windows/)から「Windows installer (32-bit)」をダウンロードしてください。
 
 ## 設定
 
-`config/config.yaml`を作成してサービスキーを設定：
+サービスキーは以下のいずれかで設定：
+
+```bash
+# 環境変数（推奨）
+set JVLINK_SERVICE_KEY=XXXX-XXXX-XXXX-XXXX-X
+```
 
 ```yaml
+# config/config.yaml
 jvlink:
   service_key: "XXXX-XXXX-XXXX-XXXX-X"
 ```
 
-または環境変数で設定：
+## コマンド一覧
 
 ```bash
-set JVLINK_SERVICE_KEY=XXXX-XXXX-XXXX-XXXX-X
-```
-
-**重要**: レジストリーを使用せず、設定ファイル/環境変数から読み込みます。
-
-## 使い方
-
-### クイックスタート
-
-```bash
-# 1. 初期化
-jltsql init
-
-# 2. テーブル作成（57テーブル: NL_38 + RT_19）
-jltsql create-tables
-
-# 3. インデックス作成（50+インデックス）
-jltsql create-indexes
-
-# 4. データ取得
-jltsql fetch --from 20240101 --to 20241231 --spec RACE
-```
-
-### 自動セットアップ
-
-```bash
-# 直近10年間の全データを一括セットアップ + リアルタイム監視開始（デフォルト）
-python scripts/quickstart.py
-
-# オプション
-python scripts/quickstart.py --years 5                       # 過去5年間のデータ取得
-python scripts/quickstart.py --years 20                      # 過去20年間のデータ取得
-python scripts/quickstart.py --from 20200101 --to 20241231  # 期間を直接指定
-python scripts/quickstart.py --no-odds                       # オッズデータを除外
-python scripts/quickstart.py --no-monitor                    # 監視を開始しない
-python scripts/quickstart.py -y                              # 確認なしで実行
-```
-
-自動セットアップで実行される処理：
-1. プロジェクト初期化（DB作成）
-2. テーブル作成（57テーブル: NL_38 + RT_19）
-3. インデックス作成（50+インデックス）
-4. 全データ取得（全38レコードタイプ対応、20データスペック）
-   - 基本: DIFN（マスタ）、BLDN（血統）、RACE（レース）、YSCH（スケジュール）、TOKU（特別登録）、JGDW（重賞）
-   - 速報: HOSN（市場取引）、COMM（解説）、SNPN（速報）、0B11（マイニング）、0B20（成績）、0B31（払戻）、0B41（繁殖牝馬）
-   - オッズ: SLOP（単複）、HOYU（馬連ワイド）、O4（枠連）、O5（馬単）、O6（3連複/単）、WOOD（調教）、MING（当日発表）
-5. リアルタイム監視開始（デーモンプロセス → RT_テーブルに格納）
-
-## 主要コマンド
-
-```bash
-jltsql init                    # 初期化
+jltsql quickstart              # 対話形式で初期セットアップ
+jltsql init                    # 初期化のみ
 jltsql create-tables           # テーブル作成
 jltsql create-indexes          # インデックス作成
 jltsql fetch --spec RACE       # データ取得
+jltsql monitor                 # リアルタイム監視
 jltsql status                  # ステータス確認
-jltsql config                  # 設定確認
 ```
 
 詳細: `jltsql --help`
 
-## プロセスロック機構
+## データベース構造
 
-JLTSQLは、複数のプロセスが同時に実行されることを防ぐためのプロセスロック機構を実装しています。
-
-### 概要
-
-- **ロックファイル**: `.locks/<プロセス名>.lock`
-- **PIDトラッキング**: プロセスIDをファイルに記録して厳密に管理
-- **自動クリーンアップ**: プロセス終了時にロックファイルを自動削除
-- **Stale Lock検出**: プロセスが異常終了した場合でも、古いロックを自動検出・削除
-
-### 対応スクリプト
-
-現在、以下のスクリプトがプロセスロックに対応しています：
-
-- `scripts/quickstart.py`: 自動セットアップスクリプト
-
-### 動作
-
-1. **ロック取得**: スクリプト開始時に`.locks/quickstart.lock`を作成
-2. **PID記録**: ファイルに現在のプロセスIDを記録
-3. **重複チェック**: 既にロックが存在し、そのプロセスが実行中の場合はエラー
-4. **自動解放**: スクリプト終了時（正常/異常問わず）にロックファイルを削除
-
-### エラーメッセージ
-
-既に実行中のプロセスがある場合：
-
-```
-[NG] Process 'quickstart' is already running (PID: 12345).
-Please wait for it to complete or manually remove: C:\Users\...\jltsql\.locks\quickstart.lock
-
-他のquickstartプロセスが実行中です。
-完了まで待つか、手動でロックファイルを削除してください。
-```
-
-### 手動でのロック削除
-
-プロセスが異常終了してロックが残った場合、手動で削除できます：
-
-```bash
-# Windows
-del .locks\quickstart.lock
-
-# Unix/Linux
-rm .locks/quickstart.lock
-```
-
-**注意**: 実行中のプロセスがないことを確認してから削除してください。
-
-## データベーススキーマ
-
-全57テーブル（NL_38 + RT_19）:
-
-### NL_テーブル（蓄積系データ: 38テーブル）
+### NL_テーブル（蓄積系: 38テーブル）
 
 | カテゴリ | テーブル | 説明 |
 |---------|---------|------|
 | レース | RA, SE, HR, JG | レース詳細、出馬表、払戻、重賞 |
 | マスタ | UM, KS, CH, BR, BN | 馬、騎手、調教師、生産者、馬主 |
-| オッズ | O1-O6 | 単勝、馬連、ワイド、枠連、馬単、3連複/単 |
-| その他 | H1, H6, WF, YS等 | 払戻、天候、スケジュール等 |
+| オッズ | O1-O6 | 単勝〜3連単 |
 
-### RT_テーブル（速報系データ: 19テーブル）
+### RT_テーブル（速報系: 19テーブル）
 
-リアルタイム監視（`jltsql monitor`）で取得されるデータ。NL_テーブルと同じ構造。
+リアルタイム監視（`jltsql monitor`）で取得。NL_テーブルと同じ構造。
 
-| カテゴリ | テーブル | 説明 |
-|---------|---------|------|
-| レース | RT_RA, RT_SE, RT_HR | レース速報、出馬表速報、払戻速報 |
-| オッズ | RT_O1-O6 | 単勝、馬連、ワイド、枠連、馬単、3連複/単（速報） |
-| 票数 | RT_H1, RT_H6 | 投票数（速報） |
-| 馬場 | RT_WH, RT_WE | 馬場状態、開催情報（速報） |
-| その他 | RT_DM, RT_TM, RT_AV, RT_JC, RT_TC, RT_CC | データマイニング、成績等（速報） |
+## 開発者向け
 
-対応レコードタイプ: AV, BN, BR, BT, CC, CH, CK, CS, DM, H1, H6, HC, HN, HR, HS, HY, JC, JG, KS, O1-O6, RA, RC, SE, SK, TC, TK, TM, UM, WC, WE, WF, WH, YS
+```bash
+git clone https://github.com/miyamamoto/jrvltsql.git
+cd jrvltsql
+pip install -e ".[dev]"
+pytest
+```
 
 ## ライセンス
 
 Apache License 2.0
 
-### ⚠️ JRA-VAN利用規約の遵守
+### JRA-VAN利用規約
 
-本ツールで取得したデータは**JRA-VANの利用規約**に従って利用してください。
+取得したデータは[JRA-VAN利用規約](https://jra-van.jp/info/rule.html)に従ってください。
 
-**禁止事項**:
-- ❌ データの再配布（営利・非営利問わず）
-- ❌ データの複製・編集・配信
-- ❌ 第三者へのデータ提供
-- ❌ データベースファイルの共有・公開
-
-**許可される利用**:
 - ✅ 個人的な競馬分析・研究
-- ✅ 自社内での利用
-
-📖 **利用規約全文**: https://jra-van.jp/info/rule.html
+- ❌ データの再配布・第三者提供
 
 ## リンク
 
 - [JRA-VAN DataLab](https://jra-van.jp/dlb/)
-- [開発者コミュニティ](https://developer.jra-van.jp/)
 - [Issues](https://github.com/miyamamoto/jrvltsql/issues)
