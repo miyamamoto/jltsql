@@ -53,12 +53,20 @@ python -c "import struct; print(struct.calcsize('P') * 8, 'bit')"
 
 ## インストール
 
+### pipでインストール（推奨）
+
+```bash
+pip install git+https://github.com/miyamamoto/jrvltsql.git
+```
+
+これで `jltsql` コマンドが使えるようになります。
+
+### 開発者向け（ソースからインストール）
+
 ```bash
 git clone https://github.com/miyamamoto/jrvltsql.git
 cd jrvltsql
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
+pip install -e ".[dev]"
 ```
 
 ## 設定
