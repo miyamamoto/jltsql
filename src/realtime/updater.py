@@ -74,13 +74,18 @@ class RealtimeUpdater:
 
         # === その他 (成績データ) ===
         "JC": "RT_JC",  # 騎手成績
-        "TC": "RT_TC",  # 調教師成績
+        "TC": "RT_TC",  # 調教師成績/調教師変更情報 (0B42)
         "CC": "RT_CC",  # 競走馬成績
+
+        # === 変更情報データ (0B4x) ===
+        # 0B41: 騎手変更情報
+        "RC": "RT_RC",  # 騎手変更情報 (Row D, E両方)
+        # 0B42: 調教師変更情報 - TCで対応済み
     }
 
     # Note: The following record types are NOT provided in real-time:
     # - TK (特別登録馬) - Accumulated data only
-    # - UM, KS, CH, BR, BN, HN, SK, RC (Master data) - Updated via DIFF/DIFN
+    # - UM, KS, CH, BR, BN, HN, SK (Master data) - Updated via DIFF/DIFN
     # - CK, HC, HS, HY (Code/Status data) - Updated via SNAP/SNPN
     # - YS, BT, CS (Change data) - Updated via YSCH, SLOP, etc.
     # - WF (WIN5), JG (重賞), WC (天候) - Not in real-time stream
@@ -252,6 +257,9 @@ class RealtimeUpdater:
             # Vote data
             "RT_H1": ["Year", "MonthDay", "JyoCD", "Kaiji", "Nichiji", "RaceNum"],
             "RT_H6": ["Year", "MonthDay", "JyoCD", "Kaiji", "Nichiji", "RaceNum", "Kumi"],
+
+            # Change data - 騎手変更情報 (0B41)
+            "RT_RC": ["Year", "MonthDay", "JyoCD", "Kaiji", "Nichiji", "RaceNum", "Umaban"],
 
             # Tables without explicit PRIMARY KEY in schema
             # These tables don't have PRIMARY KEY constraints defined

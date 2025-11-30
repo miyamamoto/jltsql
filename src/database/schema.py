@@ -1970,6 +1970,28 @@ SCHEMAS = {
             MaeFun TEXT
         )
     """,
+    # RT_RC: 騎手変更情報 (0B41) - リアルタイム用
+    # NL_RCはレコード情報だが、JVRTOpenの0B41は騎手変更情報として別フォーマット
+    "RT_RC": """
+        CREATE TABLE IF NOT EXISTS RT_RC (
+            RecordSpec TEXT,
+            DataKubun TEXT,
+            MakeDate TEXT,
+            Year TEXT,
+            MonthDay TEXT,
+            JyoCD TEXT,
+            Kaiji TEXT,
+            Nichiji TEXT,
+            RaceNum TEXT,
+            Umaban TEXT,
+            KisyuCode TEXT,
+            KisyuName TEXT,
+            MaeKisyuCode TEXT,
+            MaeKisyuName TEXT,
+            HenkouJiyuCD TEXT,
+            PRIMARY KEY (Year, MonthDay, JyoCD, Kaiji, Nichiji, RaceNum, Umaban)
+        )
+    """,
     "RT_TM": """
         CREATE TABLE IF NOT EXISTS RT_TM (
             RecordSpec TEXT,
