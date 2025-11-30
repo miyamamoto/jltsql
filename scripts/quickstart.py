@@ -109,6 +109,163 @@ def _save_setup_history(settings: dict, specs: list):
         pass  # 保存失敗しても継続
 
 
+# === バックグラウンド更新管理 ===
+
+def _check_background_updater_running() -> tuple[bool, Optional[int]]:
+    """バックグラウンド更新プロセスが起動中かどうか確認
+
+    Returns:
+        (is_running, pid): 起動中かどうかとPID
+    """
+    lock_file = project_root / ".locks" / "background_updater.lock"
+    if not lock_file.exists():
+        return (False, None)
+
+    try:
+        with open(lock_file, 'r') as f:
+            pid = int(f.read().strip())
+
+        # プロセスが実際に動いているか確認
+        if sys.platform == "win32":
+            result = subprocess.run(
+                ["tasklist", "/FI", f"PID eq {pid}"],
+                capture_output=True, text=True, timeout=5
+            )
+            if str(pid) in result.stdout:
+                return (True, pid)
+        else:
+            try:
+                os.kill(pid, 0)
+                return (True, pid)
+            except OSError:
+                pass
+
+        # プロセスが動いていなければロックファイルを削除
+        lock_file.unlink()
+        return (False, None)
+
+    except (ValueError, IOError, subprocess.TimeoutExpired):
+        return (False, None)
+
+
+def _stop_background_updater(pid: int) -> bool:
+    """バックグラウンド更新プロセスを停止
+
+    Args:
+        pid: 停止するプロセスのPID
+
+    Returns:
+        停止に成功したかどうか
+    """
+    try:
+        if sys.platform == "win32":
+            subprocess.run(
+                ["taskkill", "/PID", str(pid), "/F"],
+                capture_output=True, timeout=10
+            )
+        else:
+            os.kill(pid, 15)  # SIGTERM
+
+        # 停止を待機
+        time.sleep(2)
+
+        # ロックファイルを削除
+        lock_file = project_root / ".locks" / "background_updater.lock"
+        if lock_file.exists():
+            lock_file.unlink()
+
+        return True
+    except Exception:
+        return False
+
+
+def _get_startup_folder() -> Optional[Path]:
+    """Windowsスタートアップフォルダのパスを取得
+
+    Returns:
+        スタートアップフォルダのパス（Windows以外はNone）
+    """
+    if sys.platform != "win32":
+        return None
+
+    try:
+        import winreg
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
+        )
+        startup_path, _ = winreg.QueryValueEx(key, "Startup")
+        winreg.CloseKey(key)
+        return Path(startup_path)
+    except Exception:
+        # フォールバック: 標準的なパス
+        appdata = os.environ.get("APPDATA")
+        if appdata:
+            return Path(appdata) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+        return None
+
+
+def _get_startup_batch_path() -> Optional[Path]:
+    """スタートアップに配置するバッチファイルのパスを取得"""
+    startup_folder = _get_startup_folder()
+    if startup_folder:
+        return startup_folder / "jltsql_background_updater.bat"
+    return None
+
+
+def _is_auto_start_enabled() -> bool:
+    """自動起動が設定されているか確認"""
+    batch_path = _get_startup_batch_path()
+    return batch_path is not None and batch_path.exists()
+
+
+def _enable_auto_start() -> bool:
+    """Windows起動時の自動起動を有効化
+
+    Returns:
+        設定に成功したかどうか
+    """
+    batch_path = _get_startup_batch_path()
+    if batch_path is None:
+        return False
+
+    try:
+        # バッチファイルの内容を作成
+        python_exe = sys.executable
+        script_path = project_root / "scripts" / "background_updater.py"
+
+        batch_content = f'''@echo off
+REM JLTSQL バックグラウンド更新サービス自動起動
+REM このファイルはJLTSQLセットアップにより作成されました
+
+cd /d "{project_root}"
+start "" /MIN "{python_exe}" "{script_path}"
+'''
+        batch_path.write_text(batch_content, encoding='shift_jis')
+        return True
+
+    except Exception:
+        return False
+
+
+def _disable_auto_start() -> bool:
+    """Windows起動時の自動起動を無効化
+
+    Returns:
+        設定に成功したかどうか
+    """
+    batch_path = _get_startup_batch_path()
+    if batch_path is None:
+        return False
+
+    try:
+        if batch_path.exists():
+            batch_path.unlink()
+        return True
+    except Exception:
+        return False
+
+
 def _check_jvlink_service_key() -> tuple[bool, str]:
     """JV-Linkのサービスキー設定状況を実際にAPIで確認
 
@@ -277,8 +434,87 @@ def _interactive_setup_rich() -> dict:
     console.print("[bold]3. バックグラウンド更新[/bold]")
     console.print("[dim]蓄積系データの定期更新（30分毎）と速報系データの監視[/dim]")
     console.print()
-    settings['enable_background'] = Confirm.ask("バックグラウンド更新を開始しますか？", default=False)
+
+    # 既存のバックグラウンドプロセスをチェック
+    is_running, running_pid = _check_background_updater_running()
+    auto_start_enabled = _is_auto_start_enabled()
+
+    if is_running:
+        console.print(f"[yellow]注意: バックグラウンド更新が既に起動中です (PID: {running_pid})[/yellow]")
+        console.print()
+        console.print("  [cyan]1)[/cyan] そのまま継続（新しく起動しない）")
+        console.print("  [cyan]2)[/cyan] 停止して新しく起動する")
+        console.print("  [cyan]3)[/cyan] 停止のみ（起動しない）")
+        console.print()
+
+        bg_choice = Prompt.ask(
+            "選択",
+            choices=["1", "2", "3"],
+            default="1"
+        )
+
+        if bg_choice == "1":
+            settings['enable_background'] = False
+            settings['keep_existing_background'] = True
+            console.print("[dim]既存のプロセスを継続します[/dim]")
+        elif bg_choice == "2":
+            console.print("[cyan]既存のプロセスを停止中...[/cyan]")
+            if _stop_background_updater(running_pid):
+                console.print("[green]停止しました[/green]")
+                settings['enable_background'] = True
+            else:
+                console.print("[red]停止に失敗しました。手動で停止してください。[/red]")
+                settings['enable_background'] = False
+        else:  # "3"
+            console.print("[cyan]既存のプロセスを停止中...[/cyan]")
+            if _stop_background_updater(running_pid):
+                console.print("[green]停止しました[/green]")
+            settings['enable_background'] = False
+    else:
+        settings['enable_background'] = Confirm.ask("バックグラウンド更新を開始しますか？", default=False)
+
     console.print()
+
+    # 自動起動設定（バックグラウンドが有効または継続の場合のみ）
+    if settings.get('enable_background') or settings.get('keep_existing_background'):
+        console.print("[bold]4. Windows起動時の自動起動[/bold]")
+        if auto_start_enabled:
+            console.print("[dim]現在: [green]有効[/green] (Windowsスタートアップに登録済み)[/dim]")
+        else:
+            console.print("[dim]現在: [yellow]無効[/yellow][/dim]")
+        console.print()
+
+        if auto_start_enabled:
+            if not Confirm.ask("自動起動を維持しますか？", default=True):
+                if _disable_auto_start():
+                    console.print("[dim]自動起動を無効化しました[/dim]")
+                    settings['auto_start'] = False
+                else:
+                    console.print("[red]自動起動の無効化に失敗しました[/red]")
+                    settings['auto_start'] = True
+            else:
+                settings['auto_start'] = True
+        else:
+            if Confirm.ask("Windows起動時に自動でバックグラウンド更新を開始しますか？", default=False):
+                if _enable_auto_start():
+                    console.print("[green]自動起動を設定しました[/green]")
+                    settings['auto_start'] = True
+                else:
+                    console.print("[red]自動起動の設定に失敗しました[/red]")
+                    settings['auto_start'] = False
+            else:
+                settings['auto_start'] = False
+
+        console.print()
+    elif not settings.get('enable_background') and auto_start_enabled:
+        # バックグラウンドを無効にしたが、自動起動が設定されている場合
+        console.print("[yellow]注意: 自動起動が設定されていますが、バックグラウンド更新は開始しません[/yellow]")
+        if Confirm.ask("自動起動を無効化しますか？", default=True):
+            if _disable_auto_start():
+                console.print("[dim]自動起動を無効化しました[/dim]")
+            else:
+                console.print("[red]自動起動の無効化に失敗しました[/red]")
+        console.print()
 
     # 確認
     console.print(Panel("[bold]設定確認[/bold]", border_style="blue"))
@@ -289,7 +525,12 @@ def _interactive_setup_rich() -> dict:
 
     confirm_table.add_row("モード", settings['mode_name'])
     confirm_table.add_row("速報系", "[green]取得[/green]" if settings.get('include_realtime') else "[dim]なし[/dim]")
-    confirm_table.add_row("定期更新", "[green]開始[/green]" if settings.get('enable_background') else "[dim]なし[/dim]")
+    if settings.get('keep_existing_background'):
+        confirm_table.add_row("定期更新", "[cyan]継続（既存プロセス）[/cyan]")
+    else:
+        confirm_table.add_row("定期更新", "[green]開始[/green]" if settings.get('enable_background') else "[dim]なし[/dim]")
+    if settings.get('auto_start'):
+        confirm_table.add_row("自動起動", "[green]有効[/green]")
 
     console.print(confirm_table)
     console.print()
@@ -398,17 +639,96 @@ def _interactive_setup_simple() -> dict:
     # バックグラウンド更新
     print("3. バックグラウンド更新を開始しますか？")
     print("   (蓄積系データの定期更新 + 速報系データの監視)")
-    print("   [y/N]: ", end="")
-    bg_choice = input().strip().lower()
-    settings['enable_background'] = bg_choice in ('y', 'yes')
     print()
+
+    # 既存のバックグラウンドプロセスをチェック
+    is_running, running_pid = _check_background_updater_running()
+    auto_start_enabled = _is_auto_start_enabled()
+
+    if is_running:
+        print(f"   [注意] バックグラウンド更新が既に起動中です (PID: {running_pid})")
+        print()
+        print("   1) そのまま継続（新しく起動しない）")
+        print("   2) 停止して新しく起動する")
+        print("   3) 停止のみ（起動しない）")
+        print()
+        bg_choice = input("   選択 [1]: ").strip() or "1"
+
+        if bg_choice == "1":
+            settings['enable_background'] = False
+            settings['keep_existing_background'] = True
+            print("   既存のプロセスを継続します")
+        elif bg_choice == "2":
+            print("   既存のプロセスを停止中...")
+            if _stop_background_updater(running_pid):
+                print("   停止しました")
+                settings['enable_background'] = True
+            else:
+                print("   [NG] 停止に失敗しました。手動で停止してください。")
+                settings['enable_background'] = False
+        else:  # "3"
+            print("   既存のプロセスを停止中...")
+            if _stop_background_updater(running_pid):
+                print("   停止しました")
+            settings['enable_background'] = False
+    else:
+        print("   [y/N]: ", end="")
+        bg_input = input().strip().lower()
+        settings['enable_background'] = bg_input in ('y', 'yes')
+
+    print()
+
+    # 自動起動設定（バックグラウンドが有効または継続の場合のみ）
+    if settings.get('enable_background') or settings.get('keep_existing_background'):
+        print("4. Windows起動時の自動起動")
+        if auto_start_enabled:
+            print("   現在: 有効 (Windowsスタートアップに登録済み)")
+            print("   自動起動を維持しますか？ [Y/n]: ", end="")
+            keep_auto = input().strip().lower()
+            if keep_auto in ('n', 'no'):
+                if _disable_auto_start():
+                    print("   自動起動を無効化しました")
+                    settings['auto_start'] = False
+                else:
+                    print("   [NG] 自動起動の無効化に失敗しました")
+                    settings['auto_start'] = True
+            else:
+                settings['auto_start'] = True
+        else:
+            print("   現在: 無効")
+            print("   Windows起動時に自動でバックグラウンド更新を開始しますか？ [y/N]: ", end="")
+            enable_auto = input().strip().lower()
+            if enable_auto in ('y', 'yes'):
+                if _enable_auto_start():
+                    print("   自動起動を設定しました")
+                    settings['auto_start'] = True
+                else:
+                    print("   [NG] 自動起動の設定に失敗しました")
+                    settings['auto_start'] = False
+            else:
+                settings['auto_start'] = False
+        print()
+    elif not settings.get('enable_background') and auto_start_enabled:
+        # バックグラウンドを無効にしたが、自動起動が設定されている場合
+        print("   [注意] 自動起動が設定されていますが、バックグラウンド更新は開始しません")
+        print("   自動起動を無効化しますか？ [Y/n]: ", end="")
+        disable_auto = input().strip().lower()
+        if disable_auto not in ('n', 'no'):
+            if _disable_auto_start():
+                print("   自動起動を無効化しました")
+        print()
 
     # 確認
     print("-" * 60)
     print("設定確認:")
     print(f"  モード: {settings['mode_name']}")
     print(f"  速報系: {'取得' if settings.get('include_realtime') else 'なし'}")
-    print(f"  定期更新: {'開始' if settings.get('enable_background') else 'なし'}")
+    if settings.get('keep_existing_background'):
+        print("  定期更新: 継続（既存プロセス）")
+    else:
+        print(f"  定期更新: {'開始' if settings.get('enable_background') else 'なし'}")
+    if settings.get('auto_start'):
+        print("  自動起動: 有効")
     print("-" * 60)
     print()
 

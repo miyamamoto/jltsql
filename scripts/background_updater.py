@@ -56,6 +56,7 @@ sys.path.insert(0, str(project_root))
 
 # ログ設定: コンソールにはERROR以上のみ表示、それ以外はファイルに出力
 from src.utils.logger import setup_logging, get_logger
+from src.utils.lock_manager import ProcessLock, ProcessLockError
 setup_logging(level="DEBUG", console_level="ERROR", log_to_file=True, log_to_console=True)
 
 logger = get_logger(__name__)
@@ -1267,18 +1268,23 @@ HTTP API エンドポイント (デフォルト: http://localhost:8765):
         sys.exit(0 if success else 1)
 
     # 通常のサービス起動
-    updater = BackgroundUpdater(
-        update_historical=not args.no_historical,
-        monitor_realtime=not args.no_realtime,
-        historical_interval_minutes=args.interval,
-        enable_api=not args.no_api,
-        api_port=args.api_port,
-        enable_rate_limit=not args.no_rate_limit,
-        rate_limit_short_term=args.rate_limit_short,
-        rate_limit_long_term=args.rate_limit_long,
-    )
-
-    updater.start()
+    try:
+        with ProcessLock("background_updater"):
+            updater = BackgroundUpdater(
+                update_historical=not args.no_historical,
+                monitor_realtime=not args.no_realtime,
+                historical_interval_minutes=args.interval,
+                enable_api=not args.no_api,
+                api_port=args.api_port,
+                enable_rate_limit=not args.no_rate_limit,
+                rate_limit_short_term=args.rate_limit_short,
+                rate_limit_long_term=args.rate_limit_long,
+            )
+            updater.start()
+    except ProcessLockError as e:
+        print(f"[エラー] {e}")
+        print("既に別のバックグラウンド更新プロセスが実行中です。")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
