@@ -3,12 +3,81 @@
 This module imports parsed JV-Data records into database.
 """
 
-from typing import Dict, Iterator, List, Optional
+import re
+from typing import Any, Dict, Iterator, List, Optional
 
 from src.database.base import BaseDatabase, DatabaseError
+from src.database.schema_types import get_table_column_types
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+# ============================================================================
+# REAL型フィールドの変換ルール定義
+# JV-Dataでは一部の数値フィールドが10倍された状態で格納されている
+# ============================================================================
+
+# 10で割るべきフィールドパターン（小数点1桁のサンプリング値）
+DIVIDE_BY_10_PATTERNS = [
+    # オッズ系 (O1-O6, SE)
+    r"^TanOdds",         # 単勝オッズ
+    r"^FukuOdds",        # 複勝オッズ (Low/High両方マッチ)
+    r"^WakurenOdds",     # 枠連オッズ
+    r"^Odds$",           # 汎用オッズ (末尾の$で完全一致)
+    r"^OddsLow",         # オッズ最低値
+    r"^OddsHigh",        # オッズ最高値
+
+    # タイム系（走破タイム）
+    r"^Time$",           # 走破タイム (4文字 HMMM形式)
+    r"^TimeDiff",        # タイム差
+
+    # タイム系（ハロン・ラップ）
+    r"^HaronTime",       # ハロンタイム (HaronTimeL3, HaronTimeL4など)
+    r"^Haron",           # ハロン系 (Haron3F, Haron4L等)
+    r"^LapTime",         # ラップタイム
+
+    # 重量系
+    r"^Futan",           # 負担重量/斤量 (3文字 ABC → AB.C kg)
+    r"^BaTaijyu",        # 馬体重 (3文字)
+    r"^ZogenSa",         # 増減差 (3文字)
+
+    # マイニング関連
+    r"^DMTime",          # マイニング予想走破タイム
+    r"^DMGosa",          # マイニング予想誤差
+]
+
+# そのまま使うREALフィールドパターン（小数点演算不要）
+NO_DIVIDE_PATTERNS = [
+    # 賞金系（千円単位 - DBに整数値で格納）
+    r"^Honsyokin",       # 本賞金 (全レコード共通)
+    r"^Fukasyokin",      # 付加賞金 (全レコード共通)
+
+    # 累計金額系（UM: 累計本賞金、累計付加賞金、累計収得賞金）
+    r"^RuikeiHonsyo",    # 累計本賞金
+    r"^RuikeiFuka",      # 累計付加賞金
+    r"^RuikeiSyutoku",   # 累計収得賞金
+
+    # 票数系
+    r"^HyoTotal",        # 票数合計
+    r"^Hyo$",            # 票数 (完全一致)
+]
+
+
+def _should_divide_by_10(field_name: str) -> bool:
+    """フィールドが10で割る必要があるかチェック"""
+    for pattern in DIVIDE_BY_10_PATTERNS:
+        if re.match(pattern, field_name):
+            return True
+    return False
+
+
+def _should_not_divide(field_name: str) -> bool:
+    """フィールドがそのまま使うべきかチェック"""
+    for pattern in NO_DIVIDE_PATTERNS:
+        if re.match(pattern, field_name):
+            return True
+    return False
 
 
 class ImporterError(Exception):
@@ -124,6 +193,7 @@ class DataImporter:
             "RT_TM": "RT_TM",  # タイムマスター（速報）
             "RT_DM": "RT_DM",  # データマスター（速報）
             "RT_AV": "RT_AV",  # 場外発売情報（速報）
+            "RT_RC": "RT_RC",  # 騎手変更情報（速報）
         }
 
         logger.info(
@@ -152,6 +222,97 @@ class DataImporter:
             return JLTSQL_TO_JRAVAN.get(table_name, table_name)
 
         return table_name
+
+    def _clean_record(self, record: dict) -> dict:
+        """Remove metadata fields that shouldn't be inserted into tables.
+
+        Args:
+            record: Original record dictionary
+
+        Returns:
+            Cleaned record without metadata fields
+        """
+        # Fields used for routing/metadata that shouldn't be in database tables
+        metadata_fields = {
+            'headRecordSpec',
+            'レコード種別ID',
+            '_raw_data',
+            '_parse_errors',
+        }
+
+        return {k: v for k, v in record.items() if k not in metadata_fields and not k.startswith('_')}
+
+    def _convert_record(self, record: dict, table_name: str) -> dict:
+        """Convert record field types based on table schema.
+
+        Converts string values from parsers to appropriate types (INTEGER, REAL)
+        based on the schema definition. Also handles special JV-Data formatting
+        where some REAL values are stored as 10x their actual value.
+
+        Args:
+            record: Cleaned record dictionary (without metadata)
+            table_name: Target table name for type mapping
+
+        Returns:
+            Record with converted field types
+        """
+        # Get column types for this table
+        column_types = get_table_column_types(table_name)
+        if not column_types:
+            # No schema found, return as-is
+            return record
+
+        converted = {}
+
+        for field_name, value in record.items():
+            col_type = column_types.get(field_name, "TEXT")
+
+            # Handle empty/whitespace values
+            if value is None or (isinstance(value, str) and not value.strip()):
+                converted[field_name] = None
+                continue
+
+            # Convert based on type
+            try:
+                if col_type == "INTEGER":
+                    # Convert to integer
+                    str_value = str(value).strip()
+                    if str_value:
+                        converted[field_name] = int(str_value)
+                    else:
+                        converted[field_name] = None
+
+                elif col_type == "REAL":
+                    str_value = str(value).strip()
+                    if str_value:
+                        float_value = float(str_value)
+                        # Check if this field needs to be divided by 10
+                        if _should_divide_by_10(field_name):
+                            converted[field_name] = float_value / 10.0
+                        else:
+                            converted[field_name] = float_value
+                    else:
+                        converted[field_name] = None
+
+                else:
+                    # TEXT type - keep as string, convert None to empty string if needed
+                    if isinstance(value, str):
+                        converted[field_name] = value.strip() if value.strip() else None
+                    else:
+                        converted[field_name] = str(value) if value is not None else None
+
+            except (ValueError, TypeError) as e:
+                # Conversion failed, log and set to None
+                logger.debug(
+                    f"Type conversion failed for field {field_name}",
+                    table=table_name,
+                    original_value=value,
+                    target_type=col_type,
+                    error=str(e),
+                )
+                converted[field_name] = None
+
+        return converted
 
     def import_records(
         self,
@@ -259,8 +420,12 @@ class DataImporter:
             return
 
         try:
+            # Clean records to remove metadata fields before insertion
+            clean_batch = [self._clean_record(record) for record in batch]
+            # Convert types based on schema definition
+            converted_batch = [self._convert_record(record, table_name) for record in clean_batch]
             # Insert batch using INSERT OR REPLACE
-            rows = self.database.insert_many(table_name, batch, use_replace=True)
+            rows = self.database.insert_many(table_name, converted_batch, use_replace=True)
 
             self._records_imported += rows
             self._batches_processed += 1
@@ -298,7 +463,9 @@ class DataImporter:
 
             for record in batch:
                 try:
-                    self.database.insert(table_name, record, use_replace=True)
+                    clean_record = self._clean_record(record)
+                    converted_record = self._convert_record(clean_record, table_name)
+                    self.database.insert(table_name, converted_record, use_replace=True)
                     success_count += 1
 
                 except DatabaseError as record_error:
@@ -346,7 +513,9 @@ class DataImporter:
             return False
 
         try:
-            self.database.insert(table_name, record, use_replace=True)
+            clean_record = self._clean_record(record)
+            converted_record = self._convert_record(clean_record, table_name)
+            self.database.insert(table_name, converted_record, use_replace=True)
             self._records_imported += 1
 
             if auto_commit:

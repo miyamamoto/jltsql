@@ -227,6 +227,7 @@ class KSParser:
             result["SaikinJyusyo3GradeCD"] = ""
             result["SaikinJyusyo3SyussoTosu"] = ""
             result["SaikinJyusyo3KettoNum"] = ""
+            result["SaikinJyusyo3Bamei"] = ""
 
             # 47. レコード区切 (位置:771, 長さ:2)
             result["crlf"] = self.decode_field(data[770:772])

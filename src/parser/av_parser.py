@@ -12,7 +12,7 @@ class AVParser(BaseParser):
     """Parser for AV record with accurate field positions.
 
     Total record length: 140 bytes
-    Fields: 4
+    Fields: 7
     """
 
     record_type = "AV"
@@ -24,8 +24,14 @@ class AVParser(BaseParser):
             List of FieldDef objects with type conversion settings
         """
         return [
-            FieldDef("KettoNum", 0, 10),
-            FieldDef("SaleHostName", 10, 40),
-            FieldDef("SaleName", 50, 80),
-            FieldDef("Price", 130, 10),
+            # JV-Data standard header fields
+            FieldDef("RecordSpec", 0, 2),      # Record type ID (positions 1-2)
+            FieldDef("DataKubun", 2, 1),       # Data type (position 3)
+            # Data fields
+            FieldDef("KettoNum", 3, 10),       # Horse registration number
+            FieldDef("SaleHostName", 13, 40),  # Sale host name
+            FieldDef("SaleName", 53, 80),      # Sale name
+            FieldDef("Price", 133, 10),        # Price
+            # Record delimiter at the end (last 2 bytes)
+            FieldDef("RecordDelimiter", 138, 2),  # Record delimiter (CRLF)
         ]

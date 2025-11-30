@@ -162,12 +162,12 @@ SCHEMAS = {
             RecordSpec TEXT,
             DataKubun TEXT,
             MakeDate TEXT,
-            Year TEXT,
-            MonthDay TEXT,
+            Year INTEGER,
+            MonthDay INTEGER,
             JyoCD TEXT,
-            Kaiji TEXT,
-            Nichiji TEXT,
-            RaceNum TEXT,
+            Kaiji INTEGER,
+            Nichiji INTEGER,
+            RaceNum INTEGER,
             KettoNum TEXT,
             Bamei TEXT,
             HeichiHonsyokinTotal TEXT,
@@ -246,7 +246,7 @@ SCHEMAS = {
             HanshinSyogaiChaku TEXT,
             KokuraSyogaiChaku TEXT,
             KyakusituKeiko TEXT,
-            RegisteredRaceCount TEXT,
+            RegisteredRaceCount INTEGER,
             KisyuCode TEXT,
             KisyuName TEXT,
             KisyuResultsInfo TEXT,
@@ -261,7 +261,8 @@ SCHEMAS = {
             BreederName TEXT,
             BreederName_Co TEXT,
             BreederResultsInfo TEXT,
-            RecordDelimiter TEXT
+            RecordDelimiter TEXT,
+            PRIMARY KEY (Year, MonthDay, JyoCD, Kaiji, Nichiji, RaceNum, KettoNum)
         )
     """,
     "NL_CH": """
@@ -742,6 +743,7 @@ SCHEMAS = {
             SaikinJyusyo3GradeCD TEXT,
             SaikinJyusyo3SyussoTosu INTEGER,
             SaikinJyusyo3KettoNum TEXT,
+            SaikinJyusyo3Bamei TEXT,
             crlf TEXT,
             PRIMARY KEY (KisyuCode)
         )
