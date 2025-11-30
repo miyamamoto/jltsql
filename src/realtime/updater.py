@@ -32,39 +32,50 @@ class RealtimeUpdater:
     # Table mapping from record type to RT_ tables (Real-Time data)
     # Real-time updates use RT_ prefix, historical data uses NL_ prefix
     #
-    # IMPORTANT: Only 19 record types are provided via JVRTOpen (real-time)
-    # Based on JV-Data4901.xlsx specification (Sheet 6: データ種別一覧 > 速報系データ)
+    # JVRTOpen provides two categories of data (EveryDB2 Row D, E):
+    # - 速報系データ (0B1x): レース確定情報
+    # - 時系列データ (0B2x-0B3x): 継続更新オッズ・票数
     RECORD_TYPE_TABLE = {
-        # Race data (0B12, 0B15)
-        "RA": "RT_RA",  # Format 2: レース詳細
-        "SE": "RT_SE",  # Format 3: 馬毎レース情報
-        "HR": "RT_HR",  # Format 4: 払戻
+        # === 速報系データ (Speed Report - 0B1x) ===
+        # 0B11: 開催情報
+        "WE": "RT_WE",  # 開催情報
 
-        # Odds data (0B30-0B36)
-        "O1": "RT_O1",  # Format 7: オッズ（単勝・複勝）
-        "O2": "RT_O2",  # Format 8: オッズ（枠連）
-        "O3": "RT_O3",  # Format 9: オッズ（馬連）
-        "O4": "RT_O4",  # Format 10: オッズ（ワイド）
-        "O5": "RT_O5",  # Format 11: オッズ（馬単）
-        "O6": "RT_O6",  # Format 12: オッズ（３連複・３連単）
+        # 0B12: レース情報
+        "RA": "RT_RA",  # レース詳細
+        "SE": "RT_SE",  # 馬毎レース情報
 
-        # Vote data (0B20)
-        "H1": "RT_H1",  # Format 5: 票数（単勝・複勝等）
-        "H6": "RT_H6",  # Format 6: 票数（３連単）
+        # 0B13: データマイニング予想
+        "DM": "RT_DM",  # データマイニング（タイム型）
 
-        # Baba/Kaisai (0B11, 0B14, 0B16)
-        "WH": "RT_WH",  # Format 101: 馬場状態
-        "WE": "RT_WE",  # Format 102: 開催情報
+        # 0B14: 出走取消・競走除外
+        "AV": "RT_AV",  # 場外発売情報
 
-        # Data mining (0B13, 0B17)
-        "DM": "RT_DM",  # Format 28: データマイニング（タイム型）
-        "TM": "RT_TM",  # Format 29: データマイニング（対戦型）
+        # 0B15: 払戻情報
+        "HR": "RT_HR",  # 払戻
 
-        # Performance data (0B14, 0B16)
-        "AV": "RT_AV",  # Format 103: 場外発売情報
-        "JC": "RT_JC",  # Format 104: 騎手成績
-        "TC": "RT_TC",  # Format 105: 調教師成績
-        "CC": "RT_CC",  # Format 106: 競走馬成績
+        # 0B16: 馬体重
+        "WH": "RT_WH",  # 馬体重
+
+        # 0B17: 対戦型データマイニング予想
+        "TM": "RT_TM",  # データマイニング（対戦型）
+
+        # === 時系列データ (Time Series - 0B2x-0B3x) ===
+        # 0B20: 票数情報
+        "H1": "RT_H1",  # 票数（単勝・複勝等）
+        "H6": "RT_H6",  # 票数（３連単）
+
+        # 0B30-0B36: オッズ情報
+        "O1": "RT_O1",  # オッズ（単勝・複勝）
+        "O2": "RT_O2",  # オッズ（枠連）
+        "O3": "RT_O3",  # オッズ（馬連）
+        "O4": "RT_O4",  # オッズ（ワイド）
+        "O5": "RT_O5",  # オッズ（馬単）
+        "O6": "RT_O6",  # オッズ（３連複・３連単）
+
+        # === その他 (成績データ) ===
+        "JC": "RT_JC",  # 騎手成績
+        "TC": "RT_TC",  # 調教師成績
+        "CC": "RT_CC",  # 競走馬成績
     }
 
     # Note: The following record types are NOT provided in real-time:

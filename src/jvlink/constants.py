@@ -59,10 +59,60 @@ DATA_SPEC_O5 = "O5"  # 3連複オッズ
 DATA_SPEC_O6 = "O6"  # 3連単オッズ
 
 # Real-time Data Specifications (JVRTOpen用)
-DATA_SPEC_RT_RACE = "0B12"  # 速報レース情報
-DATA_SPEC_RT_WEIGHT = "0B15"  # 速報馬体重
-DATA_SPEC_RT_ODDS = "0B20"  # 速報オッズ
-DATA_SPEC_RT_PAYOUT = "0B31"  # 速報払戻
+# Reference: EveryDB2 https://everydb.iwinz.net/edb2_manual/
+# 速報系データ: レース確定情報（結果が確定したら更新）
+# 時系列データ: 継続更新情報（レース中に随時更新）
+
+# 速報系データ (0B1x系) - レース結果・確定情報
+# Row D in EveryDB2 table
+JVRTOPEN_SPEED_REPORT_SPECS = {
+    "0B11": "開催情報",           # WE: 開催情報
+    "0B12": "レース情報",         # RA, SE: レース詳細・馬毎レース情報
+    "0B13": "データマイニング予想",  # DM: タイム型データマイニング
+    "0B14": "出走取消・競走除外",   # AV: 場外発売情報
+    "0B15": "払戻情報",           # HR: 払戻
+    "0B16": "馬体重",             # WH: 馬体重
+    "0B17": "対戦型データマイニング予想",  # TM: 対戦型データマイニング
+}
+
+# 時系列データ (0B2x-0B3x系) - 継続更新オッズ・票数
+# Row E in EveryDB2 table
+JVRTOPEN_TIME_SERIES_SPECS = {
+    "0B20": "票数情報",           # H1, H6: 票数
+    "0B30": "単勝オッズ",         # O1: 単勝
+    "0B31": "複勝・枠連オッズ",    # O1, O2: 複勝・枠連
+    "0B32": "馬連オッズ",         # O3: 馬連
+    "0B33": "ワイドオッズ",       # O4: ワイド
+    "0B34": "馬単オッズ",         # O5: 馬単
+    "0B35": "3連複オッズ",        # O6: 3連複
+    "0B36": "3連単オッズ",        # O6: 3連単
+}
+
+# 全JVRTOpenデータ種別 (後方互換性のため残す)
+JVRTOPEN_DATA_SPECS = list(JVRTOPEN_SPEED_REPORT_SPECS.keys()) + list(JVRTOPEN_TIME_SERIES_SPECS.keys())
+
+# 便利な定数
+DATA_SPEC_RT_RACE = "0B12"     # 速報レース情報
+DATA_SPEC_RT_WEIGHT = "0B16"   # 速報馬体重 (0B15→0B16に修正)
+DATA_SPEC_RT_PAYOUT = "0B15"   # 速報払戻
+DATA_SPEC_RT_ODDS = "0B30"     # 時系列オッズ（単勝）
+DATA_SPEC_RT_VOTES = "0B20"    # 時系列票数
+
+
+def is_speed_report_spec(data_spec: str) -> bool:
+    """Check if data_spec is a speed report (速報系) specification."""
+    return data_spec in JVRTOPEN_SPEED_REPORT_SPECS
+
+
+def is_time_series_spec(data_spec: str) -> bool:
+    """Check if data_spec is a time series (時系列) specification."""
+    return data_spec in JVRTOPEN_TIME_SERIES_SPECS
+
+
+def is_valid_jvrtopen_spec(data_spec: str) -> bool:
+    """Check if data_spec is valid for JVRTOpen."""
+    return data_spec in JVRTOPEN_DATA_SPECS
+
 
 # JVOpen データ種別とoption対応表
 # Reference: EveryDB2 https://everydb.iwinz.net/edb2_manual/
@@ -79,12 +129,6 @@ JVOPEN_VALID_COMBINATIONS = {
     4: ["RACE", "DIFF", "BLOD", "SLOP", "YSCH", "HOSE", "HOYU", "TOKU",
         "SNAP", "O1", "O2", "O3", "O4", "O5", "O6"],
 }
-
-# JVRTOpen データ種別 (速報系・時系列)
-JVRTOPEN_DATA_SPECS = [
-    "0B11", "0B12", "0B13", "0B14", "0B15", "0B16", "0B17",
-    "0B20", "0B30", "0B31", "0B32", "0B33", "0B34", "0B35", "0B36",
-]
 
 
 def is_valid_jvopen_combination(data_spec: str, option: int) -> bool:

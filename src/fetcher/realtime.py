@@ -6,29 +6,20 @@ This module provides realtime data fetching from JV-Link.
 from typing import Iterator, Optional, List
 
 from src.fetcher.base import BaseFetcher, FetcherError
-from src.jvlink.constants import JV_RT_SUCCESS
+from src.jvlink.constants import (
+    JV_RT_SUCCESS,
+    JVRTOPEN_SPEED_REPORT_SPECS,
+    JVRTOPEN_TIME_SERIES_SPECS,
+    is_valid_jvrtopen_spec,
+)
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-# Realtime data specification codes
-RT_DATA_SPECS = {
-    "0B11": "レース詳細（速報）",
-    "0B12": "馬毎レース情報（速報）",
-    "0B15": "払戻情報（速報）",
-    "0B20": "競走馬マスタ（速報）",
-    "0B30": "騎手マスタ（速報）",
-    "0B31": "オッズ情報",
-    "0B32": "オッズ（拡大馬番）",
-    "0B33": "馬番情報",
-    "0B34": "馬番別変更情報",
-    "0B35": "天候馬場状態",
-    "0B36": "タイム型データマイニング予想",
-    "0B41": "成績・出走予定（レース別）",
-    "0B42": "成績・出走予定（馬別）",
-    "0B51": "レース詳細（地方競馬）",
-}
+# Realtime data specification codes (速報系 + 時系列)
+# Import from constants.py for consistency
+RT_DATA_SPECS = {**JVRTOPEN_SPEED_REPORT_SPECS, **JVRTOPEN_TIME_SERIES_SPECS}
 
 
 class RealtimeFetcher(BaseFetcher):
