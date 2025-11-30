@@ -7,29 +7,6 @@ JRA-VAN DataLabの競馬データをSQLite/PostgreSQLにインポートするPyt
 [![Python](https://img.shields.io/badge/python-3.10+%20(32bit)-blue.svg)](https://www.python.org/downloads/)
 [![Version](https://img.shields.io/badge/version-2.0.0-green.svg)](https://github.com/miyamamoto/jrvltsql/releases)
 
-## What's New in v2.0.0
-
-### Complete Data Integrity
-- **全58テーブルにPRIMARY KEY制約を追加**: データの一意性を保証
-- **スキーマ/パーサー完全一致**: 57/57パーサーがスキーマと整合（100%）
-- **404ユニットテスト**: 全43パーサーを網羅的にテスト
-- **11統合テスト**: エンドツーエンドの動作を検証
-
-### New Tools
-- **`scripts/validate_schema_parser.py`**: スキーマとパーサーの整合性チェックツール
-- **`scripts/check_data_quality.py`**: データ品質検証ツール
-- **`tests/test_parsers.py`**: 全パーサーの包括的なユニットテスト
-- **`tests/test_integration.py`**: 統合テストスイート
-
-### quickstart.py Improvements
-- **新オプション追加**: `--db-path`, `--from-date`, `--to-date`, `--years`, `--no-odds`, `--no-monitor`, `--log-file`
-- **対話形式のサービスキー入力**: より使いやすいセットアップ体験
-- **Claude Code風モダンUI**: 視覚的に分かりやすいインターフェース
-
-### Quality Assurance
-- **100% スキーマ/パーサー整合性**: 57/57パーサーが検証済み
-- **完全テストカバレッジ**: 全パーサーをユニット/統合テストで検証
-- **データ品質検証**: 自動的なデータ整合性チェック
 
 ---
 
