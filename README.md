@@ -32,7 +32,7 @@ pip install git+https://github.com/miyamamoto/jrvltsql.git
 ### 2. セットアップ
 
 ```bash
-# 対話形式で初期設定（サービスキー入力 → 過去10年分のデータ取得）
+# 対話形式で初期設定（過去10年分のデータ取得）
 jltsql quickstart
 ```
 
@@ -56,21 +56,6 @@ python -c "import struct; print(struct.calcsize('P') * 8, 'bit')"
 ```
 
 64bit版しかない場合は、[Python公式サイト](https://www.python.org/downloads/windows/)から「Windows installer (32-bit)」をダウンロードしてください。
-
-## 設定
-
-サービスキーは以下のいずれかで設定：
-
-```bash
-# 環境変数（推奨）
-set JVLINK_SERVICE_KEY=XXXX-XXXX-XXXX-XXXX-X
-```
-
-```yaml
-# config/config.yaml
-jvlink:
-  service_key: "XXXX-XXXX-XXXX-XXXX-X"
-```
 
 ## コマンド一覧
 
