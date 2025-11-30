@@ -32,7 +32,7 @@ class RealtimeUpdater:
     # Table mapping from record type to RT_ tables (Real-Time data)
     # Real-time updates use RT_ prefix, historical data uses NL_ prefix
     #
-    # JVRTOpen provides two categories of data (EveryDB2 Row D, E):
+    # JVRTOpen provides two categories of data:
     # - 速報系データ (0B1x): レース確定情報
     # - 時系列データ (0B2x-0B3x): 継続更新オッズ・票数
     RECORD_TYPE_TABLE = {

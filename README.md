@@ -13,7 +13,7 @@ JRA-VAN DataLabの競馬データをSQLite/PostgreSQLにインポートするPyt
 - **SQLite標準**: 軽量・高速（PostgreSQLも対応）
 - **レジストリー不要**: 設定ファイル/環境変数でサービスキーを管理
 - **バッチ処理最適化**: 1000件/batch + 61インデックス
-- **EveryDB2準拠**: JVOpen/JVRTOpen の全データ種別に対応
+- **JV-Link API完全対応**: JVOpen/JVRTOpen の全データ種別に対応
 
 ## クイックスタート
 
@@ -104,7 +104,7 @@ JVRTOpenで取得するリアルタイムデータ。`jltsql monitor`で監視�
 
 ## 対応データ種別（JVOpen）
 
-[EveryDB2表5.1-1](https://everydb.iwinz.net/edb2_manual/)に準拠。
+JV-Link API仕様に準拠。
 
 | データ種別 | 説明 | Option 1 | Option 2 |
 |-----------|------|----------|----------|

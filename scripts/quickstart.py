@@ -322,8 +322,7 @@ class QuickstartRunner:
         ("DIFF", "マスタ情報", 1),      # UM, KS, CH, BR, BN, HN, SK, RC, HC
     ]
 
-    # 標準モード: 簡易 + 付加情報
-    # Reference: EveryDB2 表5.1-1 Row A (option=1)
+    # 標準モード: 簡易 + 付加情報 (option=1)
     STANDARD_SPECS = [
         ("TOKU", "特別登録馬", 1),
         ("RACE", "レース情報", 1),
@@ -338,8 +337,7 @@ class QuickstartRunner:
         ("COMM", "コメント情報", 1),
     ]
 
-    # フルモード: 標準 + オッズ
-    # Reference: EveryDB2 表5.1-1 Row A (option=1)
+    # フルモード: 標準 + オッズ (option=1)
     FULL_SPECS = [
         ("TOKU", "特別登録馬", 1),
         ("RACE", "レース情報", 1),
@@ -361,7 +359,7 @@ class QuickstartRunner:
     ]
 
     # 今週データモード: option=2で直近のレースデータのみ取得（高速）
-    # 注意: EveryDB2 表5.1-1 Row B によると option=2 は TOKU, RACE, TCVN, RCVN のみ対応
+    # 注意: option=2 は TOKU, RACE, TCVN, RCVN のみ対応
     UPDATE_SPECS = [
         ("TOKU", "特別登録馬", 2),
         ("RACE", "レース情報", 2),
@@ -371,7 +369,6 @@ class QuickstartRunner:
 
     # JVRTOpenデータスペック（速報系・時系列）
     # 注意: JVRTOpenは蓄積系(JVOpen)とは異なるAPI
-    # Reference: EveryDB2 Row D (速報系), Row E (時系列)
 
     # 速報系データ (0B1x, 0B4x) - レース確定情報・変更情報
     SPEED_REPORT_SPECS = [
@@ -382,8 +379,8 @@ class QuickstartRunner:
         ("0B15", "払戻情報"),              # HR
         ("0B16", "馬体重"),                # WH
         ("0B17", "対戦型データマイニング予想"),  # TM
-        ("0B41", "騎手変更情報"),          # RC (Row D, E 両方)
-        ("0B42", "調教師変更情報"),        # TC (Row D, E 両方)
+        ("0B41", "騎手変更情報"),          # RC
+        ("0B42", "調教師変更情報"),        # TC
     ]
 
     # 時系列データ (0B2x-0B3x) - 継続更新オッズ・票数

@@ -40,22 +40,21 @@ JV_READ_NO_MORE_DATA = -1  # これ以上データなし
 JV_READ_ERROR = -2  # エラー
 
 # Data Specification Codes
-# Reference: EveryDB2 表5.1-1 https://everydb.iwinz.net/edb2_manual/
-# Note: "N" suffix variants (DIFN, BLDN, HOSN) are aliases used in EveryDB2 documentation
+# Note: "N" suffix variants (DIFN, BLDN, HOSN) are aliases
 DATA_SPEC_RACE = "RACE"  # レースデータ (RA, SE, HR, WF, JG)
 DATA_SPEC_DIFF = "DIFF"  # マスタデータ (UM, KS, CH, BR, BN, HN, SK, RC, HC)
-DATA_SPEC_DIFN = "DIFN"  # マスタデータ (DIFF の別名、EveryDB2表記)
+DATA_SPEC_DIFN = "DIFN"  # マスタデータ (DIFF の別名)
 DATA_SPEC_YSCH = "YSCH"  # 開催スケジュール
 DATA_SPEC_TOKU = "TOKU"  # 特別登録馬
 DATA_SPEC_SNAP = "SNAP"  # 出馬表
 DATA_SPEC_SLOP = "SLOP"  # 坂路調教
 DATA_SPEC_BLOD = "BLOD"  # 血統情報
-DATA_SPEC_BLDN = "BLDN"  # 血統情報 (BLOD の別名、EveryDB2表記)
+DATA_SPEC_BLDN = "BLDN"  # 血統情報 (BLOD の別名)
 DATA_SPEC_HOYU = "HOYU"  # 馬名の意味由来
 DATA_SPEC_HOSE = "HOSE"  # 競走馬市場取引価格
-DATA_SPEC_HOSN = "HOSN"  # 競走馬市場取引価格 (HOSE の別名、EveryDB2表記)
+DATA_SPEC_HOSN = "HOSN"  # 競走馬市場取引価格 (HOSE の別名)
 
-# Additional Data Specifications (EveryDB2)
+# Additional Data Specifications
 DATA_SPEC_MING = "MING"  # データマイニング予想
 DATA_SPEC_WOOD = "WOOD"  # ウッドチップ調教
 DATA_SPEC_COMM = "COMM"  # コメント情報
@@ -73,12 +72,10 @@ DATA_SPEC_O5 = "O5"  # 3連複オッズ
 DATA_SPEC_O6 = "O6"  # 3連単オッズ
 
 # Real-time Data Specifications (JVRTOpen用)
-# Reference: EveryDB2 https://everydb.iwinz.net/edb2_manual/
 # 速報系データ: レース確定情報（結果が確定したら更新）
 # 時系列データ: 継続更新情報（レース中に随時更新）
 
 # 速報系データ (0B1x系) - レース結果・確定情報
-# Row D in EveryDB2 table
 JVRTOPEN_SPEED_REPORT_SPECS = {
     "0B11": "開催情報",           # WE: 開催情報
     "0B12": "レース情報",         # RA, SE: レース詳細・馬毎レース情報
@@ -87,12 +84,11 @@ JVRTOPEN_SPEED_REPORT_SPECS = {
     "0B15": "払戻情報",           # HR: 払戻
     "0B16": "馬体重",             # WH: 馬体重
     "0B17": "対戦型データマイニング予想",  # TM: 対戦型データマイニング
-    "0B41": "騎手変更情報",        # RC: 騎手変更 (Row D, E両方)
-    "0B42": "調教師変更情報",      # TC: 調教師変更 (Row D, E両方)
+    "0B41": "騎手変更情報",        # RC: 騎手変更
+    "0B42": "調教師変更情報",      # TC: 調教師変更
 }
 
 # 時系列データ (0B2x-0B3x系) - 継続更新オッズ・票数
-# Row E in EveryDB2 table
 JVRTOPEN_TIME_SERIES_SPECS = {
     "0B20": "票数情報",           # H1, H6: 票数
     "0B30": "単勝オッズ",         # O1: 単勝
@@ -142,10 +138,9 @@ def is_valid_jvrtopen_spec(data_spec: str) -> bool:
 
 
 # JVOpen データ種別とoption対応表
-# Reference: EveryDB2 表5.1-1 https://everydb.iwinz.net/edb2_manual/
-# Option: 1=通常データ(Row A), 2=今週データ(Row B), 3/4=セットアップ(Row C)
+# Option: 1=通常データ, 2=今週データ, 3/4=セットアップ
 JVOPEN_VALID_COMBINATIONS = {
-    # Option 1 (通常データ/Row A): TOKU, RACE, DIFN, BLDN, MING, SLOP, WOOD, YSCH, HOSN, HOYU, COMM
+    # Option 1 (通常データ): TOKU, RACE, DIFN, BLDN, MING, SLOP, WOOD, YSCH, HOSN, HOYU, COMM
     1: [
         "TOKU", "RACE",
         "DIFF", "DIFN",  # DIFF/DIFN are equivalent
@@ -160,14 +155,14 @@ JVOPEN_VALID_COMBINATIONS = {
         "SNAP",          # 出馬表
         "O1", "O2", "O3", "O4", "O5", "O6",  # オッズ
     ],
-    # Option 2 (今週データ/Row B): TOKU, RACE, TCVN, RCVN のみ
+    # Option 2 (今週データ): TOKU, RACE, TCVN, RCVN のみ
     2: [
         "TOKU",          # 特別登録馬
         "RACE",          # レースデータ
         "TCVN",          # 調教師変更情報
         "RCVN",          # 騎手変更情報
     ],
-    # Option 3, 4 (セットアップ/Row C): Option 1と同じ
+    # Option 3, 4 (セットアップ): Option 1と同じ
     3: [
         "TOKU", "RACE",
         "DIFF", "DIFN",
