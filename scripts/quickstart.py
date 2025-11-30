@@ -748,82 +748,108 @@ class QuickstartRunner:
         print(f"\n  取得成功: {self.stats['specs_success']}, データなし: {self.stats['specs_nodata']}, 契約外: {self.stats['specs_skipped']}, エラー: {self.stats['specs_failed']}")
         return (self.stats['specs_success'] + self.stats['specs_nodata']) > 0
 
-    # === 速報系データ取得 ===
+    # === リアルタイムデータ取得（JVRTOpen）===
 
     def _run_fetch_realtime_rich(self) -> bool:
-        """速報系データ取得（Rich UI）"""
-        specs = self.REALTIME_SPECS
-        total_specs = len(specs)
+        """リアルタイムデータ取得（Rich UI）- 速報系 + 時系列"""
+        speed_specs = self.SPEED_REPORT_SPECS
+        time_specs = self.TIME_SERIES_SPECS
+        total_specs = len(speed_specs) + len(time_specs)
 
         console.print()
         console.print(Panel(
-            f"[bold]速報系データ取得[/bold] ({total_specs}スペック)\n"
+            f"[bold]リアルタイムデータ取得[/bold] ({total_specs}スペック)\n"
+            f"[dim]速報系: {len(speed_specs)}件 / 時系列: {len(time_specs)}件[/dim]\n"
             "[dim]過去約1週間分のデータを取得します[/dim]",
             border_style="yellow",
         ))
 
-        for idx, (spec, description) in enumerate(specs, 1):
-            console.print(f"\n  [cyan]({idx}/{total_specs})[/cyan] [bold]{spec}[/bold]: {description}")
+        # 速報系データ
+        console.print("\n[bold cyan]【速報系データ】[/bold cyan]")
+        for idx, (spec, description) in enumerate(speed_specs, 1):
+            self._fetch_and_display_realtime(idx, len(speed_specs), spec, description)
 
-            start_time = time.time()
-            status, details = self._fetch_single_realtime_spec(spec)
-            elapsed = time.time() - start_time
-
-            if status == "success":
-                self.stats['specs_success'] += 1
-                saved = details.get('records_saved', 0)
-                if saved > 0:
-                    console.print(f"    [green]OK[/green] 完了: [bold]{saved:,}件[/bold]保存 [dim]({elapsed:.1f}秒)[/dim]")
-                else:
-                    console.print(f"    [green]OK[/green] 完了 [dim]({elapsed:.1f}秒)[/dim]")
-            elif status == "nodata":
-                self.stats['specs_nodata'] += 1
-                console.print(f"    [dim]- データなし[/dim] [dim]({elapsed:.1f}秒)[/dim]")
-            elif status == "skipped":
-                self.stats['specs_skipped'] += 1
-                console.print(f"    [yellow]![/yellow] 契約外 [dim]({elapsed:.1f}秒)[/dim]")
-            else:
-                self.stats['specs_failed'] += 1
-                console.print(f"    [red]X[/red] エラー [dim]({elapsed:.1f}秒)[/dim]")
-                if details.get('error_message'):
-                    console.print(f"      [red]原因:[/red] {details['error_message']}")
+        # 時系列データ
+        console.print("\n[bold cyan]【時系列データ】[/bold cyan]")
+        for idx, (spec, description) in enumerate(time_specs, 1):
+            self._fetch_and_display_realtime(idx, len(time_specs), spec, description)
 
         return (self.stats['specs_success'] + self.stats['specs_nodata']) > 0
 
-    def _run_fetch_realtime_simple(self) -> bool:
-        """速報系データ取得（シンプル版）"""
-        specs = self.REALTIME_SPECS
-        total = len(specs)
+    def _fetch_and_display_realtime(self, idx: int, total: int, spec: str, description: str):
+        """リアルタイムデータの取得と表示"""
+        console.print(f"\n  [cyan]({idx}/{total})[/cyan] [bold]{spec}[/bold]: {description}")
 
-        print(f"  速報系データ取得 ({total}スペック)")
+        start_time = time.time()
+        status, details = self._fetch_single_realtime_spec(spec)
+        elapsed = time.time() - start_time
+
+        if status == "success":
+            self.stats['specs_success'] += 1
+            saved = details.get('records_saved', 0)
+            if saved > 0:
+                console.print(f"    [green]OK[/green] 完了: [bold]{saved:,}件[/bold]保存 [dim]({elapsed:.1f}秒)[/dim]")
+            else:
+                console.print(f"    [green]OK[/green] 完了 [dim]({elapsed:.1f}秒)[/dim]")
+        elif status == "nodata":
+            self.stats['specs_nodata'] += 1
+            console.print(f"    [dim]- データなし[/dim] [dim]({elapsed:.1f}秒)[/dim]")
+        elif status == "skipped":
+            self.stats['specs_skipped'] += 1
+            console.print(f"    [yellow]![/yellow] 契約外 [dim]({elapsed:.1f}秒)[/dim]")
+        else:
+            self.stats['specs_failed'] += 1
+            console.print(f"    [red]X[/red] エラー [dim]({elapsed:.1f}秒)[/dim]")
+            if details.get('error_message'):
+                console.print(f"      [red]原因:[/red] {details['error_message']}")
+
+    def _run_fetch_realtime_simple(self) -> bool:
+        """リアルタイムデータ取得（シンプル版）- 速報系 + 時系列"""
+        speed_specs = self.SPEED_REPORT_SPECS
+        time_specs = self.TIME_SERIES_SPECS
+        total = len(speed_specs) + len(time_specs)
+
+        print(f"  リアルタイムデータ取得 ({total}スペック)")
+        print(f"  速報系: {len(speed_specs)}件 / 時系列: {len(time_specs)}件")
         print("  過去約1週間分のデータを取得します")
         print()
 
-        for idx, (spec, desc) in enumerate(specs, 1):
-            print(f"  [{idx}/{total}] {spec}: {desc}...", end=" ", flush=True)
-
+        # 速報系データ
+        print("  【速報系データ】")
+        for idx, (spec, desc) in enumerate(speed_specs, 1):
+            print(f"  [{idx}/{len(speed_specs)}] {spec}: {desc}...", end=" ", flush=True)
             status, _ = self._fetch_single_realtime_spec(spec)
+            self._print_realtime_status(status)
+            time.sleep(0.3)
 
-            if status == "success":
-                self.stats['specs_success'] += 1
-                print("OK")
-            elif status == "nodata":
-                self.stats['specs_nodata'] += 1
-                print("(データなし)")
-            elif status == "skipped":
-                self.stats['specs_skipped'] += 1
-                print("(契約外)")
-            else:
-                self.stats['specs_failed'] += 1
-                print("NG")
-
+        # 時系列データ
+        print("\n  【時系列データ】")
+        for idx, (spec, desc) in enumerate(time_specs, 1):
+            print(f"  [{idx}/{len(time_specs)}] {spec}: {desc}...", end=" ", flush=True)
+            status, _ = self._fetch_single_realtime_spec(spec)
+            self._print_realtime_status(status)
             time.sleep(0.3)
 
         print(f"\n  取得成功: {self.stats['specs_success']}, データなし: {self.stats['specs_nodata']}, 契約外: {self.stats['specs_skipped']}, エラー: {self.stats['specs_failed']}")
         return (self.stats['specs_success'] + self.stats['specs_nodata']) > 0
 
+    def _print_realtime_status(self, status: str):
+        """リアルタイム取得ステータスを表示"""
+        if status == "success":
+            self.stats['specs_success'] += 1
+            print("OK")
+        elif status == "nodata":
+            self.stats['specs_nodata'] += 1
+            print("(データなし)")
+        elif status == "skipped":
+            self.stats['specs_skipped'] += 1
+            print("(契約外)")
+        else:
+            self.stats['specs_failed'] += 1
+            print("NG")
+
     def _fetch_single_realtime_spec(self, spec: str) -> tuple:
-        """単一の速報系スペックを取得
+        """単一のリアルタイムスペックを取得（速報系/時系列共通）
 
         Returns:
             tuple: (status, details)
