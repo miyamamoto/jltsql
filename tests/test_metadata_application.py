@@ -8,10 +8,11 @@ database tables and can be retrieved for MCP integration.
 Test Coverage:
 1. SQLite metadata table creation and population
 2. PostgreSQL COMMENT ON execution
-3. DuckDB COMMENT ON execution
-4. Metadata retrieval for all database types
-5. Bulk metadata application
-6. Error handling (non-existent tables, missing metadata)
+3. Metadata retrieval for all database types
+4. Bulk metadata application
+5. Error handling (non-existent tables, missing metadata)
+
+Note: DuckDB is not supported (32-bit Python required for JV-Link).
 """
 
 import os
@@ -20,7 +21,6 @@ import unittest
 from pathlib import Path
 
 from src.database.sqlite_handler import SQLiteDatabase
-from src.database.duckdb_handler import DuckDBDatabase
 from src.database.postgresql_handler import PostgreSQLDatabase
 from src.database.schema import SchemaManager
 from src.database.schema_metadata import TABLE_METADATA
@@ -121,69 +121,6 @@ class TestSQLiteMetadata(unittest.TestCase):
                WHERE table_name = 'NL_RA' AND column_name = ''"""
         )
         self.assertEqual(rows[0]['cnt'], 1)
-
-
-class TestDuckDBMetadata(unittest.TestCase):
-    """Test metadata application and retrieval for DuckDB."""
-
-    def setUp(self):
-        """Set up test fixtures."""
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.db_path = Path(self.temp_dir.name) / 'metadata_test.duckdb'
-
-        self.database = DuckDBDatabase({'path': str(self.db_path)})
-        self.database.connect()
-
-        self.schema_mgr = SchemaManager(self.database)
-
-    def tearDown(self):
-        """Clean up."""
-        self.database.disconnect()
-        self.temp_dir.cleanup()
-
-    def test_duckdb_comment_on_table(self):
-        """Test that COMMENT ON TABLE works in DuckDB."""
-        self.schema_mgr.create_table('NL_RA')
-
-        # Apply metadata
-        success = self.schema_mgr.apply_metadata_to_table('NL_RA')
-        self.assertTrue(success, "Metadata application should succeed")
-
-        # Try to retrieve comment via information_schema
-        # (DuckDB may or may not expose this - test the application succeeds)
-        # This verifies the SQL executed without error
-
-    def test_duckdb_comment_on_columns(self):
-        """Test that COMMENT ON COLUMN works in DuckDB."""
-        self.schema_mgr.create_table('NL_SE')
-
-        success = self.schema_mgr.apply_metadata_to_table('NL_SE')
-        self.assertTrue(success)
-
-        # Verify table still exists and is usable after comments
-        rows = self.database.fetch_all("SELECT * FROM NL_SE LIMIT 1")
-        self.assertIsInstance(rows, list)
-
-    def test_duckdb_metadata_retrieval(self):
-        """Test retrieving metadata from DuckDB information_schema."""
-        self.schema_mgr.create_table('NL_HR')
-        self.schema_mgr.apply_metadata_to_table('NL_HR')
-
-        # Retrieve metadata
-        metadata = self.schema_mgr.get_table_metadata('NL_HR')
-
-        # DuckDB implementation should return metadata
-        self.assertIsNotNone(metadata)
-        self.assertIn('table', metadata)
-
-    def test_duckdb_multiple_tables_metadata(self):
-        """Test applying metadata to multiple tables in DuckDB."""
-        tables = ['NL_RA', 'NL_SE', 'NL_HR']
-
-        for table_name in tables:
-            self.schema_mgr.create_table(table_name)
-            success = self.schema_mgr.apply_metadata_to_table(table_name)
-            self.assertTrue(success, f"Should apply metadata to {table_name}")
 
 
 class TestPostgreSQLMetadata(unittest.TestCase):

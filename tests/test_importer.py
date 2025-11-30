@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from src.database.schema import SchemaManager
+from src.database.schema import create_all_tables, SCHEMAS
 from src.database.sqlite_handler import SQLiteDatabase
 from src.importer.importer import DataImporter
 
@@ -40,22 +40,22 @@ class TestDataImporter:
         """Test importing single record."""
         # Setup database
         with db:
-            manager = SchemaManager(db)
-            manager.create_table("NL_RA_RACE")
+            db.execute(SCHEMAS["NL_RA"])
 
             # Create test record
             record = {
                 "headRecordSpec": "RA",
-                "headDataKubun": "1",
-                "headMakeDate": "20240601",
-                "idYear": "2024",
-                "idMonthDay": "0601",
-                "idJyoCD": "06",
-                "idKaiji": "03",
-                "idNichiji": "08",
-                "idRaceNum": "11",
-                "RaceName": "テストレース",
-                "Kyori": "2000",
+                "RecordSpec": "RA",
+                "DataKubun": "1",
+                "MakeDate": "20240601",
+                "Year": 2024,
+                "MonthDay": 601,
+                "JyoCD": "06",
+                "Kaiji": 3,
+                "Nichiji": 8,
+                "RaceNum": 11,
+                "Hondai": "テストレース",
+                "Kyori": 2000,
             }
 
             # Import record
@@ -66,33 +66,33 @@ class TestDataImporter:
 
             # Verify import
             row = db.fetch_one(
-                "SELECT * FROM NL_RA_RACE WHERE idYear = ? AND idRaceNum = ?",
-                ("2024", "11"),
+                "SELECT * FROM NL_RA WHERE Year = ? AND RaceNum = ?",
+                (2024, 11),
             )
 
             assert row is not None
-            assert row["RaceName"] == "テストレース"
+            assert row["Hondai"] == "テストレース"
 
     def test_import_multiple_records(self, db, importer):
         """Test importing multiple records."""
         with db:
-            manager = SchemaManager(db)
-            manager.create_table("NL_RA_RACE")
+            db.execute(SCHEMAS["NL_RA"])
 
             # Create test records
             records = [
                 {
                     "headRecordSpec": "RA",
-                    "headDataKubun": "1",
-                    "headMakeDate": "20240601",
-                    "idYear": "2024",
-                    "idMonthDay": "0601",
-                    "idJyoCD": "06",
-                    "idKaiji": "03",
-                    "idNichiji": "08",
-                    "idRaceNum": f"{i:02d}",
-                    "RaceName": f"レース{i}",
-                    "Kyori": "2000",
+                    "RecordSpec": "RA",
+                    "DataKubun": "1",
+                    "MakeDate": "20240601",
+                    "Year": 2024,
+                    "MonthDay": 601,
+                    "JyoCD": "06",
+                    "Kaiji": 3,
+                    "Nichiji": 8,
+                    "RaceNum": i,
+                    "Hondai": f"レース{i}",
+                    "Kyori": 2000,
                 }
                 for i in range(1, 6)
             ]
@@ -106,7 +106,7 @@ class TestDataImporter:
             db.commit()
 
             # Verify imports
-            rows = db.fetch_all("SELECT * FROM NL_RA_RACE ORDER BY idRaceNum")
+            rows = db.fetch_all("SELECT * FROM NL_RA ORDER BY RaceNum")
             assert len(rows) == 5
 
     def test_batch_processing(self, db, importer):
@@ -114,23 +114,23 @@ class TestDataImporter:
         importer.batch_size = 3
 
         with db:
-            manager = SchemaManager(db)
-            manager.create_table("NL_RA_RACE")
+            db.execute(SCHEMAS["NL_RA"])
 
             # Create 10 records (will be processed in 4 batches: 3+3+3+1)
             records = [
                 {
                     "headRecordSpec": "RA",
-                    "headDataKubun": "1",
-                    "headMakeDate": "20240601",
-                    "idYear": "2024",
-                    "idMonthDay": "0601",
-                    "idJyoCD": "06",
-                    "idKaiji": "03",
-                    "idNichiji": "08",
-                    "idRaceNum": f"{i:02d}",
-                    "RaceName": f"レース{i}",
-                    "Kyori": "2000",
+                    "RecordSpec": "RA",
+                    "DataKubun": "1",
+                    "MakeDate": "20240601",
+                    "Year": 2024,
+                    "MonthDay": 601,
+                    "JyoCD": "06",
+                    "Kaiji": 3,
+                    "Nichiji": 8,
+                    "RaceNum": i,
+                    "Hondai": f"レース{i}",
+                    "Kyori": 2000,
                 }
                 for i in range(1, 11)
             ]
@@ -145,47 +145,51 @@ class TestDataImporter:
     def test_import_mixed_record_types(self, db, importer):
         """Test importing different record types."""
         with db:
-            manager = SchemaManager(db)
-            manager.create_all_tables()
+            create_all_tables(db)
 
             # Create mixed records
             records = [
                 {
                     "headRecordSpec": "RA",
-                    "headDataKubun": "1",
-                    "headMakeDate": "20240601",
-                    "idYear": "2024",
-                    "idMonthDay": "0601",
-                    "idJyoCD": "06",
-                    "idKaiji": "03",
-                    "idNichiji": "08",
-                    "idRaceNum": "01",
-                    "RaceName": "レース1",
+                    "RecordSpec": "RA",
+                    "DataKubun": "1",
+                    "MakeDate": "20240601",
+                    "Year": 2024,
+                    "MonthDay": 601,
+                    "JyoCD": "06",
+                    "Kaiji": 3,
+                    "Nichiji": 8,
+                    "RaceNum": 1,
+                    "Hondai": "レース1",
                 },
                 {
                     "headRecordSpec": "SE",
-                    "headDataKubun": "1",
-                    "headMakeDate": "20240601",
-                    "idYear": "2024",
-                    "idMonthDay": "0601",
-                    "idJyoCD": "06",
-                    "idKaiji": "03",
-                    "idNichiji": "08",
-                    "idRaceNum": "01",
+                    "RecordSpec": "SE",
+                    "DataKubun": "1",
+                    "MakeDate": "20240601",
+                    "Year": 2024,
+                    "MonthDay": 601,
+                    "JyoCD": "06",
+                    "Kaiji": 3,
+                    "Nichiji": 8,
+                    "RaceNum": 1,
+                    "Umaban": 1,
                     "KettoNum": "2024012345",
                     "Bamei": "テスト馬",
                 },
                 {
                     "headRecordSpec": "HR",
-                    "headDataKubun": "1",
-                    "headMakeDate": "20240601",
-                    "idYear": "2024",
-                    "idMonthDay": "0601",
-                    "idJyoCD": "06",
-                    "idKaiji": "03",
-                    "idNichiji": "08",
-                    "idRaceNum": "01",
-                    "TansyoUmaban1": "01",
+                    "RecordSpec": "HR",
+                    "DataKubun": "1",
+                    "MakeDate": "20240601",
+                    "Year": 2024,
+                    "MonthDay": 601,
+                    "JyoCD": "06",
+                    "Kaiji": 3,
+                    "Nichiji": 8,
+                    "RaceNum": 1,
+                    "TorokuTosu": 18,
+                    "SyussoTosu": 18,
                 },
             ]
 
@@ -197,9 +201,9 @@ class TestDataImporter:
             db.commit()
 
             # Verify each table
-            ra_count = db.fetch_one("SELECT COUNT(*) as cnt FROM NL_RA_RACE")
-            se_count = db.fetch_one("SELECT COUNT(*) as cnt FROM NL_SE_RACE_UMA")
-            hr_count = db.fetch_one("SELECT COUNT(*) as cnt FROM NL_HR_PAY")
+            ra_count = db.fetch_one("SELECT COUNT(*) as cnt FROM NL_RA")
+            se_count = db.fetch_one("SELECT COUNT(*) as cnt FROM NL_SE")
+            hr_count = db.fetch_one("SELECT COUNT(*) as cnt FROM NL_HR")
 
             assert ra_count["cnt"] == 1
             assert se_count["cnt"] == 1
@@ -208,29 +212,29 @@ class TestDataImporter:
     def test_invalid_record_handling(self, db, importer):
         """Test handling of invalid records."""
         with db:
-            manager = SchemaManager(db)
-            manager.create_table("NL_RA_RACE")
+            db.execute(SCHEMAS["NL_RA"])
 
             # Records with missing/invalid data
             records = [
                 {  # Missing headRecordSpec
-                    "idYear": "2024",
-                    "idRaceNum": "01",
+                    "Year": 2024,
+                    "RaceNum": 1,
                 },
                 {  # Unknown record type
                     "headRecordSpec": "XX",
-                    "idYear": "2024",
+                    "Year": 2024,
                 },
                 {  # Valid record
                     "headRecordSpec": "RA",
-                    "headDataKubun": "1",
-                    "headMakeDate": "20240601",
-                    "idYear": "2024",
-                    "idMonthDay": "0601",
-                    "idJyoCD": "06",
-                    "idKaiji": "03",
-                    "idNichiji": "08",
-                    "idRaceNum": "01",
+                    "RecordSpec": "RA",
+                    "DataKubun": "1",
+                    "MakeDate": "20240601",
+                    "Year": 2024,
+                    "MonthDay": 601,
+                    "JyoCD": "06",
+                    "Kaiji": 3,
+                    "Nichiji": 8,
+                    "RaceNum": 1,
                 },
             ]
 

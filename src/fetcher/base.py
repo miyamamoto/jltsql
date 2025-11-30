@@ -95,7 +95,7 @@ class BaseFetcher(ABC):
         """
         self._start_time = time.time()
         last_update_time = self._start_time
-        update_interval = 0.1  # Update progress every 0.1 seconds
+        update_interval = 0.5  # Update progress every 0.5 seconds (reduced to prevent flickering)
 
         while True:
             try:
@@ -112,13 +112,33 @@ class BaseFetcher(ABC):
                     # Complete (0)
                     logger.info("Read complete - no more data")
                     if self.progress_display and task_id is not None:
-                        self.progress_display.update(task_id, status="読込完了")
+                        # Explicitly set to 100% complete
+                        elapsed = time.time() - self._start_time
+                        speed = self._records_fetched / elapsed if elapsed > 0 else 0
+                        self.progress_display.update(
+                            task_id,
+                            completed=self._total_files if self._total_files > 0 else 100,
+                            total=self._total_files if self._total_files > 0 else 100,
+                            status="完了",
+                        )
+                        self.progress_display.update_stats(
+                            fetched=self._records_fetched,
+                            parsed=self._records_parsed,
+                            failed=self._records_failed,
+                            speed=speed,
+                        )
                     break
 
                 elif ret_code == JV_READ_NO_MORE_DATA:
                     # File switch (-1) - ファイル処理完了
                     self._files_processed += 1
-                    # Note: File switch is very frequent, so no debug logging here
+                    # Update progress based on files processed (not records)
+                    if self.progress_display and task_id is not None and self._total_files > 0:
+                        self.progress_display.update(
+                            task_id,
+                            completed=self._files_processed,
+                            status=f"ファイル {self._files_processed}/{self._total_files}",
+                        )
                     continue
 
                 elif ret_code > 0:
@@ -156,7 +176,7 @@ class BaseFetcher(ABC):
                             error=str(e),
                         )
 
-                    # Update progress display
+                    # Update progress display (stats only - progress updated on file switch)
                     current_time = time.time()
                     if (current_time - last_update_time) >= update_interval:
                         elapsed = current_time - self._start_time
@@ -172,12 +192,8 @@ class BaseFetcher(ABC):
                             speed=f"{speed:.0f}",
                         )
 
-                        if self.progress_display and task_id is not None:
-                            self.progress_display.update(
-                                task_id,
-                                advance=1,
-                                status=f"{self._records_fetched:,} 件処理中",
-                            )
+                        if self.progress_display:
+                            # Update stats display (progress bar updated on file switch)
                             self.progress_display.update_stats(
                                 fetched=self._records_fetched,
                                 parsed=self._records_parsed,

@@ -5,12 +5,13 @@
 Tests performance characteristics under various loads:
 1. Import performance (batch sizes, record counts)
 2. Query performance
-3. Database comparison (SQLite vs DuckDB vs PostgreSQL)
+3. Database comparison (SQLite vs PostgreSQL)
 4. Memory usage
 5. Concurrent operations
 
 Note: These are benchmark tests that may take longer to run.
 Use pytest -m "not slow" to skip them in CI/CD.
+DuckDB is not supported (32-bit Python required for JV-Link).
 """
 
 import os
@@ -21,7 +22,6 @@ from pathlib import Path
 import pytest
 
 from src.database.sqlite_handler import SQLiteDatabase
-from src.database.duckdb_handler import DuckDBDatabase
 from src.database.schema import SchemaManager
 from src.importer.importer import DataImporter
 
@@ -37,14 +37,20 @@ class PerformanceTestBase(unittest.TestCase):
         return result, elapsed
 
     def generate_sample_records(self, count, record_type='RA'):
-        """Generate sample records for testing."""
+        """Generate sample records for testing.
+
+        Uses English column names matching the NL_RA schema.
+        """
         return [
             {
-                'レコード種別ID': record_type,
-                '開催年月日': f'2024{i:04d}',
-                '競馬場コード': f'{i % 10:02d}',
-                'レース番号': f'{(i % 12) + 1:02d}',
-                'データ区分': '1',
+                'RecordSpec': record_type,
+                'DataKubun': '1',
+                'Year': 2024,
+                'MonthDay': (i % 1231) + 101,  # 0101-1231 range
+                'JyoCD': f'{i % 10:02d}',
+                'Kaiji': 1,
+                'Nichiji': 1,
+                'RaceNum': (i % 12) + 1,
             }
             for i in range(1, count + 1)
         ]
@@ -173,7 +179,7 @@ class TestQueryPerformance(PerformanceTestBase):
         """Benchmark: SELECT with WHERE clause."""
         _, elapsed = self.measure_time(
             self.database.fetch_all,
-            "SELECT * FROM NL_RA WHERE 開催年月日 >= '20240500'"
+            "SELECT * FROM NL_RA WHERE Year = 2024 AND MonthDay >= 500"
         )
 
         print(f"\nFiltered SELECT: {elapsed:.3f}s")
@@ -192,9 +198,9 @@ class TestQueryPerformance(PerformanceTestBase):
     def test_aggregation_query(self):
         """Benchmark: Aggregation queries."""
         query = """
-            SELECT 競馬場コード, COUNT(*) as cnt
+            SELECT JyoCD, COUNT(*) as cnt
             FROM NL_RA
-            GROUP BY 競馬場コード
+            GROUP BY JyoCD
         """
 
         _, elapsed = self.measure_time(self.database.fetch_all, query)
@@ -205,77 +211,52 @@ class TestQueryPerformance(PerformanceTestBase):
 
 @pytest.mark.slow
 class TestDatabaseComparison(PerformanceTestBase):
-    """Compare performance across different databases."""
+    """Test database performance (SQLite only, DuckDB not supported on 32-bit)."""
 
     def setUp(self):
-        """Set up test databases."""
+        """Set up test database."""
         self.temp_dir = tempfile.TemporaryDirectory()
 
-        # SQLite
+        # SQLite only (DuckDB not supported on 32-bit Python)
         sqlite_path = Path(self.temp_dir.name) / 'sqlite.db'
-        self.sqlite = SQLiteDatabase({'path': str(sqlite_path)})
-        self.sqlite.connect()
+        self.database = SQLiteDatabase({'path': str(sqlite_path)})
+        self.database.connect()
 
-        # DuckDB
-        duckdb_path = Path(self.temp_dir.name) / 'duckdb.duckdb'
-        self.duckdb = DuckDBDatabase({'path': str(duckdb_path)})
-        self.duckdb.connect()
-
-        self.databases = {
-            'SQLite': self.sqlite,
-            'DuckDB': self.duckdb,
-        }
-
-        # Create tables in all databases
-        for name, db in self.databases.items():
-            schema_mgr = SchemaManager(db)
-            schema_mgr.create_table('NL_RA')
+        # Create table
+        schema_mgr = SchemaManager(self.database)
+        schema_mgr.create_table('NL_RA')
 
     def tearDown(self):
         """Clean up."""
-        for db in self.databases.values():
-            if db._connection:
-                db.disconnect()
+        if self.database._connection:
+            self.database.disconnect()
         self.temp_dir.cleanup()
 
     def test_import_performance_comparison(self):
-        """Compare import performance across databases."""
+        """Test import performance."""
         records = self.generate_sample_records(500)
-        results = {}
 
-        for name, db in self.databases.items():
-            importer = DataImporter(db, batch_size=100)
-            _, elapsed = self.measure_time(importer.import_records, records)
-            results[name] = elapsed
+        importer = DataImporter(self.database, batch_size=100)
+        _, elapsed = self.measure_time(importer.import_records, records)
 
-            print(f"{name} import (500 records): {elapsed:.3f}s")
-
-        # Both should complete in reasonable time
-        for elapsed in results.values():
-            self.assertLess(elapsed, 30.0, "Should complete in under 30 seconds")
+        print(f"SQLite import (500 records): {elapsed:.3f}s")
+        self.assertLess(elapsed, 30.0, "Should complete in under 30 seconds")
 
     def test_query_performance_comparison(self):
-        """Compare query performance across databases."""
-        # Populate databases
+        """Test query performance."""
+        # Populate database
         records = self.generate_sample_records(1000)
-        for db in self.databases.values():
-            importer = DataImporter(db, batch_size=100)
-            importer.import_records(records)
+        importer = DataImporter(self.database, batch_size=100)
+        importer.import_records(records)
 
-        # Compare query performance
-        query_results = {}
-        for name, db in self.databases.items():
-            _, elapsed = self.measure_time(
-                db.fetch_all,
-                "SELECT * FROM NL_RA WHERE 開催年月日 >= '20240500'"
-            )
-            query_results[name] = elapsed
+        # Query performance
+        _, elapsed = self.measure_time(
+            self.database.fetch_all,
+            "SELECT * FROM NL_RA WHERE Year = 2024 AND MonthDay >= '0500'"
+        )
 
-            print(f"{name} query: {elapsed:.3f}s")
-
-        # Both should complete in reasonable time
-        for elapsed in query_results.values():
-            self.assertLess(elapsed, 2.0, "Should complete in under 2 seconds")
+        print(f"SQLite query: {elapsed:.3f}s")
+        self.assertLess(elapsed, 2.0, "Should complete in under 2 seconds")
 
 
 @pytest.mark.slow

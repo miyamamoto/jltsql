@@ -9,7 +9,14 @@ import time
 
 from src.fetcher.realtime import RealtimeFetcher
 from src.services.realtime_monitor import RealtimeMonitor, MonitorStatus
-from src.jvlink.constants import JV_RT_SUCCESS, JV_READ_SUCCESS
+from src.realtime.updater import RealtimeUpdater
+from src.jvlink.constants import (
+    JV_RT_SUCCESS,
+    JV_READ_SUCCESS,
+    DATA_KUBUN_NEW,
+    DATA_KUBUN_UPDATE,
+    DATA_KUBUN_DELETE,
+)
 
 
 class TestRealtimeFetcher(unittest.TestCase):
@@ -356,6 +363,397 @@ class TestRealtimeMonitor(unittest.TestCase):
         # Should keep only last 100
         self.assertEqual(len(monitor.status.errors), 100)
         self.assertEqual(monitor.status.errors[-1]["error"], "Error 149")
+
+
+class TestRealtimeUpdater(unittest.TestCase):
+    """Test RealtimeUpdater class."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.mock_db = MagicMock()
+        self.updater = RealtimeUpdater(self.mock_db)
+
+    def test_initialization(self):
+        """Test RealtimeUpdater initialization."""
+        self.assertEqual(self.updater.database, self.mock_db)
+        self.assertIsNotNone(self.updater.parser_factory)
+
+    def test_record_type_table_mapping(self):
+        """Test RECORD_TYPE_TABLE mapping includes all expected types."""
+        expected_mappings = {
+            # Speed Report (0B1x)
+            "WE": "RT_WE",  # Kaisai info
+            "RA": "RT_RA",  # Race detail
+            "SE": "RT_SE",  # Horse race info
+            "DM": "RT_DM",  # Data mining (time type)
+            "AV": "RT_AV",  # Sale info
+            "HR": "RT_HR",  # Payout
+            "WH": "RT_WH",  # Horse weight
+            "TM": "RT_TM",  # Data mining (match type)
+            # Time Series (0B2x-0B3x)
+            "H1": "RT_H1",  # Vote count
+            "H6": "RT_H6",  # Vote count (3rentan)
+            "O1": "RT_O1",  # Odds (tansho/fukusho)
+            "O2": "RT_O2",  # Odds (wakuren)
+            "O3": "RT_O3",  # Odds (umaren)
+            "O4": "RT_O4",  # Odds (wide)
+            "O5": "RT_O5",  # Odds (umatan)
+            "O6": "RT_O6",  # Odds (sanrenpuku/sanrentan)
+            # Results
+            "JC": "RT_JC",  # Jockey results
+            "TC": "RT_TC",  # Trainer results
+            "CC": "RT_CC",  # Horse results
+            # Change info (0B4x)
+            "RC": "RT_RC",  # Jockey change info (NEW - 0B41)
+        }
+
+        for record_type, expected_table in expected_mappings.items():
+            self.assertEqual(
+                self.updater.RECORD_TYPE_TABLE.get(record_type),
+                expected_table,
+                f"Mapping mismatch for {record_type}",
+            )
+
+    @patch('src.realtime.updater.ParserFactory')
+    def test_process_record_new(self, mock_factory_class):
+        """Test processing new record (headDataKubun=1)."""
+        # Setup mock parser
+        mock_parser = MagicMock()
+        mock_parser.parse.return_value = {
+            "RecordSpec": "RA",
+            "headDataKubun": DATA_KUBUN_NEW,
+            "Year": "2024",
+            "MonthDay": "0101",
+            "JyoCD": "01",
+            "Kaiji": "1",
+            "Nichiji": "1",
+            "RaceNum": "01",
+        }
+        mock_factory_instance = MagicMock()
+        mock_factory_instance.parse = mock_parser.parse
+        mock_factory_class.return_value = mock_factory_instance
+
+        # Create updater with mocked factory
+        updater = RealtimeUpdater(self.mock_db)
+        updater.parser_factory = mock_factory_instance
+
+        # Process record
+        result = updater.process_record("RA20240101...")
+
+        # Verify result
+        self.assertIsNotNone(result)
+        self.assertEqual(result["operation"], "insert")
+        self.assertEqual(result["table"], "RT_RA")
+        self.assertTrue(result["success"])
+
+        # Verify database insert was called
+        self.mock_db.insert.assert_called_once()
+
+    @patch('src.realtime.updater.ParserFactory')
+    def test_process_record_update(self, mock_factory_class):
+        """Test processing update record (headDataKubun=2)."""
+        # Setup mock parser
+        mock_parser = MagicMock()
+        mock_parser.parse.return_value = {
+            "RecordSpec": "SE",
+            "headDataKubun": DATA_KUBUN_UPDATE,
+            "Year": "2024",
+            "MonthDay": "0101",
+            "JyoCD": "01",
+            "Kaiji": "1",
+            "Nichiji": "1",
+            "RaceNum": "01",
+            "Umaban": "1",
+        }
+        mock_factory_instance = MagicMock()
+        mock_factory_instance.parse = mock_parser.parse
+        mock_factory_class.return_value = mock_factory_instance
+
+        # Create updater with mocked factory
+        updater = RealtimeUpdater(self.mock_db)
+        updater.parser_factory = mock_factory_instance
+
+        # Process record
+        result = updater.process_record("SE20240101...")
+
+        # Verify result
+        self.assertIsNotNone(result)
+        self.assertEqual(result["operation"], "update")
+        self.assertEqual(result["table"], "RT_SE")
+        self.assertTrue(result["success"])
+
+        # Verify database insert was called (update uses insert for now)
+        self.mock_db.insert.assert_called_once()
+
+    @patch('src.realtime.updater.ParserFactory')
+    def test_process_record_delete(self, mock_factory_class):
+        """Test processing delete record (headDataKubun=9)."""
+        # Setup mock parser
+        mock_parser = MagicMock()
+        mock_parser.parse.return_value = {
+            "RecordSpec": "RA",
+            "headDataKubun": DATA_KUBUN_DELETE,
+            "Year": "2024",
+            "MonthDay": "0101",
+            "JyoCD": "01",
+            "Kaiji": "1",
+            "Nichiji": "1",
+            "RaceNum": "01",
+        }
+        mock_factory_instance = MagicMock()
+        mock_factory_instance.parse = mock_parser.parse
+        mock_factory_class.return_value = mock_factory_instance
+
+        # Create updater with mocked factory
+        updater = RealtimeUpdater(self.mock_db)
+        updater.parser_factory = mock_factory_instance
+
+        # Process record
+        result = updater.process_record("RA20240101...")
+
+        # Verify result
+        self.assertIsNotNone(result)
+        self.assertEqual(result["operation"], "delete")
+        self.assertEqual(result["table"], "RT_RA")
+        self.assertTrue(result["success"])
+
+        # Verify database execute was called for DELETE
+        self.mock_db.execute.assert_called_once()
+        call_args = self.mock_db.execute.call_args
+        self.assertIn("DELETE FROM RT_RA", call_args[0][0])
+
+    @patch('src.realtime.updater.ParserFactory')
+    def test_process_record_rc_mapping(self, mock_factory_class):
+        """Test RC record type maps to RT_RC table (0B41 jockey change info)."""
+        # Setup mock parser
+        mock_parser = MagicMock()
+        mock_parser.parse.return_value = {
+            "RecordSpec": "RC",
+            "headDataKubun": DATA_KUBUN_NEW,
+            "Year": "2024",
+            "MonthDay": "0101",
+            "JyoCD": "01",
+            "Kaiji": "1",
+            "Nichiji": "1",
+            "RaceNum": "01",
+            "Umaban": "1",
+        }
+        mock_factory_instance = MagicMock()
+        mock_factory_instance.parse = mock_parser.parse
+        mock_factory_class.return_value = mock_factory_instance
+
+        # Create updater with mocked factory
+        updater = RealtimeUpdater(self.mock_db)
+        updater.parser_factory = mock_factory_instance
+
+        # Process record
+        result = updater.process_record("RC20240101...")
+
+        # Verify result
+        self.assertIsNotNone(result)
+        self.assertEqual(result["table"], "RT_RC")
+        self.assertTrue(result["success"])
+
+    @patch('src.realtime.updater.ParserFactory')
+    def test_process_record_unknown_type(self, mock_factory_class):
+        """Test processing record with unknown type returns None."""
+        # Setup mock parser
+        mock_parser = MagicMock()
+        mock_parser.parse.return_value = {
+            "RecordSpec": "XX",  # Unknown type
+            "headDataKubun": DATA_KUBUN_NEW,
+        }
+        mock_factory_instance = MagicMock()
+        mock_factory_instance.parse = mock_parser.parse
+        mock_factory_class.return_value = mock_factory_instance
+
+        # Create updater with mocked factory
+        updater = RealtimeUpdater(self.mock_db)
+        updater.parser_factory = mock_factory_instance
+
+        # Process record
+        result = updater.process_record("XX20240101...")
+
+        # Verify result is None
+        self.assertIsNone(result)
+
+    @patch('src.realtime.updater.ParserFactory')
+    def test_process_record_parse_failure(self, mock_factory_class):
+        """Test processing record when parsing fails."""
+        # Setup mock parser to return None
+        mock_parser = MagicMock()
+        mock_parser.parse.return_value = None
+        mock_factory_instance = MagicMock()
+        mock_factory_instance.parse = mock_parser.parse
+        mock_factory_class.return_value = mock_factory_instance
+
+        # Create updater with mocked factory
+        updater = RealtimeUpdater(self.mock_db)
+        updater.parser_factory = mock_factory_instance
+
+        # Process record
+        result = updater.process_record("INVALID...")
+
+        # Verify result is None
+        self.assertIsNone(result)
+
+    @patch('src.realtime.updater.ParserFactory')
+    def test_process_record_missing_record_spec(self, mock_factory_class):
+        """Test processing record without RecordSpec."""
+        # Setup mock parser
+        mock_parser = MagicMock()
+        mock_parser.parse.return_value = {
+            "headDataKubun": DATA_KUBUN_NEW,
+            # Missing RecordSpec
+        }
+        mock_factory_instance = MagicMock()
+        mock_factory_instance.parse = mock_parser.parse
+        mock_factory_class.return_value = mock_factory_instance
+
+        # Create updater with mocked factory
+        updater = RealtimeUpdater(self.mock_db)
+        updater.parser_factory = mock_factory_instance
+
+        # Process record
+        result = updater.process_record("RA20240101...")
+
+        # Verify result is None
+        self.assertIsNone(result)
+
+    @patch('src.realtime.updater.ParserFactory')
+    def test_process_record_delete_no_primary_key(self, mock_factory_class):
+        """Test deleting record from table without primary key."""
+        # Setup mock parser for WH (no primary key)
+        mock_parser = MagicMock()
+        mock_parser.parse.return_value = {
+            "RecordSpec": "WH",
+            "headDataKubun": DATA_KUBUN_DELETE,
+            "Year": "2024",
+            "MonthDay": "0101",
+        }
+        mock_factory_instance = MagicMock()
+        mock_factory_instance.parse = mock_parser.parse
+        mock_factory_class.return_value = mock_factory_instance
+
+        # Create updater with mocked factory
+        updater = RealtimeUpdater(self.mock_db)
+        updater.parser_factory = mock_factory_instance
+
+        # Process record
+        result = updater.process_record("WH20240101...")
+
+        # Verify result
+        self.assertIsNotNone(result)
+        self.assertEqual(result["operation"], "delete")
+        self.assertEqual(result["table"], "RT_WH")
+        self.assertFalse(result["success"])
+        self.assertIn("No primary key", result["error"])
+
+    def test_get_primary_keys(self):
+        """Test _get_primary_keys returns correct primary keys."""
+        # Test tables with primary keys
+        self.assertEqual(
+            self.updater._get_primary_keys("RT_RA"),
+            ["Year", "MonthDay", "JyoCD", "Kaiji", "Nichiji", "RaceNum"],
+        )
+        self.assertEqual(
+            self.updater._get_primary_keys("RT_SE"),
+            ["Year", "MonthDay", "JyoCD", "Kaiji", "Nichiji", "RaceNum", "Umaban"],
+        )
+        self.assertEqual(
+            self.updater._get_primary_keys("RT_RC"),
+            ["Year", "MonthDay", "JyoCD", "Kaiji", "Nichiji", "RaceNum", "Umaban"],
+        )
+
+        # Test tables without primary keys
+        self.assertEqual(self.updater._get_primary_keys("RT_WH"), [])
+        self.assertEqual(self.updater._get_primary_keys("RT_WE"), [])
+        self.assertEqual(self.updater._get_primary_keys("RT_DM"), [])
+
+        # Test unknown table
+        self.assertEqual(self.updater._get_primary_keys("UNKNOWN_TABLE"), [])
+
+    @patch('src.realtime.updater.ParserFactory')
+    def test_handle_new_record_removes_metadata(self, mock_factory_class):
+        """Test that metadata fields (starting with _) are removed."""
+        # Setup mock parser
+        mock_parser = MagicMock()
+        mock_parser.parse.return_value = {
+            "RecordSpec": "RA",
+            "headDataKubun": DATA_KUBUN_NEW,
+            "Year": "2024",
+            "_metadata": "should be removed",
+            "_internal": "also removed",
+        }
+        mock_factory_instance = MagicMock()
+        mock_factory_instance.parse = mock_parser.parse
+        mock_factory_class.return_value = mock_factory_instance
+
+        # Create updater with mocked factory
+        updater = RealtimeUpdater(self.mock_db)
+        updater.parser_factory = mock_factory_instance
+
+        # Process record
+        updater.process_record("RA20240101...")
+
+        # Verify metadata fields were removed
+        call_args = self.mock_db.insert.call_args
+        inserted_data = call_args[0][1]
+        self.assertNotIn("_metadata", inserted_data)
+        self.assertNotIn("_internal", inserted_data)
+        self.assertIn("Year", inserted_data)
+
+    @patch('src.realtime.updater.ParserFactory')
+    def test_head_data_kubun_fallback_to_datakubun(self, mock_factory_class):
+        """Test fallback from headDataKubun to DataKubun."""
+        # Setup mock parser - only DataKubun is present
+        mock_parser = MagicMock()
+        mock_parser.parse.return_value = {
+            "RecordSpec": "RA",
+            "DataKubun": DATA_KUBUN_NEW,  # Fallback to this
+            "Year": "2024",
+        }
+        mock_factory_instance = MagicMock()
+        mock_factory_instance.parse = mock_parser.parse
+        mock_factory_class.return_value = mock_factory_instance
+
+        # Create updater with mocked factory
+        updater = RealtimeUpdater(self.mock_db)
+        updater.parser_factory = mock_factory_instance
+
+        # Process record
+        result = updater.process_record("RA20240101...")
+
+        # Verify it was processed as NEW
+        self.assertIsNotNone(result)
+        self.assertEqual(result["operation"], "insert")
+        self.mock_db.insert.assert_called_once()
+
+    @patch('src.realtime.updater.ParserFactory')
+    def test_head_data_kubun_default_fallback(self, mock_factory_class):
+        """Test fallback to default value when both headDataKubun and DataKubun are missing."""
+        # Setup mock parser - neither headDataKubun nor DataKubun present
+        mock_parser = MagicMock()
+        mock_parser.parse.return_value = {
+            "RecordSpec": "RA",
+            # No headDataKubun or DataKubun - defaults to "1" (NEW)
+            "Year": "2024",
+        }
+        mock_factory_instance = MagicMock()
+        mock_factory_instance.parse = mock_parser.parse
+        mock_factory_class.return_value = mock_factory_instance
+
+        # Create updater with mocked factory
+        updater = RealtimeUpdater(self.mock_db)
+        updater.parser_factory = mock_factory_instance
+
+        # Process record
+        result = updater.process_record("RA20240101...")
+
+        # Verify it defaults to NEW (insert)
+        self.assertIsNotNone(result)
+        self.assertEqual(result["operation"], "insert")
+        self.mock_db.insert.assert_called_once()
 
 
 if __name__ == "__main__":

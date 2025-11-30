@@ -45,6 +45,7 @@ class BatchProcessor:
         batch_size: int = 1000,
         sid: str = "UNKNOWN",
         service_key: Optional[str] = None,
+        show_progress: bool = True,
     ):
         """Initialize batch processor.
 
@@ -54,13 +55,14 @@ class BatchProcessor:
             sid: Session ID for JV-Link API (default: "UNKNOWN")
             service_key: Optional JV-Link service key. If provided, it will be set
                         programmatically without requiring registry configuration.
+            show_progress: Show stylish progress display (default: True)
         """
-        self.fetcher = HistoricalFetcher(sid, service_key=service_key)
+        self.fetcher = HistoricalFetcher(sid, service_key=service_key, show_progress=show_progress)
         self.importer = DataImporter(database, batch_size)
         self.database = database
 
         logger.info("BatchProcessor initialized", sid=sid,
-                   has_service_key=service_key is not None)
+                   has_service_key=service_key is not None, show_progress=show_progress)
 
     def process_date_range(
         self,

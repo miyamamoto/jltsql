@@ -97,13 +97,24 @@ class TestCreateTablesCommand(unittest.TestCase):
     def test_create_tables_sqlite(self):
         """Test create-tables with SQLite."""
         with self.runner.isolated_filesystem():
-            # Create a temp database file
-            db_path = Path('test.db')
+            # Create config directory and file
+            Path('config').mkdir()
+            Path('config/config.yaml').write_text("""
+database:
+  type: sqlite
+  path: data/test.db
+databases:
+  sqlite:
+    path: data/test.db
+jvlink:
+  service_key: ""
+""")
+            # Create data directory
+            Path('data').mkdir()
 
             result = self.runner.invoke(cli, [
                 'create-tables',
-                '--db', 'sqlite',
-                '--db-path', str(db_path)
+                '--db', 'sqlite'
             ])
 
             # Command should execute (may have various exit codes depending on config/environment)
@@ -115,10 +126,23 @@ class TestCreateTablesCommand(unittest.TestCase):
     def test_create_tables_with_db_flag(self):
         """Test create-tables with --db flag works."""
         with self.runner.isolated_filesystem():
+            # Create config directory and file
+            Path('config').mkdir()
+            Path('config/config.yaml').write_text("""
+database:
+  type: sqlite
+  path: data/test.db
+databases:
+  sqlite:
+    path: data/test.db
+jvlink:
+  service_key: ""
+""")
+            Path('data').mkdir()
+
             result = self.runner.invoke(cli, [
                 'create-tables',
-                '--db', 'sqlite',
-                '--db-path', 'test.db'
+                '--db', 'sqlite'
             ])
 
             # Should attempt to execute (may succeed or fail, but command should parse)
@@ -136,32 +160,51 @@ class TestFetchCommand(unittest.TestCase):
         """Test fetch command with missing arguments."""
         result = self.runner.invoke(cli, ['fetch'])
 
-        # Should fail due to missing required arguments
+        # Should fail due to missing required arguments (--from, --to, --spec)
         self.assertNotEqual(result.exit_code, 0)
-        self.assertIn('--from', result.output.lower() or result.exception is not None)
+        # Check if error message contains missing required option
+        self.assertTrue(
+            '--from' in result.output.lower() or
+            '--to' in result.output.lower() or
+            '--spec' in result.output.lower() or
+            result.exception is not None
+        )
 
-    @patch('src.fetcher.historical.HistoricalFetcher')
     @patch('src.importer.batch.BatchProcessor')
-    def test_fetch_with_all_args(self, mock_batch_processor, mock_fetcher):
+    def test_fetch_with_all_args(self, mock_batch_processor):
         """Test fetch command with all arguments."""
         # Setup mocks
         mock_processor_instance = MagicMock()
         mock_processor_instance.process_date_range.return_value = {
-            'fetched': 10,
-            'parsed': 10,
-            'imported': 10,
-            'failed': 0
+            'records_fetched': 10,
+            'records_parsed': 10,
+            'records_imported': 10,
+            'records_failed': 0,
+            'batches_processed': 1
         }
         mock_batch_processor.return_value = mock_processor_instance
 
         with self.runner.isolated_filesystem():
+            # Create config directory and file
+            Path('config').mkdir()
+            Path('config/config.yaml').write_text("""
+database:
+  type: sqlite
+  path: data/test.db
+databases:
+  sqlite:
+    path: data/test.db
+jvlink:
+  service_key: test_key
+""")
+            Path('data').mkdir()
+
             result = self.runner.invoke(cli, [
                 'fetch',
                 '--from', '20240101',
                 '--to', '20240131',
                 '--spec', 'RACE',
-                '--db', 'sqlite',
-                '--db-path', 'test.db'
+                '--db', 'sqlite'
             ])
 
             # Should execute (may fail due to missing JV-Link, but that's OK for CLI test)
@@ -189,11 +232,24 @@ class TestMonitorCommand(unittest.TestCase):
         mock_monitor.return_value = mock_monitor_instance
 
         with self.runner.isolated_filesystem():
+            # Create config directory and file
+            Path('config').mkdir()
+            Path('config/config.yaml').write_text("""
+database:
+  type: sqlite
+  path: data/test.db
+databases:
+  sqlite:
+    path: data/test.db
+jvlink:
+  service_key: ""
+""")
+            Path('data').mkdir()
+
             result = self.runner.invoke(cli, [
                 'monitor',
                 '--daemon',
-                '--db', 'sqlite',
-                '--db-path', 'test.db'
+                '--db', 'sqlite'
             ])
 
             # Should execute (may fail due to config/JV-Link, but command structure should work)
@@ -221,7 +277,7 @@ class TestExportCommand(unittest.TestCase):
         # Should fail due to missing --output
         self.assertNotEqual(result.exit_code, 0)
 
-    @patch('src.cli.main.SQLiteDatabase')
+    @patch('src.database.sqlite_handler.SQLiteDatabase')
     def test_export_csv_format(self, mock_db):
         """Test export to CSV format."""
         # Setup mocks
@@ -238,11 +294,13 @@ class TestExportCommand(unittest.TestCase):
             # Create config
             Path('config').mkdir()
             Path('config/config.yaml').write_text("""
-database:
-  type: sqlite
-  path: data/test.db
+databases:
+  sqlite:
+    path: data/test.db
+    enabled: true
 jvlink:
   sid: TEST
+  service_key: ""
 """)
 
             result = self.runner.invoke(cli, [
@@ -255,7 +313,7 @@ jvlink:
             # May fail due to config issues but command structure should work
             self.assertIsNotNone(result)
 
-    @patch('src.cli.main.SQLiteDatabase')
+    @patch('src.database.sqlite_handler.SQLiteDatabase')
     def test_export_json_format(self, mock_db):
         """Test export to JSON format."""
         # Setup mocks
@@ -270,9 +328,13 @@ jvlink:
         with self.runner.isolated_filesystem():
             Path('config').mkdir()
             Path('config/config.yaml').write_text("""
-database:
-  type: sqlite
-  path: data/test.db
+databases:
+  sqlite:
+    path: data/test.db
+    enabled: true
+jvlink:
+  sid: TEST
+  service_key: ""
 """)
 
             result = self.runner.invoke(cli, [
@@ -287,6 +349,20 @@ database:
     def test_export_with_where_clause(self):
         """Test export with WHERE clause."""
         with self.runner.isolated_filesystem():
+            # Create config directory and file
+            Path('config').mkdir()
+            Path('config/config.yaml').write_text("""
+database:
+  type: sqlite
+  path: data/test.db
+databases:
+  sqlite:
+    path: data/test.db
+jvlink:
+  service_key: ""
+""")
+            Path('data').mkdir()
+
             result = self.runner.invoke(cli, [
                 'export',
                 '--table', 'NL_RA',
@@ -333,15 +409,19 @@ logging:
         with self.runner.isolated_filesystem():
             Path('config').mkdir()
             Path('config/config.yaml').write_text("""
-database:
-  type: duckdb
-  path: data/keiba.duckdb
+databases:
+  sqlite:
+    path: data/keiba.db
+    enabled: true
+jvlink:
+  sid: TEST
+  service_key: ""
 """)
 
-            result = self.runner.invoke(cli, ['config', '--get', 'database.type'])
+            result = self.runner.invoke(cli, ['config', '--get', 'databases.sqlite.path'])
 
             if result.exit_code == 0:
-                self.assertIn('duckdb', result.output)
+                self.assertIn('keiba.db', result.output)
 
     def test_config_get_nonexistent_key(self):
         """Test config --get with non-existent key."""

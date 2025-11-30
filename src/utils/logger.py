@@ -234,7 +234,10 @@ def get_rotation_info() -> dict:
 
 # Configure default logging on module import
 # Try to load from YAML first, fall back to basic setup
-try:
-    setup_logging_from_yaml()
-except (FileNotFoundError, yaml.YAMLError):
-    setup_logging()
+# Skip auto-configuration if JLTSQL_SKIP_AUTO_LOGGING is set (for quickstart.py)
+import os
+if not os.environ.get('JLTSQL_SKIP_AUTO_LOGGING'):
+    try:
+        setup_logging_from_yaml()
+    except (FileNotFoundError, yaml.YAMLError):
+        setup_logging()

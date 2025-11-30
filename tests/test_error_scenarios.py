@@ -19,7 +19,6 @@ from pathlib import Path
 import time
 
 from src.database.sqlite_handler import SQLiteDatabase
-from src.database.duckdb_handler import DuckDBDatabase
 from src.database.schema import SchemaManager
 from src.database.base import DatabaseError
 from src.parser.factory import ParserFactory

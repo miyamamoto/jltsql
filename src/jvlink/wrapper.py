@@ -219,12 +219,12 @@ class JVLinkWrapper:
                 raise ValueError(f"Unexpected JVOpen return type: {type(jv_result)}, expected tuple")
 
             # Handle result codes for JVOpen:
-            # 0 (JV_RT_SUCCESS): Success
-            # -1 (JV_RT_ERROR): Error - should raise exception
-            # -2 (JV_RT_NO_MORE_DATA): No data available - acceptable for option 1
-            # < -2: Other errors
-            if result < 0 and result != -2:
-                # -1 is JV_RT_ERROR, should raise exception
+            # 0 (JV_RT_SUCCESS): Success with data
+            # -1: No data available (NOT an error - normal when no new data)
+            # -2: No data available (alternative code)
+            # < -100: Actual errors (e.g., -100=setup required, -101=auth error, etc.)
+            if result < -2:
+                # Real errors are typically -100 or below
                 logger.error(
                     "JVOpen failed",
                     data_spec=data_spec,
@@ -233,11 +233,13 @@ class JVLinkWrapper:
                     error_code=result,
                 )
                 raise JVLinkError("JVOpen failed", error_code=result)
-            elif result == -2:
+            elif result in (-1, -2):
+                # -1 and -2 both mean "no data available" - NOT an error
                 logger.info(
                     "JVOpen: No data available",
                     data_spec=data_spec,
                     fromtime=fromtime,
+                    result_code=result,
                 )
 
             self._is_open = True

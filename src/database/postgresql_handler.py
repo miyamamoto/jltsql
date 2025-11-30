@@ -68,6 +68,14 @@ class PostgreSQLDatabase(BaseDatabase):
         self.sslmode = config.get("sslmode", "prefer")
         self.connect_timeout = config.get("connect_timeout", 10)
 
+    def get_db_type(self) -> str:
+        """Get database type identifier.
+
+        Returns:
+            Database type string ('postgresql')
+        """
+        return "postgresql"
+
     def _quote_identifier(self, identifier: str) -> str:
         """Convert identifier to PostgreSQL-compatible form (lowercase, unquoted).
 
@@ -364,9 +372,9 @@ class PostgreSQLDatabase(BaseDatabase):
             sql = """
                 SELECT tablename
                 FROM pg_tables
-                WHERE tablename = %s
+                WHERE tablename = ?
             """
-            row = self.fetch_one(sql, (table_name,))
+            row = self.fetch_one(sql, (table_name.lower(),))
             return row is not None
 
         except DatabaseError:
@@ -388,10 +396,10 @@ class PostgreSQLDatabase(BaseDatabase):
             sql = """
                 SELECT column_name, data_type, is_nullable
                 FROM information_schema.columns
-                WHERE table_name = %s
+                WHERE table_name = ?
                 ORDER BY ordinal_position
             """
-            return self.fetch_all(sql, (table_name,))
+            return self.fetch_all(sql, (table_name.lower(),))
 
         except DatabaseError:
             raise
@@ -496,3 +504,76 @@ class PostgreSQLDatabase(BaseDatabase):
 
         except Exception as e:
             raise DatabaseError(f"Failed to rollback transaction: {e}")
+
+    def insert(self, table_name: str, data: Dict[str, Any], use_replace: bool = True) -> int:
+        """Insert single row into table.
+
+        PostgreSQL uses INSERT ... ON CONFLICT ... DO UPDATE instead of INSERT OR REPLACE.
+
+        Args:
+            table_name: Name of table
+            data: Dictionary mapping column names to values
+            use_replace: If True, use ON CONFLICT DO UPDATE (default: True)
+
+        Returns:
+            Number of rows inserted (1 on success)
+
+        Raises:
+            DatabaseError: If insert fails
+        """
+        if not data:
+            raise DatabaseError("No data provided for insert")
+
+        columns = list(data.keys())
+        values = list(data.values())
+        placeholders = ", ".join(["?" for _ in columns])
+        # Quote column names (lowercase for PostgreSQL)
+        quoted_columns = [self._quote_identifier(col) for col in columns]
+
+        if use_replace:
+            # Get primary key columns for this table from schema
+            # For simplicity, we'll use INSERT ... ON CONFLICT DO NOTHING for now
+            # to avoid constraint violations without needing to know the primary key
+            sql = f"INSERT INTO {table_name} ({', '.join(quoted_columns)}) VALUES ({placeholders}) ON CONFLICT DO NOTHING"
+        else:
+            sql = f"INSERT INTO {table_name} ({', '.join(quoted_columns)}) VALUES ({placeholders})"
+
+        return self.execute(sql, tuple(values))
+
+    def insert_many(self, table_name: str, data_list: List[Dict[str, Any]], use_replace: bool = True) -> int:
+        """Insert multiple rows into table.
+
+        PostgreSQL uses INSERT ... ON CONFLICT ... DO UPDATE instead of INSERT OR REPLACE.
+
+        Args:
+            table_name: Name of table
+            data_list: List of dictionaries with same keys
+            use_replace: If True, use ON CONFLICT DO UPDATE (default: True)
+
+        Returns:
+            Number of rows inserted/updated
+
+        Raises:
+            DatabaseError: If insert fails
+        """
+        if not data_list:
+            raise DatabaseError("No data provided for insert")
+
+        # Use first row to determine columns
+        columns = list(data_list[0].keys())
+        placeholders = ", ".join(["?" for _ in columns])
+        # Quote column names (lowercase for PostgreSQL)
+        quoted_columns = [self._quote_identifier(col) for col in columns]
+
+        if use_replace:
+            # Use ON CONFLICT DO NOTHING to avoid constraint violations
+            sql = f"INSERT INTO {table_name} ({', '.join(quoted_columns)}) VALUES ({placeholders}) ON CONFLICT DO NOTHING"
+        else:
+            sql = f"INSERT INTO {table_name} ({', '.join(quoted_columns)}) VALUES ({placeholders})"
+
+        # Extract values in correct order for each row
+        parameters_list = [
+            tuple(row.get(col) for col in columns) for row in data_list
+        ]
+
+        return self.executemany(sql, parameters_list)

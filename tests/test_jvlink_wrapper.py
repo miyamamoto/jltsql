@@ -4,6 +4,14 @@ import pytest
 from unittest.mock import MagicMock, Mock, patch
 
 from src.jvlink.constants import (
+    DATA_SPEC_DIFN,
+    DATA_SPEC_BLDN,
+    DATA_SPEC_HOSN,
+    DATA_SPEC_MING,
+    DATA_SPEC_WOOD,
+    DATA_SPEC_COMM,
+    DATA_SPEC_TCVN,
+    DATA_SPEC_RCVN,
     JV_READ_NO_MORE_DATA,
     JV_READ_SUCCESS,
     JV_RT_ERROR,
@@ -69,42 +77,53 @@ class TestJVLinkWrapper:
     def test_jv_open_success(self, mock_dispatch):
         """Test JVOpen success."""
         mock_com = MagicMock()
-        mock_com.JVOpen.return_value = 1000  # 1000 records to read
+        # JVOpen returns (result, read_count, download_count, last_file_timestamp)
+        mock_com.JVOpen.return_value = (0, 1000, 0, "20241231235959")
         mock_dispatch.return_value = mock_com
 
         wrapper = JVLinkWrapper(sid="TEST")
-        result, count = wrapper.jv_open("RACE", "20240101", "20241231")
+        result, read_count, download_count, last_file_timestamp = wrapper.jv_open(
+            "RACE", "20240101000000", option=1
+        )
 
         assert result == JV_RT_SUCCESS
-        assert count == 1000
+        assert read_count == 1000
+        assert download_count == 0
+        assert last_file_timestamp == "20241231235959"
         assert wrapper.is_open()
-        mock_com.JVOpen.assert_called_once_with("RACE", "20240101", "20241231", 0)
+        mock_com.JVOpen.assert_called_once_with("RACE", "20240101000000", 1)
 
     @patch("win32com.client.Dispatch")
     def test_jv_open_with_option(self, mock_dispatch):
         """Test JVOpen with option parameter."""
         mock_com = MagicMock()
-        mock_com.JVOpen.return_value = 500
+        # JVOpen returns (result, read_count, download_count, last_file_timestamp)
+        mock_com.JVOpen.return_value = (0, 500, 100, "20241231235959")
         mock_dispatch.return_value = mock_com
 
         wrapper = JVLinkWrapper(sid="TEST")
-        result, count = wrapper.jv_open("DIFF", "20240101", "20241231", option=1)
+        result, read_count, download_count, last_file_timestamp = wrapper.jv_open(
+            "DIFF", "20240101000000", option=2
+        )
 
         assert result == JV_RT_SUCCESS
-        assert count == 500
-        mock_com.JVOpen.assert_called_once_with("DIFF", "20240101", "20241231", 1)
+        assert read_count == 500
+        assert download_count == 100
+        assert last_file_timestamp == "20241231235959"
+        mock_com.JVOpen.assert_called_once_with("DIFF", "20240101000000", 2)
 
     @patch("win32com.client.Dispatch")
     def test_jv_open_failure(self, mock_dispatch):
         """Test JVOpen failure."""
         mock_com = MagicMock()
-        mock_com.JVOpen.return_value = JV_RT_ERROR
+        # JVOpen returns error as tuple (error_code, 0, 0, "")
+        mock_com.JVOpen.return_value = (JV_RT_ERROR, 0, 0, "")
         mock_dispatch.return_value = mock_com
 
         wrapper = JVLinkWrapper(sid="TEST")
 
         with pytest.raises(JVLinkError) as exc_info:
-            wrapper.jv_open("RACE", "20240101", "20241231")
+            wrapper.jv_open("RACE", "20240101000000")
 
         assert exc_info.value.error_code == JV_RT_ERROR
 
@@ -112,7 +131,8 @@ class TestJVLinkWrapper:
     def test_jv_rt_open_success(self, mock_dispatch):
         """Test JVRTOpen success."""
         mock_com = MagicMock()
-        mock_com.JVRTOpen.return_value = 10
+        # JVRTOpen can return either (result, read_count) or single value
+        mock_com.JVRTOpen.return_value = (0, 10)
         mock_dispatch.return_value = mock_com
 
         wrapper = JVLinkWrapper(sid="TEST")
@@ -127,7 +147,8 @@ class TestJVLinkWrapper:
     def test_jv_rt_open_failure(self, mock_dispatch):
         """Test JVRTOpen failure."""
         mock_com = MagicMock()
-        mock_com.JVRTOpen.return_value = JV_RT_ERROR
+        # JVRTOpen returns error as tuple (error_code, 0)
+        mock_com.JVRTOpen.return_value = (JV_RT_ERROR, 0)
         mock_dispatch.return_value = mock_com
 
         wrapper = JVLinkWrapper(sid="TEST")
@@ -138,57 +159,59 @@ class TestJVLinkWrapper:
         assert exc_info.value.error_code == JV_RT_ERROR
 
     @patch("win32com.client.Dispatch")
-    def test_jv_read_success(self, mock_dispatch):
-        """Test JVRead success."""
+    def test_jv_rt_open_with_new_specs(self, mock_dispatch):
+        """Test JVRTOpen with newly added spec codes (0B41, 0B42)."""
         mock_com = MagicMock()
-        mock_com.JVOpen.return_value = 1
-        mock_com.JVRead.return_value = JV_READ_SUCCESS
         mock_dispatch.return_value = mock_com
 
         wrapper = JVLinkWrapper(sid="TEST")
-        wrapper.jv_open("RACE", "20240101", "20241231")
 
-        # Mock pythoncom module inside the jv_read method
-        with patch("builtins.__import__", side_effect=self._mock_import_pythoncom):
-            ret_code, buff, filename = wrapper.jv_read()
+        # Test 0B41 (騎手変更情報)
+        mock_com.JVRTOpen.return_value = (0, 5)
+        result, count = wrapper.jv_rt_open("0B41")
+        assert result == JV_RT_SUCCESS
+        assert count == 5
 
-        assert ret_code == JV_READ_SUCCESS
-        assert buff == b"RA1202406010603081"
+        # Test 0B42 (調教師変更情報)
+        mock_com.JVRTOpen.return_value = (0, 3)
+        result, count = wrapper.jv_rt_open("0B42")
+        assert result == JV_RT_SUCCESS
+        assert count == 3
+
+    @patch("win32com.client.Dispatch")
+    def test_jv_read_success(self, mock_dispatch):
+        """Test JVRead success."""
+        mock_com = MagicMock()
+        # JVOpen returns (result, read_count, download_count, last_file_timestamp)
+        mock_com.JVOpen.return_value = (0, 1, 0, "20241231235959")
+        # JVRead returns (return_code, buff_str, size, filename_str)
+        test_data = "RA1202406010603081"
+        mock_com.JVRead.return_value = (len(test_data), test_data, len(test_data), "test.jvd")
+        mock_dispatch.return_value = mock_com
+
+        wrapper = JVLinkWrapper(sid="TEST")
+        wrapper.jv_open("RACE", "20240101000000")
+
+        ret_code, buff, filename = wrapper.jv_read()
+
+        assert ret_code == len(test_data)
+        assert buff == test_data.encode("shift_jis")
         assert filename == "test.jvd"
-
-    def _mock_import_pythoncom(self, name, *args, **kwargs):
-        """Mock import for pythoncom."""
-        if name == "pythoncom":
-            mock_pythoncom = MagicMock()
-            # Mock buffer
-            test_data = b"RA1202406010603081" + b"\x00" * 100
-            mock_data_buffer = bytearray(test_data)
-            mock_filename_buffer = bytearray(b"test.jvd" + b"\x00" * 200)
-            mock_pythoncom.AllocateBuffer.side_effect = [mock_data_buffer, mock_filename_buffer]
-            return mock_pythoncom
-        # For other imports, use real import
-        return __import__(name, *args, **kwargs)
 
     @patch("win32com.client.Dispatch")
     def test_jv_read_no_more_data(self, mock_dispatch):
         """Test JVRead when no more data."""
         mock_com = MagicMock()
-        mock_com.JVOpen.return_value = 1
-        mock_com.JVRead.return_value = JV_READ_NO_MORE_DATA
+        # JVOpen returns (result, read_count, download_count, last_file_timestamp)
+        mock_com.JVOpen.return_value = (0, 1, 0, "20241231235959")
+        # JVRead returns (return_code, buff_str, size, filename_str)
+        mock_com.JVRead.return_value = (JV_READ_NO_MORE_DATA, "", 0, "")
         mock_dispatch.return_value = mock_com
 
         wrapper = JVLinkWrapper(sid="TEST")
-        wrapper.jv_open("RACE", "20240101", "20241231")
+        wrapper.jv_open("RACE", "20240101000000")
 
-        # Mock pythoncom module
-        with patch("builtins.__import__") as mock_import:
-            def import_side_effect(name, *args, **kwargs):
-                if name == "pythoncom":
-                    return MagicMock()
-                return __import__(name, *args, **kwargs)
-            mock_import.side_effect = import_side_effect
-
-            ret_code, buff, filename = wrapper.jv_read()
+        ret_code, buff, filename = wrapper.jv_read()
 
         assert ret_code == JV_READ_NO_MORE_DATA
         assert buff is None
@@ -211,12 +234,13 @@ class TestJVLinkWrapper:
     def test_jv_close(self, mock_dispatch):
         """Test JVClose."""
         mock_com = MagicMock()
-        mock_com.JVOpen.return_value = 1
+        # JVOpen returns (result, read_count, download_count, last_file_timestamp)
+        mock_com.JVOpen.return_value = (0, 1, 0, "20241231235959")
         mock_com.JVClose.return_value = JV_RT_SUCCESS
         mock_dispatch.return_value = mock_com
 
         wrapper = JVLinkWrapper(sid="TEST")
-        wrapper.jv_open("RACE", "20240101", "20241231")
+        wrapper.jv_open("RACE", "20240101000000")
 
         assert wrapper.is_open()
 
@@ -244,12 +268,13 @@ class TestJVLinkWrapper:
         """Test context manager protocol."""
         mock_com = MagicMock()
         mock_com.JVInit.return_value = JV_RT_SUCCESS
-        mock_com.JVOpen.return_value = 1
+        # JVOpen returns (result, read_count, download_count, last_file_timestamp)
+        mock_com.JVOpen.return_value = (0, 1, 0, "20241231235959")
         mock_com.JVClose.return_value = JV_RT_SUCCESS
         mock_dispatch.return_value = mock_com
 
         with JVLinkWrapper(sid="TEST") as wrapper:
-            wrapper.jv_open("RACE", "20240101", "20241231")
+            wrapper.jv_open("RACE", "20240101000000")
             assert wrapper.is_open()
 
         mock_com.JVInit.assert_called_once()
@@ -266,6 +291,63 @@ class TestJVLinkWrapper:
 
         assert "JVLinkWrapper" in repr_str
         assert "closed" in repr_str
+
+
+    @patch("win32com.client.Dispatch")
+    def test_jv_open_with_new_data_specs(self, mock_dispatch):
+        """Test JVOpen with newly added data specification codes."""
+        mock_com = MagicMock()
+        mock_dispatch.return_value = mock_com
+
+        wrapper = JVLinkWrapper(sid="TEST")
+
+        # Test DIFN (マスタデータ - DIFF の別名)
+        mock_com.JVOpen.return_value = (0, 100, 0, "20241231235959")
+        result, read_count, _, _ = wrapper.jv_open(DATA_SPEC_DIFN, "20240101000000", option=1)
+        assert result == JV_RT_SUCCESS
+        assert read_count == 100
+
+        # Test BLDN (血統情報 - BLOD の別名)
+        mock_com.JVOpen.return_value = (0, 50, 0, "20241231235959")
+        result, read_count, _, _ = wrapper.jv_open(DATA_SPEC_BLDN, "20240101000000", option=1)
+        assert result == JV_RT_SUCCESS
+        assert read_count == 50
+
+        # Test HOSN (競走馬市場取引価格 - HOSE の別名)
+        mock_com.JVOpen.return_value = (0, 30, 0, "20241231235959")
+        result, read_count, _, _ = wrapper.jv_open(DATA_SPEC_HOSN, "20240101000000", option=1)
+        assert result == JV_RT_SUCCESS
+        assert read_count == 30
+
+        # Test MING (データマイニング予想)
+        mock_com.JVOpen.return_value = (0, 200, 0, "20241231235959")
+        result, read_count, _, _ = wrapper.jv_open(DATA_SPEC_MING, "20240101000000", option=1)
+        assert result == JV_RT_SUCCESS
+        assert read_count == 200
+
+        # Test WOOD (ウッドチップ調教)
+        mock_com.JVOpen.return_value = (0, 80, 0, "20241231235959")
+        result, read_count, _, _ = wrapper.jv_open(DATA_SPEC_WOOD, "20240101000000", option=1)
+        assert result == JV_RT_SUCCESS
+        assert read_count == 80
+
+        # Test COMM (コメント情報)
+        mock_com.JVOpen.return_value = (0, 120, 0, "20241231235959")
+        result, read_count, _, _ = wrapper.jv_open(DATA_SPEC_COMM, "20240101000000", option=1)
+        assert result == JV_RT_SUCCESS
+        assert read_count == 120
+
+        # Test TCVN (調教師変更情報) - option 2 only
+        mock_com.JVOpen.return_value = (0, 10, 0, "20241231235959")
+        result, read_count, _, _ = wrapper.jv_open(DATA_SPEC_TCVN, "20240101000000", option=2)
+        assert result == JV_RT_SUCCESS
+        assert read_count == 10
+
+        # Test RCVN (騎手変更情報) - option 2 only
+        mock_com.JVOpen.return_value = (0, 15, 0, "20241231235959")
+        result, read_count, _, _ = wrapper.jv_open(DATA_SPEC_RCVN, "20240101000000", option=2)
+        assert result == JV_RT_SUCCESS
+        assert read_count == 15
 
 
 class TestJVLinkError:

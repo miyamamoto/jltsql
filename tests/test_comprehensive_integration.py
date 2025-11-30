@@ -25,7 +25,6 @@ from unittest.mock import MagicMock, patch
 from pathlib import Path
 
 from src.database.sqlite_handler import SQLiteDatabase
-from src.database.duckdb_handler import DuckDBDatabase
 from src.database.postgresql_handler import PostgreSQLDatabase
 from src.database.schema import SchemaManager, SCHEMAS
 from src.parser.factory import ParserFactory, ALL_RECORD_TYPES
@@ -193,8 +192,9 @@ class TestMultiDatabaseConsistency(unittest.TestCase):
 
             # All databases should create same number of tables
             successful = sum(1 for success in results.values() if success)
-            self.assertEqual(successful, 57,
-                f"{db.__class__.__name__}: Should create 57 tables")
+            failed_tables = [name for name, success in results.items() if not success]
+            self.assertEqual(successful, 58,
+                f"{db.__class__.__name__}: Should create 58 tables, failed: {failed_tables}")
 
     def test_data_storage_consistency(self):
         """Test that same data is stored consistently across databases."""
@@ -265,7 +265,7 @@ class TestRealtimeIntegration(unittest.TestCase):
         # Should have processed records
         self.assertGreaterEqual(len(records), 0)
 
-    @patch('src.database.schema.SchemaManager')
+    @patch('src.services.realtime_monitor.SchemaManager')
     @patch('src.services.realtime_monitor.threading.Thread')
     def test_realtime_monitor_lifecycle(self, mock_thread, mock_schema_mgr):
         """Test RealtimeMonitor start/stop lifecycle."""

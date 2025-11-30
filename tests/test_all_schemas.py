@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """包括的スキーマ・パーサーテスト
 
-蓄積系(NL_*)と速報系(RT_*)の全57テーブルと全38パーサーをテスト
+蓄積系(NL_*)と速報系(RT_*)の全58テーブル (NL_38 + RT_20) とパーサーをテスト
 """
 
 import sys
@@ -47,7 +47,7 @@ def test_parsers():
         else:
             failed.append(rec_type)
 
-    print(f"\n✓ ロード成功: {len(loaded)}/38")
+    print(f"\n✓ ロード成功: {len(loaded)}/{len(supported)}")
     if loaded:
         print(f"  {', '.join(loaded)}")
 
@@ -58,7 +58,7 @@ def test_parsers():
     return len(failed) == 0
 
 def test_schemas():
-    """全57スキーマの作成テスト"""
+    """全58スキーマの作成テスト (NL_38 + RT_20)"""
     print("\n" + "=" * 70)
     print("スキーマテスト")
     print("=" * 70)
@@ -88,7 +88,7 @@ def test_schemas():
         created = sum(1 for v in results.values() if v)
         failed = sum(1 for v in results.values() if not v)
 
-        print(f"\n✓ 作成成功: {created}/57")
+        print(f"\n✓ 作成成功: {created}/{len(SCHEMAS)}")
         if failed > 0:
             print(f"✗ 作成失敗: {failed}")
             failed_tables = [k for k, v in results.items() if not v]
@@ -216,7 +216,7 @@ def test_data_import():
         for table in nl_with_data:
             print(f"  {table:20s}: {table_stats[table]:6,} 件")
 
-        print(f"\n速報系 (RT_*): {len(rt_with_data)}/19 テーブルにデータ")
+        print(f"\n速報系 (RT_*): {len(rt_with_data)}/20 テーブルにデータ")
         if rt_with_data:
             for table in rt_with_data:
                 print(f"  {table:20s}: {table_stats[table]:6,} 件")
@@ -225,7 +225,7 @@ def test_data_import():
 
         total_records = sum(table_stats.values())
         print(f"\n総レコード数: {total_records:,} 件")
-        print(f"データが入ったテーブル: {len(table_stats)}/57")
+        print(f"データが入ったテーブル: {len(table_stats)}/{len(SCHEMAS)}")
 
         return True
 

@@ -42,6 +42,14 @@ class SQLiteDatabase(BaseDatabase):
         self.timeout = config.get("timeout", 30.0)
         self.check_same_thread = config.get("check_same_thread", False)
 
+    def get_db_type(self) -> str:
+        """Get database type identifier.
+
+        Returns:
+            Database type string ('sqlite')
+        """
+        return "sqlite"
+
     def connect(self) -> None:
         """Establish SQLite database connection.
 

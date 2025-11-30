@@ -193,7 +193,7 @@ INDEXES = {
     ],
 
     # ============================================================================
-    # RT_* Tables (Real-Time Data) - 11 working tables
+    # RT_* Tables (Real-Time Data) - 12 working tables
     # ============================================================================
 
     "RT_RA": [
@@ -287,6 +287,15 @@ INDEXES = {
         "CREATE INDEX IF NOT EXISTS idx_rt_wh_venue ON RT_WH(JyoCD)",
         "CREATE INDEX IF NOT EXISTS idx_rt_wh_race ON RT_WH(RaceNum)",
         "CREATE INDEX IF NOT EXISTS idx_rt_wh_time ON RT_WH(HappyoTime)",
+    ],
+
+    "RT_RC": [
+        # リアルタイム: 騎手変更情報
+        "CREATE INDEX IF NOT EXISTS idx_rt_rc_date ON RT_RC(Year, MonthDay)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_rc_venue ON RT_RC(JyoCD)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_rc_race ON RT_RC(RaceNum)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_rc_horse ON RT_RC(Umaban)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_rc_jockey ON RT_RC(KisyuCode)",
     ],
 }
 

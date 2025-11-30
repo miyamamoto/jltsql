@@ -26,10 +26,17 @@ JLTSQLの完全自動セットアップを実行します。対話形式で設�
 - Windows起動時の自動起動設定
 
 **セットアップモード:**
-- **簡易 (simple)**: レース結果と馬情報のみ (RACE, DIFF)
-- **標準 (standard)**: 簡易 + 血統・調教・スケジュール等 (BLOD, YSCH, TOKU, SNAP, SLOP, HOYU, HOSE, COMM, MING, WOOD)
-- **フル (full)**: 標準 + 確定オッズ (O1-O6)
-- **更新 (update)**: 前回セットアップ以降の差分データのみ取得
+- **簡易 (simple)**: レース情報と蓄積情報のみ (RACE, DIFN)
+- **標準 (standard)**: 簡易 + 血統・調教・スケジュール等 (TOKU, BLDN, SLOP, WOOD, YSCH, HOSN, HOYU, MING, COMM)
+- **フル (full)**: 標準と同じ（オッズはRACEに含まれる）
+- **更新 (update)**: 今週データのみ取得 (TOKU, RACE, TCVN, RCVN)
+
+> **JVOpenデータ種別とoptionの関係（表5.1-1）:**
+> - **option=1 (通常データ)**: TOKU, RACE, DIFN, BLDN, MING, SLOP, WOOD, YSCH, HOSN, HOYU, COMM
+> - **option=2 (今週データ)**: TOKU, RACE, TCVN, RCVN のみ
+> - **option=3,4 (セットアップ)**: option=1と同じ
+>
+> ※ オッズ(O1-O6)はRACEデータ種別に含まれるレコード種別です
 
 **使用例:**
 

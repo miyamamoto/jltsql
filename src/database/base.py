@@ -292,6 +292,15 @@ class BaseDatabase(ABC):
         """
         return self._connection is not None
 
+    @abstractmethod
+    def get_db_type(self) -> str:
+        """Get database type identifier.
+
+        Returns:
+            Database type string ('sqlite', 'postgresql', 'duckdb', etc.)
+        """
+        pass
+
     def __enter__(self):
         """Context manager entry."""
         self.connect()

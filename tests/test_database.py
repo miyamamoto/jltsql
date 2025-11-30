@@ -180,17 +180,17 @@ class TestSchemaManager:
     def test_get_table_names(self, manager):
         """Test getting table names."""
         names = manager.get_table_names()
-        assert "NL_RA_RACE" in names
-        assert "NL_SE_RACE_UMA" in names
-        assert "NL_HR_PAY" in names
+        assert "NL_RA" in names
+        assert "NL_SE" in names
+        assert "NL_HR" in names
 
     def test_create_table(self, db, manager):
         """Test creating single table."""
         with db:
-            result = manager.create_table("NL_RA_RACE")
+            result = manager.create_table("NL_RA")
             assert result is True
 
-            assert manager.table_exists("NL_RA_RACE")
+            assert manager.table_exists("NL_RA")
 
     def test_create_all_tables(self, db, manager):
         """Test creating all tables."""
@@ -212,12 +212,12 @@ class TestSchemaManager:
             assert len(missing) == len(SCHEMAS)
 
             # Create one table
-            manager.create_table("NL_RA_RACE")
+            manager.create_table("NL_RA")
 
             # Now one less table should be missing
             missing = manager.get_missing_tables()
             assert len(missing) == len(SCHEMAS) - 1
-            assert "NL_RA_RACE" not in missing
+            assert "NL_RA" not in missing
 
 
 class TestDatabaseIntegration:
@@ -246,30 +246,30 @@ class TestDatabaseIntegration:
 
             # Insert race data
             race_data = {
-                "headRecordSpec": "RA",
-                "headDataKubun": "1",
-                "headMakeDate": "20240601",
-                "idYear": "2024",
-                "idMonthDay": "0601",
-                "idJyoCD": "06",
-                "idKaiji": "03",
-                "idNichiji": "08",
-                "idRaceNum": "11",
-                "RaceName": "テストレース",
-                "Kyori": "2000",
+                "RecordSpec": "RA",
+                "DataKubun": "1",
+                "MakeDate": "20240601",
+                "Year": 2024,
+                "MonthDay": 601,
+                "JyoCD": "06",
+                "Kaiji": 3,
+                "Nichiji": 8,
+                "RaceNum": 11,
+                "Hondai": "テストレース",
+                "Kyori": 2000,
                 "TrackCD": "1",
             }
-            db.insert("NL_RA_RACE", race_data)
+            db.insert("NL_RA", race_data)
 
             # Query data
             row = db.fetch_one(
                 """
-                SELECT * FROM NL_RA_RACE
-                WHERE idYear = ? AND idRaceNum = ?
+                SELECT * FROM NL_RA
+                WHERE Year = ? AND RaceNum = ?
                 """,
-                ("2024", "11"),
+                (2024, 11),
             )
 
             assert row is not None
-            assert row["RaceName"] == "テストレース"
-            assert row["Kyori"] == "2000"
+            assert row["Hondai"] == "テストレース"
+            assert row["Kyori"] == 2000

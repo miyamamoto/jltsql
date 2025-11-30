@@ -176,8 +176,9 @@ def version():
 )
 @click.option("--db", type=click.Choice(["sqlite", "postgresql"]), default=None, help="Database type (default: from config)")
 @click.option("--batch-size", default=1000, help="Batch size for imports (default: 1000)")
+@click.option("--progress/--no-progress", default=True, help="Show progress display (default: enabled)")
 @click.pass_context
-def fetch(ctx, date_from, date_to, data_spec, jv_option, db, batch_size):
+def fetch(ctx, date_from, date_to, data_spec, jv_option, db, batch_size, progress):
     """Fetch historical data from JRA-VAN DataLab.
 
     JVOpen option meanings:
@@ -268,10 +269,12 @@ def fetch(ctx, date_from, date_to, data_spec, jv_option, db, batch_size):
                 database=database,
                 sid=config.get("jvlink.sid", "JLTSQL") if config else "JLTSQL",
                 batch_size=batch_size,
-                service_key=config.get("jvlink.service_key") if config else None
+                service_key=config.get("jvlink.service_key") if config else None,
+                show_progress=progress,
             )
 
-            console.print("[bold]Processing data...[/bold]")
+            if not progress:
+                console.print("[bold]Processing data...[/bold]")
 
             result = processor.process_date_range(
                 data_spec=data_spec,

@@ -7,7 +7,7 @@ import time
 from contextlib import contextmanager
 from typing import Optional
 
-from rich.console import Console
+from rich.console import Console, RenderableType
 from rich.live import Live
 from rich.panel import Panel
 from rich.progress import (
@@ -21,6 +21,40 @@ from rich.progress import (
 )
 from rich.table import Table
 from rich.text import Text
+
+
+class StatsDisplay:
+    """Dynamic stats display that updates without recreating the object."""
+
+    def __init__(self):
+        self.fetched = 0
+        self.parsed = 0
+        self.failed = 0
+        self.inserted = 0
+        self.speed: Optional[float] = None
+
+    def update(self, fetched: int = 0, parsed: int = 0, failed: int = 0,
+               inserted: int = 0, speed: Optional[float] = None):
+        self.fetched = fetched
+        self.parsed = parsed
+        self.failed = failed
+        self.inserted = inserted
+        self.speed = speed
+
+    def __rich__(self) -> RenderableType:
+        """Generate table dynamically when rendered."""
+        table = Table.grid(padding=(0, 2))
+        table.add_column(style="cyan", justify="right")
+        table.add_column(style="green")
+        table.add_row("取得レコード:", f"[bold green]{self.fetched:,}[/] 件")
+        table.add_row("パース成功:", f"[bold green]{self.parsed:,}[/] 件")
+        if self.failed > 0:
+            table.add_row("パース失敗:", f"[bold red]{self.failed:,}[/] 件")
+        if self.inserted > 0:
+            table.add_row("DB挿入:", f"[bold cyan]{self.inserted:,}[/] 件")
+        if self.speed is not None:
+            table.add_row("処理速度:", f"[bold yellow]{self.speed:.1f}[/] レコード/秒")
+        return table
 
 
 class JVLinkProgressDisplay:
@@ -43,6 +77,13 @@ class JVLinkProgressDisplay:
         """
         # Force UTF-8 encoding for Windows console compatibility
         self.console = console or Console(force_terminal=True, legacy_windows=True)
+
+        # Rate limiting for updates (avoid screen flickering)
+        self._last_update_time = 0.0
+        self._min_update_interval = 0.2  # 200ms minimum between updates (reduced flickering)
+
+        # Cache layout to avoid recreation
+        self._cached_layout = None
 
         # Create main progress bar for overall operations
         self.progress = Progress(
@@ -68,15 +109,24 @@ class JVLinkProgressDisplay:
             expand=False,
         )
 
-        self.stats_table = Table.grid(padding=(0, 2))
-        self.stats_table.add_column(style="cyan", justify="right")
-        self.stats_table.add_column(style="green")
+        # Use StatsDisplay for dynamic updates without recreating layout
+        self.stats_display = StatsDisplay()
+
+        # Create layout once and cache it
+        self._layout: Optional[Table] = None
 
         self.live: Optional[Live] = None
         self.tasks = {}
 
     def _create_layout(self) -> Table:
-        """Create the display layout."""
+        """Create the display layout once and cache it.
+
+        The layout is created only once. Internal components (Progress, StatsDisplay)
+        update their own content dynamically via __rich__() method.
+        """
+        if self._layout is not None:
+            return self._layout
+
         layout = Table.grid(expand=False)
         layout.add_row(Panel(
             self.download_progress,
@@ -91,12 +141,21 @@ class JVLinkProgressDisplay:
             padding=(0, 1),
         ))
         layout.add_row(Panel(
-            self.stats_table,
+            self.stats_display,  # Use StatsDisplay instead of stats_table
             title="[bold green]統計情報",
             border_style="green",
             padding=(0, 1),
         ))
+        self._layout = layout
         return layout
+
+    def _should_update(self) -> bool:
+        """Check if enough time has passed for an update."""
+        current_time = time.time()
+        if current_time - self._last_update_time >= self._min_update_interval:
+            self._last_update_time = current_time
+            return True
+        return False
 
     def start(self):
         """Start the live display."""
@@ -104,8 +163,9 @@ class JVLinkProgressDisplay:
             self.live = Live(
                 self._create_layout(),
                 console=self.console,
-                refresh_per_second=10,
+                refresh_per_second=2,  # Reduced refresh rate to minimize flickering
                 transient=False,
+                vertical_overflow="visible",  # Don't crop content
             )
             self.live.start()
 
@@ -182,8 +242,8 @@ class JVLinkProgressDisplay:
             update_dict["status"] = status
 
         self.download_progress.update(task_id, **update_dict)
-        if self.live:
-            self.live.update(self._create_layout())
+        # Note: Don't call live.update() - Progress auto-updates within Live context
+        # This prevents frame flickering
 
     def update(
         self,
@@ -213,8 +273,8 @@ class JVLinkProgressDisplay:
             update_dict["status"] = status
 
         self.progress.update(task_id, **update_dict)
-        if self.live:
-            self.live.update(self._create_layout())
+        # Note: Don't call live.update() - Progress auto-updates within Live context
+        # This prevents frame flickering
 
     def update_stats(
         self,
@@ -233,21 +293,16 @@ class JVLinkProgressDisplay:
             inserted: Number of records inserted to database
             speed: Processing speed (records/sec)
         """
-        self.stats_table = Table.grid(padding=(0, 2))
-        self.stats_table.add_column(style="cyan", justify="right")
-        self.stats_table.add_column(style="green")
-
-        self.stats_table.add_row("取得レコード:", f"[bold green]{fetched:,}[/] 件")
-        self.stats_table.add_row("パース成功:", f"[bold green]{parsed:,}[/] 件")
-        if failed > 0:
-            self.stats_table.add_row("パース失敗:", f"[bold red]{failed:,}[/] 件")
-        if inserted > 0:
-            self.stats_table.add_row("DB挿入:", f"[bold cyan]{inserted:,}[/] 件")
-        if speed is not None:
-            self.stats_table.add_row("処理速度:", f"[bold yellow]{speed:.1f}[/] レコード/秒")
-
-        if self.live:
-            self.live.update(self._create_layout())
+        # Update StatsDisplay - it will generate new table on next render
+        self.stats_display.update(
+            fetched=fetched,
+            parsed=parsed,
+            failed=failed,
+            inserted=inserted,
+            speed=speed,
+        )
+        # Note: Don't call live.update() - Live auto-refreshes and StatsDisplay
+        # generates fresh content via __rich__() on each render
 
     def print_success(self, message: str):
         """Print success message.
