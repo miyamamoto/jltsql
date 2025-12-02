@@ -296,12 +296,18 @@ class JVLinkWrapper:
                     read_count = jv_result
 
             if result < 0:
+                # -1: 該当データなし（正常系 - 指定キーにデータが存在しない）
+                if result == -1:
+                    logger.debug("JVRTOpen: no data available", data_spec=data_spec, key=key, error_code=result)
+                    # データなしは例外にせず、結果をそのまま返す
+                    return result, read_count
                 # -114: 契約外データ種別（警告レベル、ユーザーには問題なし）
-                if result == -114:
+                elif result == -114:
                     logger.debug("JVRTOpen: data spec not subscribed", data_spec=data_spec, error_code=result)
+                    raise JVLinkError("JVRTOpen failed", error_code=result)
                 else:
                     logger.error("JVRTOpen failed", data_spec=data_spec, error_code=result)
-                raise JVLinkError("JVRTOpen failed", error_code=result)
+                    raise JVLinkError("JVRTOpen failed", error_code=result)
 
             self._is_open = True
 

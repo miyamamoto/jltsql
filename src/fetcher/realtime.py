@@ -117,6 +117,11 @@ class RealtimeFetcher(BaseFetcher):
             # Open realtime stream
             ret, read_count = self.jvlink.jv_rt_open(data_spec, key)
 
+            # -1は「該当データなし」（正常系）- 空のジェネレータとして返す
+            if ret == -1:
+                logger.debug("No data available for this key", data_spec=data_spec, key=key)
+                return  # yieldなしで終了
+
             if ret != JV_RT_SUCCESS:
                 raise FetcherError(f"JVRTOpen failed: {ret}")
 
