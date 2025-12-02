@@ -1325,10 +1325,36 @@ class QuickstartRunner:
 
         return race_dates
 
+    def _get_race_keys_for_date(self, date_str: str) -> list:
+        """指定日の全レースキー（YYYYMMDDJJRR形式）を生成
+
+        時系列データ（0B20, 0B31-0B36）用。
+        各競馬場（中央10場）の全レース（1-12R）のkeyを生成。
+
+        Args:
+            date_str: YYYYMMDD形式の日付
+
+        Returns:
+            list: YYYYMMDDJJRR形式のキーリスト
+        """
+        # 競馬場コード: 01=札幌, 02=函館, 03=福島, 04=新潟, 05=東京,
+        #             06=中山, 07=中京, 08=京都, 09=阪神, 10=小倉
+        jyo_codes = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10"]
+        race_nums = [f"{i:02d}" for i in range(1, 13)]  # 01-12
+
+        keys = []
+        for jyo in jyo_codes:
+            for race in race_nums:
+                keys.append(f"{date_str}{jyo}{race}")
+
+        return keys
+
     def _fetch_single_realtime_spec(self, spec: str) -> tuple:
         """単一のリアルタイムスペックを取得（速報系/時系列共通）
 
-        JVRTOpenにはkeyパラメータ（日付: YYYYMMDD）が必要。
+        JVRTOpenにはkeyパラメータが必要。
+        - 速報系(0B1x): YYYYMMDD形式（日付単位）
+        - 時系列(0B2x-0B3x): YYYYMMDDJJRR形式（レース単位）
         過去1週間の開催日（土日）を対象にデータを取得する。
 
         Returns:
@@ -1340,6 +1366,9 @@ class QuickstartRunner:
             'records_saved': 0,
             'error_message': None,
         }
+
+        # 時系列データかどうか判定（0B20, 0B30-0B36）
+        is_time_series = spec.startswith("0B2") or spec.startswith("0B3")
 
         try:
             from src.fetcher.realtime import RealtimeFetcher
@@ -1361,25 +1390,32 @@ class QuickstartRunner:
                 fetcher = RealtimeFetcher(sid="JLTSQL")
                 importer = DataImporter(db, batch_size=1000)
 
-                for date_key in race_dates:
-                    records = []
-                    try:
-                        for record in fetcher.fetch(data_spec=spec, key=date_key, continuous=False):
-                            records.append(record)
-                    except Exception as e:
-                        error_str = str(e)
-                        # 契約外チェック
-                        if '-111' in error_str or '-114' in error_str or '契約' in error_str:
-                            return ("skipped", details)
-                        # データなし (-1) は次の日付へ
-                        if '-1' in error_str or 'no data' in error_str.lower():
-                            continue
-                        raise
+                for date_str in race_dates:
+                    # 時系列データはレース単位のキーが必要
+                    if is_time_series:
+                        keys = self._get_race_keys_for_date(date_str)
+                    else:
+                        keys = [date_str]  # 速報系は日付単位
 
-                    if records:
-                        # インポート
-                        import_stats = importer.import_records(iter(records), auto_commit=True)
-                        total_records += import_stats.get('records_imported', len(records))
+                    for key in keys:
+                        records = []
+                        try:
+                            for record in fetcher.fetch(data_spec=spec, key=key, continuous=False):
+                                records.append(record)
+                        except Exception as e:
+                            error_str = str(e)
+                            # 契約外チェック
+                            if '-111' in error_str or '-114' in error_str or '契約' in error_str:
+                                return ("skipped", details)
+                            # データなし (-1) は次のキーへ
+                            if '-1' in error_str or 'no data' in error_str.lower():
+                                continue
+                            raise
+
+                        if records:
+                            # インポート
+                            import_stats = importer.import_records(iter(records), auto_commit=True)
+                            total_records += import_stats.get('records_imported', len(records))
 
                 details['records_saved'] = total_records
 
