@@ -77,12 +77,20 @@ def to_time(value: str) -> Optional[time]:
         return None
 
     value = value.strip()
-    if len(value) != 4:
-        raise ConversionError(f"Invalid time format: {value} (expected HHMM)")
+
+    # 4桁: HHMM形式（時分のみ）
+    # 8桁: MMDDHHMM形式（発表月日時分）- 末尾4桁を使用
+    if len(value) == 4:
+        time_part = value
+    elif len(value) == 8:
+        # MMDDHHMM形式: 末尾4桁がHHMM
+        time_part = value[4:8]
+    else:
+        raise ConversionError(f"Invalid time format: {value} (expected HHMM or MMDDHHMM)")
 
     try:
-        hour = int(value[0:2])
-        minute = int(value[2:4])
+        hour = int(time_part[0:2])
+        minute = int(time_part[2:4])
 
         if hour < 0 or hour > 23:
             raise ConversionError(f"Invalid hour: {hour}")
