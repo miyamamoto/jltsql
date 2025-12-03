@@ -123,29 +123,27 @@ class JVLinkProgressDisplay:
 
         The layout is created only once. Internal components (Progress, StatsDisplay)
         update their own content dynamically via __rich__() method.
+
+        Uses simple section headers instead of Panel borders to reduce flickering
+        during screen refresh.
         """
         if self._layout is not None:
             return self._layout
 
-        layout = Table.grid(expand=False)
-        layout.add_row(Panel(
-            self.download_progress,
-            title="[bold cyan]データダウンロード",
-            border_style="cyan",
-            padding=(0, 1),
-        ))
-        layout.add_row(Panel(
-            self.progress,
-            title="[bold blue]データ取得・処理",
-            border_style="blue",
-            padding=(0, 1),
-        ))
-        layout.add_row(Panel(
-            self.stats_display,  # Use StatsDisplay instead of stats_table
-            title="[bold green]統計情報",
-            border_style="green",
-            padding=(0, 1),
-        ))
+        layout = Table.grid(expand=False, padding=(0, 0))
+        # セクション1: ダウンロード
+        layout.add_row(Text(""))  # 空行
+        layout.add_row(Text("  データダウンロード", style="bold cyan"))
+        layout.add_row(self.download_progress)
+        # セクション2: 処理
+        layout.add_row(Text(""))  # 空行
+        layout.add_row(Text("  データ取得・処理", style="bold blue"))
+        layout.add_row(self.progress)
+        # セクション3: 統計
+        layout.add_row(Text(""))  # 空行
+        layout.add_row(Text("  統計情報", style="bold green"))
+        layout.add_row(self.stats_display)
+        layout.add_row(Text(""))  # 空行
         self._layout = layout
         return layout
 
