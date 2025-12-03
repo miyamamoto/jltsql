@@ -3,6 +3,9 @@ chcp 65001 >nul 2>&1
 set PYTHONIOENCODING=utf-8
 title JLTSQL Setup
 
+REM batファイルのあるディレクトリに移動
+cd /d "%~dp0"
+
 REM Python 32bit版を探す
 where py >nul 2>&1
 if %errorlevel% equ 0 (

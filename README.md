@@ -13,14 +13,10 @@ JRA-VAN DataLabの競馬データをSQLiteにインポートするツール
 ### セットアップ
 
 ```bash
-# インストール
 pip install git+https://github.com/miyamamoto/jrvltsql.git
-
-# 初期セットアップ（対話形式）
-python scripts/quickstart.py
 ```
 
-`quickstart.py` が対話形式でセットアップオプションを案内します。
+**quickstart.bat をダブルクリック** で対話形式のセットアップが始まります。
 
 ### Python 32bit版について
 
