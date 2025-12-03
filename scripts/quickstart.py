@@ -144,7 +144,7 @@ def _check_background_updater_running() -> tuple[bool, Optional[int]]:
                 pass
 
         # プロセスが動いていなければロックファイルを削除
-        lock_file.unlink()
+        lock_file.unlink(missing_ok=True)
         return (False, None)
 
     except (ValueError, IOError, subprocess.TimeoutExpired):
@@ -1100,29 +1100,28 @@ class QuickstartRunner:
         import sqlite3
         races = []
         try:
-            conn = sqlite3.connect(str(self.db_path))
-            cursor = conn.cursor()
+            with sqlite3.connect(str(self.db_path)) as conn:
+                cursor = conn.cursor()
 
-            # NL_RAテーブルから開催情報を取得（Kaiji/Nichiji含む）
-            # Year + MonthDay で日付を構成
-            query = """
-                SELECT DISTINCT
-                    Year || printf('%04d', MonthDay) as race_date,
-                    JyoCD,
-                    Kaiji,
-                    Nichiji,
-                    RaceNum
-                FROM NL_RA
-                WHERE (Year || printf('%04d', MonthDay)) >= ?
-                  AND (Year || printf('%04d', MonthDay)) <= ?
-                ORDER BY race_date, JyoCD, RaceNum
-            """
-            cursor.execute(query, (from_date, to_date))
-            races = [
-                (row[0], row[1], int(row[2]) if row[2] else 1, int(row[3]) if row[3] else 1, int(row[4]))
-                for row in cursor.fetchall()
-            ]
-            conn.close()
+                # NL_RAテーブルから開催情報を取得（Kaiji/Nichiji含む）
+                # Year + MonthDay で日付を構成
+                query = """
+                    SELECT DISTINCT
+                        Year || printf('%04d', MonthDay) as race_date,
+                        JyoCD,
+                        Kaiji,
+                        Nichiji,
+                        RaceNum
+                    FROM NL_RA
+                    WHERE (Year || printf('%04d', MonthDay)) >= ?
+                      AND (Year || printf('%04d', MonthDay)) <= ?
+                    ORDER BY race_date, JyoCD, RaceNum
+                """
+                cursor.execute(query, (from_date, to_date))
+                races = [
+                    (row[0], row[1], int(row[2]) if row[2] else 1, int(row[3]) if row[3] else 1, int(row[4]))
+                    for row in cursor.fetchall()
+                ]
         except Exception as e:
             pass  # 開催情報取得エラーは無視（NL_RAにデータがない場合など）
         return races

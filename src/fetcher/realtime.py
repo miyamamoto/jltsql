@@ -425,11 +425,10 @@ class RealtimeFetcher(BaseFetcher):
 
         # Get race keys from database
         try:
-            conn = sqlite3.connect(db_path)
-            cursor = conn.cursor()
-            cursor.execute(query, params)
-            race_rows = cursor.fetchall()
-            conn.close()
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, params)
+                race_rows = cursor.fetchall()
         except Exception as e:
             raise FetcherError(f"Database query failed: {e}")
 

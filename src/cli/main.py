@@ -680,9 +680,20 @@ def export(ctx, table, output_format, output, where, db):
                 console.print(f"[red]Error:[/red] Table '{table}' does not exist.")
                 sys.exit(1)
 
+            # Validate table name to prevent SQL injection
+            # Only allow alphanumeric characters and underscores
+            import re
+            if not re.match(r'^[A-Za-z0-9_]+$', table):
+                console.print(f"[red]Error:[/red] Invalid table name '{table}'. Only alphanumeric characters and underscores are allowed.")
+                sys.exit(1)
+
             # Build query
             sql = f"SELECT * FROM {table}"
             if where:
+                # WARNING: The WHERE clause is not parameterized and may be vulnerable to SQL injection.
+                # This feature is intended for CLI/internal use only.
+                # DO NOT expose this to untrusted input or web interfaces.
+                console.print("[yellow]Warning:[/yellow] WHERE clause is not parameterized. Use only with trusted input.")
                 sql += f" WHERE {where}"
 
             console.print(f"[dim]Executing: {sql}[/dim]\n")

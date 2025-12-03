@@ -3,6 +3,7 @@
 This module provides beautiful, informative progress bars for data fetching operations.
 """
 
+import threading
 import time
 from contextlib import contextmanager
 from typing import Optional
@@ -27,6 +28,7 @@ class StatsDisplay:
     """Dynamic stats display that updates without recreating the object."""
 
     def __init__(self):
+        self._lock = threading.Lock()
         self.fetched = 0
         self.parsed = 0
         self.failed = 0
@@ -35,26 +37,28 @@ class StatsDisplay:
 
     def update(self, fetched: int = 0, parsed: int = 0, failed: int = 0,
                inserted: int = 0, speed: Optional[float] = None):
-        self.fetched = fetched
-        self.parsed = parsed
-        self.failed = failed
-        self.inserted = inserted
-        self.speed = speed
+        with self._lock:
+            self.fetched = fetched
+            self.parsed = parsed
+            self.failed = failed
+            self.inserted = inserted
+            self.speed = speed
 
     def __rich__(self) -> RenderableType:
         """Generate table dynamically when rendered."""
-        table = Table.grid(padding=(0, 2))
-        table.add_column(style="cyan", justify="right")
-        table.add_column(style="green")
-        table.add_row("取得レコード:", f"[bold green]{self.fetched:,}[/] 件")
-        table.add_row("パース成功:", f"[bold green]{self.parsed:,}[/] 件")
-        if self.failed > 0:
-            table.add_row("パース失敗:", f"[bold red]{self.failed:,}[/] 件")
-        if self.inserted > 0:
-            table.add_row("DB挿入:", f"[bold cyan]{self.inserted:,}[/] 件")
-        if self.speed is not None:
-            table.add_row("処理速度:", f"[bold yellow]{self.speed:.1f}[/] レコード/秒")
-        return table
+        with self._lock:
+            table = Table.grid(padding=(0, 2))
+            table.add_column(style="cyan", justify="right")
+            table.add_column(style="green")
+            table.add_row("取得レコード:", f"[bold green]{self.fetched:,}[/] 件")
+            table.add_row("パース成功:", f"[bold green]{self.parsed:,}[/] 件")
+            if self.failed > 0:
+                table.add_row("パース失敗:", f"[bold red]{self.failed:,}[/] 件")
+            if self.inserted > 0:
+                table.add_row("DB挿入:", f"[bold cyan]{self.inserted:,}[/] 件")
+            if self.speed is not None:
+                table.add_row("処理速度:", f"[bold yellow]{self.speed:.1f}[/] レコード/秒")
+            return table
 
 
 class JVLinkProgressDisplay:
@@ -77,6 +81,9 @@ class JVLinkProgressDisplay:
         """
         # Force UTF-8 encoding for Windows console compatibility
         self.console = console or Console(force_terminal=True, legacy_windows=True)
+
+        # Thread safety lock for shared state
+        self._lock = threading.Lock()
 
         # Rate limiting for updates (avoid screen flickering)
         self._last_update_time = 0.0
@@ -149,29 +156,32 @@ class JVLinkProgressDisplay:
 
     def _should_update(self) -> bool:
         """Check if enough time has passed for an update."""
-        current_time = time.time()
-        if current_time - self._last_update_time >= self._min_update_interval:
-            self._last_update_time = current_time
-            return True
-        return False
+        with self._lock:
+            current_time = time.time()
+            if current_time - self._last_update_time >= self._min_update_interval:
+                self._last_update_time = current_time
+                return True
+            return False
 
     def start(self):
         """Start the live display."""
-        if self.live is None:
-            self.live = Live(
-                self._create_layout(),
-                console=self.console,
-                refresh_per_second=2,  # Reduced refresh rate to minimize flickering
-                transient=False,
-                vertical_overflow="visible",  # Don't crop content
-            )
-            self.live.start()
+        with self._lock:
+            if self.live is None:
+                self.live = Live(
+                    self._create_layout(),
+                    console=self.console,
+                    refresh_per_second=2,  # Reduced refresh rate to minimize flickering
+                    transient=False,
+                    vertical_overflow="visible",  # Don't crop content
+                )
+                self.live.start()
 
     def stop(self):
         """Stop the live display."""
-        if self.live:
-            self.live.stop()
-            self.live = None
+        with self._lock:
+            if self.live:
+                self.live.stop()
+                self.live = None
 
     def add_download_task(
         self,

@@ -86,7 +86,7 @@ class RealtimeUpdater:
     # 時系列オッズ専用テーブルマッピング (TS_O1-O6)
     # HassoTimeをPRIMARY KEYに含めて複数時点のデータを保持
     TIMESERIES_RECORD_TYPE_TABLE = {
-        "O1": "TS_O1",  # 単複オッズ時系列
+        "O1": "TS_O1",  # 単複枠オッズ時系列
         "O2": "TS_O2",  # 馬連オッズ時系列
         "O3": "TS_O3",  # ワイドオッズ時系列
         "O4": "TS_O4",  # 馬単オッズ時系列
@@ -288,10 +288,12 @@ class RealtimeUpdater:
             "TS_O5": ["Year", "MonthDay", "JyoCD", "Kaiji", "Nichiji", "RaceNum", "Kumi", "HassoTime"],
             "TS_O6": ["Year", "MonthDay", "JyoCD", "Kaiji", "Nichiji", "RaceNum", "Kumi", "HassoTime"],
 
+            # Weather/Track condition tables
+            "RT_WE": ["Year", "MonthDay", "JyoCD", "Kaiji", "Nichiji", "HenkoID"],
+            "RT_WH": ["Year", "MonthDay", "JyoCD", "Kaiji", "Nichiji", "HappyoTime", "HenkoID"],
+
             # Tables without explicit PRIMARY KEY in schema
             # These tables don't have PRIMARY KEY constraints defined
-            "RT_WH": [],  # Baba state - no primary key
-            "RT_WE": [],  # Kaisai info - no primary key
             "RT_DM": [],  # Data mining (time type) - no primary key
             "RT_TM": [],  # Data mining (match type) - no primary key
             "RT_AV": [],  # Sale info - no primary key
