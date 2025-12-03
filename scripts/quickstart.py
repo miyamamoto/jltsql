@@ -100,7 +100,19 @@ def _save_setup_history(settings: dict, specs: list):
         'to_date': settings.get('to_date'),
         'specs': [spec for spec, _, _ in specs],
         'include_realtime': settings.get('include_realtime', False),
+        # データベース設定
+        'db_type': settings.get('db_type', 'sqlite'),
+        'db_path': settings.get('db_path', 'data/keiba.db'),
     }
+
+    # PostgreSQL設定（パスワード以外を保存）
+    if settings.get('db_type') == 'postgresql':
+        history['pg_host'] = settings.get('pg_host', 'localhost')
+        history['pg_port'] = settings.get('pg_port', 5432)
+        history['pg_database'] = settings.get('pg_database', 'keiba')
+        history['pg_user'] = settings.get('pg_user', 'postgres')
+        # パスワードは保存しない（セキュリティ上の理由）
+        # 次回実行時はPGPASSWORD環境変数または再入力が必要
 
     # data ディレクトリがなければ作成
     SETUP_HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -597,6 +609,21 @@ def _interactive_setup_rich() -> dict:
         # 前回のデータ種別を引き継ぐ
         settings['update_specs'] = last_setup.get('specs', [])
 
+        # 前回のDB設定を引き継ぐ
+        settings['db_type'] = last_setup.get('db_type', 'sqlite')
+        settings['db_path'] = last_setup.get('db_path', 'data/keiba.db')
+        if settings['db_type'] == 'postgresql':
+            settings['pg_host'] = last_setup.get('pg_host', 'localhost')
+            settings['pg_port'] = last_setup.get('pg_port', 5432)
+            settings['pg_database'] = last_setup.get('pg_database', 'keiba')
+            settings['pg_user'] = last_setup.get('pg_user', 'postgres')
+            # パスワードは環境変数から取得、なければ入力を求める
+            settings['pg_password'] = os.environ.get('PGPASSWORD', '')
+            if not settings['pg_password']:
+                console.print()
+                console.print("[yellow]PostgreSQLパスワードが必要です[/yellow]")
+                settings['pg_password'] = Prompt.ask("パスワード", password=True)
+
         # 更新範囲を表示
         console.print()
         console.print(Panel("[bold]更新情報[/bold]", border_style="yellow"))
@@ -610,6 +637,12 @@ def _interactive_setup_rich() -> dict:
         update_info.add_row("更新範囲", f"{settings['from_date']} 〜 {settings['to_date']}")
         specs_str = ", ".join(last_setup.get('specs', []))
         update_info.add_row("対象データ", specs_str if len(specs_str) <= 40 else specs_str[:37] + "...")
+        # DB情報を表示
+        if settings['db_type'] == 'postgresql':
+            db_info = f"PostgreSQL ({settings['pg_user']}@{settings['pg_host']}:{settings['pg_port']}/{settings['pg_database']})"
+        else:
+            db_info = f"SQLite ({settings['db_path']})"
+        update_info.add_row("データベース", db_info)
 
         console.print(update_info)
 
@@ -907,6 +940,22 @@ def _interactive_setup_simple() -> dict:
         settings['from_date'] = last_date.strftime("%Y%m%d")
         settings['update_specs'] = last_setup.get('specs', [])
 
+        # 前回のDB設定を引き継ぐ
+        settings['db_type'] = last_setup.get('db_type', 'sqlite')
+        settings['db_path'] = last_setup.get('db_path', 'data/keiba.db')
+        if settings['db_type'] == 'postgresql':
+            settings['pg_host'] = last_setup.get('pg_host', 'localhost')
+            settings['pg_port'] = last_setup.get('pg_port', 5432)
+            settings['pg_database'] = last_setup.get('pg_database', 'keiba')
+            settings['pg_user'] = last_setup.get('pg_user', 'postgres')
+            # パスワードは環境変数から取得、なければ入力を求める
+            settings['pg_password'] = os.environ.get('PGPASSWORD', '')
+            if not settings['pg_password']:
+                import getpass
+                print()
+                print("[PostgreSQLパスワードが必要です]")
+                settings['pg_password'] = getpass.getpass("パスワード: ")
+
         # 更新範囲を表示
         print()
         print("  --- 更新情報 ---")
@@ -915,6 +964,12 @@ def _interactive_setup_simple() -> dict:
         print(f"  更新範囲:     {settings['from_date']} 〜 {settings['to_date']}")
         specs_str = ", ".join(last_setup.get('specs', []))
         print(f"  対象データ:   {specs_str[:50]}{'...' if len(specs_str) > 50 else ''}")
+        # DB情報を表示
+        if settings['db_type'] == 'postgresql':
+            db_info = f"PostgreSQL ({settings['pg_user']}@{settings['pg_host']}:{settings['pg_port']}/{settings['pg_database']})"
+        else:
+            db_info = f"SQLite ({settings['db_path']})"
+        print(f"  データベース: {db_info}")
 
     print()
 
