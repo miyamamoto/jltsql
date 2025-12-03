@@ -77,6 +77,167 @@ setup_logging(level="DEBUG", console_level="ERROR", log_to_file=True, log_to_con
 logger = get_logger(__name__)
 
 
+# PIDファイルパス
+PID_FILE = project_root / "data" / "background_updater.pid"
+
+
+def get_pid() -> Optional[int]:
+    """PIDファイルからプロセスIDを取得
+
+    Returns:
+        プロセスID、ファイルがなければNone
+    """
+    if not PID_FILE.exists():
+        return None
+    try:
+        return int(PID_FILE.read_text().strip())
+    except (ValueError, IOError):
+        return None
+
+
+def save_pid():
+    """現在のプロセスIDをファイルに保存"""
+    PID_FILE.parent.mkdir(parents=True, exist_ok=True)
+    PID_FILE.write_text(str(os.getpid()))
+
+
+def remove_pid():
+    """PIDファイルを削除"""
+    if PID_FILE.exists():
+        try:
+            PID_FILE.unlink()
+        except IOError:
+            pass
+
+
+def is_process_running(pid: int) -> bool:
+    """指定したPIDのプロセスが実行中か確認
+
+    Args:
+        pid: プロセスID
+
+    Returns:
+        実行中ならTrue
+    """
+    if sys.platform == "win32":
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if handle:
+            kernel32.CloseHandle(handle)
+            return True
+        return False
+    else:
+        try:
+            os.kill(pid, 0)
+            return True
+        except OSError:
+            return False
+
+
+def stop_background_service() -> bool:
+    """バックグラウンドサービスを停止
+
+    Returns:
+        成功したかどうか
+    """
+    pid = get_pid()
+    if pid is None:
+        print("バックグラウンドサービスは実行されていません（PIDファイルなし）")
+        return False
+
+    if not is_process_running(pid):
+        print(f"プロセス {pid} は既に終了しています")
+        remove_pid()
+        return True
+
+    print(f"バックグラウンドサービス（PID: {pid}）を停止しています...")
+
+    try:
+        if sys.platform == "win32":
+            # Windowsの場合: taskkillを使用
+            subprocess.run(["taskkill", "/F", "/PID", str(pid)], check=True,
+                          capture_output=True)
+        else:
+            # Unix系の場合: SIGTERMを送信
+            os.kill(pid, signal.SIGTERM)
+
+        # プロセス終了を待機（最大5秒）
+        for _ in range(50):
+            if not is_process_running(pid):
+                break
+            time.sleep(0.1)
+
+        remove_pid()
+        print("バックグラウンドサービスを停止しました")
+        return True
+    except Exception as e:
+        print(f"停止に失敗しました: {e}")
+        return False
+
+
+def start_background_service(args_list: list) -> bool:
+    """バックグラウンドでサービスを起動
+
+    Args:
+        args_list: 渡す引数のリスト
+
+    Returns:
+        成功したかどうか
+    """
+    # 既存のプロセスをチェック
+    pid = get_pid()
+    if pid and is_process_running(pid):
+        print(f"バックグラウンドサービスは既に実行中です（PID: {pid}）")
+        return False
+
+    # 古いPIDファイルがあれば削除
+    remove_pid()
+
+    # Pythonの実行パス
+    python_exe = sys.executable
+    script_path = Path(__file__).resolve()
+
+    # コマンド構築（--backgroundは除外、--daemonを追加）
+    cmd = [python_exe, str(script_path), "--daemon"] + args_list
+
+    print("バックグラウンドでサービスを起動しています...")
+
+    if sys.platform == "win32":
+        # Windowsの場合: CREATE_NO_WINDOWフラグを使用
+        CREATE_NO_WINDOW = 0x08000000
+        DETACHED_PROCESS = 0x00000008
+        process = subprocess.Popen(
+            cmd,
+            creationflags=CREATE_NO_WINDOW | DETACHED_PROCESS,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    else:
+        # Unix系の場合: nohup相当
+        process = subprocess.Popen(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+
+    # 起動確認（最大3秒待機）
+    for _ in range(30):
+        time.sleep(0.1)
+        pid = get_pid()
+        if pid and is_process_running(pid):
+            print(f"バックグラウンドサービスを起動しました（PID: {pid}）")
+            print(f"停止するには: python {script_path.name} --stop")
+            return True
+
+    print("バックグラウンドサービスの起動に失敗しました")
+    return False
+
+
 def send_trigger(mode: str = "all") -> bool:
     """強制更新トリガーを送信
 
@@ -739,6 +900,7 @@ class BackgroundUpdater:
         enable_rate_limit: bool = True,
         rate_limit_short_term: int = 5,
         rate_limit_long_term: int = 30,
+        silent_mode: bool = False,
     ):
         """初期化
 
@@ -751,6 +913,7 @@ class BackgroundUpdater:
             enable_rate_limit: レート制限を有効にするか
             rate_limit_short_term: 短期制限（回/分）
             rate_limit_long_term: 長期制限（回/時）
+            silent_mode: サイレントモード（画面出力を抑制）
         """
         self.update_historical = update_historical
         self.monitor_realtime = monitor_realtime
@@ -760,6 +923,7 @@ class BackgroundUpdater:
         self.enable_rate_limit = enable_rate_limit
         self.rate_limit_short_term = rate_limit_short_term
         self.rate_limit_long_term = rate_limit_long_term
+        self.silent_mode = silent_mode
         self.project_root = project_root
 
         # データベースパス
@@ -929,10 +1093,12 @@ class BackgroundUpdater:
             else:
                 api_status = "起動失敗"
 
-        if RICH_AVAILABLE:
-            self._display_startup_rich(api_status)
-        else:
-            self._display_startup_plain(api_status)
+        # サイレントモードでなければ起動メッセージを表示
+        if not self.silent_mode:
+            if RICH_AVAILABLE:
+                self._display_startup_rich(api_status)
+            else:
+                self._display_startup_plain(api_status)
 
         logger.info(
             "Background updater started",
@@ -957,10 +1123,11 @@ class BackgroundUpdater:
             thread.start()
             self._threads.append(thread)
 
-        # ステータス表示スレッド
-        thread = threading.Thread(target=self._status_display_loop, daemon=True)
-        thread.start()
-        self._threads.append(thread)
+        # ステータス表示スレッド（サイレントモードでは起動しない）
+        if not self.silent_mode:
+            thread = threading.Thread(target=self._status_display_loop, daemon=True)
+            thread.start()
+            self._threads.append(thread)
 
         # トリガー監視スレッド
         thread = threading.Thread(target=self._trigger_monitor_loop, daemon=True)
@@ -981,11 +1148,12 @@ class BackgroundUpdater:
         if not self._running:
             return
 
-        if RICH_AVAILABLE:
-            console.print()
-            console.print("[yellow]サービスを停止中...[/yellow]")
-        else:
-            print("\nサービスを停止中...")
+        if not self.silent_mode:
+            if RICH_AVAILABLE:
+                console.print()
+                console.print("[yellow]サービスを停止中...[/yellow]")
+            else:
+                print("\nサービスを停止中...")
 
         logger.info("Stopping background updater")
 
@@ -1001,10 +1169,11 @@ class BackgroundUpdater:
         for thread in self._threads:
             thread.join(timeout=5)
 
-        if RICH_AVAILABLE:
-            console.print("[green]サービスを停止しました[/green]")
-        else:
-            print("サービスを停止しました")
+        if not self.silent_mode:
+            if RICH_AVAILABLE:
+                console.print("[green]サービスを停止しました[/green]")
+            else:
+                print("サービスを停止しました")
         logger.info("Background updater stopped", **self._stats)
 
     def _signal_handler(self, signum, frame):
@@ -1495,12 +1664,11 @@ HTTP API エンドポイント (デフォルト: http://localhost:8765):
   GET /status               現在の状態取得
 
 使用例:
-  python scripts/background_updater.py              # サービス起動
-  python scripts/background_updater.py --api-port 9000  # ポート指定
-  python scripts/background_updater.py --no-api     # APIなしで起動
+  python scripts/background_updater.py              # フォアグラウンドで起動
+  python scripts/background_updater.py --background # バックグラウンドで起動
+  python scripts/background_updater.py --stop       # バックグラウンドサービスを停止
+  python scripts/background_updater.py --status     # サービス状態を確認
   python scripts/background_updater.py --trigger    # 全データ強制更新
-  python scripts/background_updater.py --trigger historical  # 蓄積系のみ
-  python scripts/background_updater.py --trigger realtime    # 速報系のみ
 
 外部からのAPI呼び出し例:
   curl http://localhost:8765/trigger              # 全データ更新
@@ -1549,27 +1717,99 @@ HTTP API エンドポイント (デフォルト: http://localhost:8765):
         help="強制更新トリガーを送信（all=両方, historical=蓄積系, realtime=速報系）"
     )
 
+    # バックグラウンド起動/停止オプション
+    parser.add_argument(
+        "--background", action="store_true",
+        help="バックグラウンドで起動（ウィンドウなし）"
+    )
+    parser.add_argument(
+        "--stop", action="store_true",
+        help="バックグラウンドサービスを停止"
+    )
+    parser.add_argument(
+        "--status", action="store_true",
+        help="サービスの状態を確認"
+    )
+    parser.add_argument(
+        "--daemon", action="store_true",
+        help=argparse.SUPPRESS  # 内部用（バックグラウンドから起動された場合）
+    )
+
     args = parser.parse_args()
+
+    # 停止モード
+    if args.stop:
+        success = stop_background_service()
+        sys.exit(0 if success else 1)
+
+    # ステータス確認モード
+    if args.status:
+        pid = get_pid()
+        if pid is None:
+            print("バックグラウンドサービス: 停止中（PIDファイルなし）")
+            sys.exit(1)
+        elif is_process_running(pid):
+            print(f"バックグラウンドサービス: 実行中（PID: {pid}）")
+            print(f"PIDファイル: {PID_FILE}")
+            sys.exit(0)
+        else:
+            print(f"バックグラウンドサービス: 停止中（PID {pid} は存在しません）")
+            remove_pid()
+            sys.exit(1)
 
     # トリガーモードの場合
     if args.trigger:
         success = send_trigger(args.trigger)
         sys.exit(0 if success else 1)
 
-    # 通常のサービス起動
+    # バックグラウンド起動モード
+    if args.background:
+        # 他の引数を収集（--backgroundと--daemon以外）
+        forward_args = []
+        if args.no_historical:
+            forward_args.append("--no-historical")
+        if args.no_realtime:
+            forward_args.append("--no-realtime")
+        if args.interval != 30:
+            forward_args.extend(["--interval", str(args.interval)])
+        if args.api_port != 8765:
+            forward_args.extend(["--api-port", str(args.api_port)])
+        if args.no_api:
+            forward_args.append("--no-api")
+        if args.no_rate_limit:
+            forward_args.append("--no-rate-limit")
+        if args.rate_limit_short != 5:
+            forward_args.extend(["--rate-limit-short", str(args.rate_limit_short)])
+        if args.rate_limit_long != 30:
+            forward_args.extend(["--rate-limit-long", str(args.rate_limit_long)])
+
+        success = start_background_service(forward_args)
+        sys.exit(0 if success else 1)
+
+    # 通常のサービス起動（フォアグラウンドまたはデーモンモード）
+    is_daemon = args.daemon
+
     try:
         with ProcessLock("background_updater"):
-            updater = BackgroundUpdater(
-                update_historical=not args.no_historical,
-                monitor_realtime=not args.no_realtime,
-                historical_interval_minutes=args.interval,
-                enable_api=not args.no_api,
-                api_port=args.api_port,
-                enable_rate_limit=not args.no_rate_limit,
-                rate_limit_short_term=args.rate_limit_short,
-                rate_limit_long_term=args.rate_limit_long,
-            )
-            updater.start()
+            # PIDファイルを保存
+            save_pid()
+
+            try:
+                updater = BackgroundUpdater(
+                    update_historical=not args.no_historical,
+                    monitor_realtime=not args.no_realtime,
+                    historical_interval_minutes=args.interval,
+                    enable_api=not args.no_api,
+                    api_port=args.api_port,
+                    enable_rate_limit=not args.no_rate_limit,
+                    rate_limit_short_term=args.rate_limit_short,
+                    rate_limit_long_term=args.rate_limit_long,
+                    silent_mode=is_daemon,  # デーモンモードでは画面出力を抑制
+                )
+                updater.start()
+            finally:
+                # 終了時にPIDファイルを削除
+                remove_pid()
     except ProcessLockError as e:
         print(f"[エラー] {e}")
         print("既に別のバックグラウンド更新プロセスが実行中です。")
