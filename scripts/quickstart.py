@@ -16,6 +16,7 @@ import os
 import subprocess
 import sys
 import time
+import webbrowser
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -2087,7 +2088,14 @@ class QuickstartRunner:
                 console.print()
                 console.print("[dim]Claude Code / Claude Desktop をお使いの方へ:[/dim]")
                 console.print("  MCP Server をインストールすると、AIから直接DBにアクセスできます")
-                console.print("  [link=https://github.com/miyamamoto/jvlink-mcp-server/releases]https://github.com/miyamamoto/jvlink-mcp-server/releases[/link]")
+                mcp_url = "https://github.com/miyamamoto/jvlink-mcp-server/releases"
+                console.print(f"  [link={mcp_url}]{mcp_url}[/link]")
+                # サイトを開くか確認（-yオプションでない場合のみ）
+                if not self.settings.get('auto_yes', False):
+                    console.print()
+                    if Confirm.ask("  [cyan]サイトを開きますか？[/cyan]", default=False):
+                        webbrowser.open(mcp_url)
+                        console.print("  [green]ブラウザでサイトを開きました[/green]")
         else:
             console.print(Panel(
                 f"[bold red]{HORSE_EMOJI_SAD} セットアップ失敗[/bold red]\n"
