@@ -1132,11 +1132,10 @@ class QuickstartRunner:
 
         時系列オッズをTS_O1-O6テーブルに保存。
         NL_RAから実際の開催情報を取得して、開催があるレースのみを対象に取得。
-        蓄積系データ取得（_run_fetch_all_rich）と同じUIデザインを使用。
-
-        NL_RAから実際の開催情報を取得するため、開催があるレースのみをフェッチします。
+        蓄積系データ取得（_run_fetch_all_rich）と同じUIデザイン（JVLinkProgressDisplay）を使用。
         """
         from datetime import datetime, timedelta
+        from src.utils.progress import JVLinkProgressDisplay
 
         # 設定された期間を取得（デフォルト12ヶ月）
         months = self.settings.get('timeseries_months', 12)
@@ -1166,12 +1165,9 @@ class QuickstartRunner:
 
         # NL_RAから実際の開催レースを取得（Kaiji/Nichiji含む）
         races = self._get_races_from_db(from_date, to_date)
-        fallback_mode = False
-        use_full_key = True  # 16桁フルキーを使用
 
         if not races:
             # フォールバック: NL_RAにデータがない場合は時系列オッズ取得をスキップ
-            # 時系列オッズには Kaiji/Nichiji が必須なため、12桁キーでは取得不可
             console.print()
             console.print(Panel(
                 "[bold yellow]注意[/bold yellow]\n"
@@ -1186,6 +1182,8 @@ class QuickstartRunner:
 
         total_specs = len(timeseries_specs)
         total_races = len(races)
+        # 全体の総アイテム数（スペック × レース数）
+        total_items = total_specs * total_races
 
         console.print()
         console.print(Panel(
@@ -1207,93 +1205,127 @@ class QuickstartRunner:
             nodata_count = 0
             skipped_count = 0
             failed_count = 0
+            global_processed = 0  # 全体の処理済みアイテム数
 
             with db:
                 fetcher = RealtimeFetcher(sid="JLTSQL")
                 updater = RealtimeUpdater(db)
 
-                # 各スペックを順番に処理
-                for idx, (spec, desc) in enumerate(timeseries_specs, 1):
-                    # ヘッダー表示
-                    console.print(f"\n  [cyan]({idx}/{total_specs})[/cyan] [bold]{spec}[/bold]: {desc}")
+                # JVLinkProgressDisplayを使用してリッチな進捗表示
+                progress = JVLinkProgressDisplay()
+
+                with progress:
+                    # ダウンロード進捗タスク
+                    download_task = progress.add_download_task(
+                        "時系列オッズ取得",
+                        total=total_items,
+                    )
+                    # メイン処理タスク
+                    main_task = progress.add_task(
+                        "レコード処理",
+                        total=total_items,
+                    )
 
                     start_time = time.time()
-                    spec_records = 0
-                    status = "success"
-                    error_msg = ""
-                    race_count = 0
 
-                    try:
-                        # 開催レースごとに取得（進捗表示付き）
-                        # races: [(date, jyo_code, kaiji, nichiji, race_num), ...]
-                        for race_idx, race_info in enumerate(races, 1):
-                            race_date, jyo_code, kaiji, nichiji, race_num = race_info
-                            race_count += 1
-                            # 進捗表示（同じ行を上書き）
-                            track_name = JYO_CODES.get(jyo_code, jyo_code)
-                            console.print(
-                                f"    [dim]{race_date} {track_name}{race_num}R[/dim] "
-                                f"[dim]({race_idx}/{total_races})[/dim]",
-                                end="\r"
-                            )
+                    # 各スペックを順番に処理
+                    for spec_idx, (spec, desc) in enumerate(timeseries_specs, 1):
+                        spec_records = 0
+                        status = "success"
+                        error_msg = ""
 
-                            try:
-                                # 16桁フルキーを生成して取得
-                                full_key = generate_time_series_full_key(
-                                    race_date, jyo_code, kaiji, nichiji, race_num
+                        try:
+                            # 開催レースごとに取得
+                            for race_idx, race_info in enumerate(races, 1):
+                                race_date, jyo_code, kaiji, nichiji, race_num = race_info
+                                global_processed += 1
+
+                                # 進捗表示を更新
+                                track_name = JYO_CODES.get(jyo_code, jyo_code)
+                                progress.update_download(
+                                    download_task,
+                                    completed=global_processed,
+                                    status=f"{spec} {track_name}{race_num}R",
                                 )
-                                for record in fetcher.fetch(
-                                    data_spec=spec,
-                                    key=full_key,
-                                    continuous=False,
-                                ):
-                                    raw_buff = record.get("_raw", "")
-                                    if raw_buff:
-                                        updater.process_record(raw_buff, timeseries=True)
-                                        spec_records += 1
-                            except Exception as e:
-                                error_str = str(e)
-                                if '-111' in error_str or '-114' in error_str:
-                                    # 契約外はスキップ
-                                    status = "skipped"
-                                    error_msg = "契約外"
-                                    break
-                                # -1はデータなし（正常）
-                                elif '-1' not in error_str:
-                                    pass  # その他のエラーは無視
+                                progress.update(
+                                    main_task,
+                                    completed=global_processed,
+                                    status=f"({global_processed}/{total_items})",
+                                )
 
-                    except Exception as e:
-                        error_str = str(e)
-                        if '-111' in error_str or '-114' in error_str or '契約' in error_str:
-                            status = "skipped"
-                            error_msg = "データ提供サービス契約外"
+                                try:
+                                    # 16桁フルキーを生成して取得
+                                    full_key = generate_time_series_full_key(
+                                        race_date, jyo_code, kaiji, nichiji, race_num
+                                    )
+                                    for record in fetcher.fetch(
+                                        data_spec=spec,
+                                        key=full_key,
+                                        continuous=False,
+                                    ):
+                                        raw_buff = record.get("_raw", "")
+                                        if raw_buff:
+                                            updater.process_record(raw_buff, timeseries=True)
+                                            spec_records += 1
+
+                                    # 統計を更新
+                                    elapsed = time.time() - start_time
+                                    speed = total_records / elapsed if elapsed > 0 else 0
+                                    progress.update_stats(
+                                        fetched=total_records + spec_records,
+                                        parsed=total_records + spec_records,
+                                        speed=speed,
+                                    )
+
+                                except Exception as e:
+                                    error_str = str(e)
+                                    if '-111' in error_str or '-114' in error_str:
+                                        # 契約外はスキップ
+                                        status = "skipped"
+                                        error_msg = "契約外"
+                                        break
+                                    # -1はデータなし（正常）
+                                    elif '-1' not in error_str:
+                                        pass  # その他のエラーは無視
+
+                        except Exception as e:
+                            error_str = str(e)
+                            if '-111' in error_str or '-114' in error_str or '契約' in error_str:
+                                status = "skipped"
+                                error_msg = "データ提供サービス契約外"
+                            else:
+                                status = "failed"
+                                error_msg = error_str[:80]
+
+                        # スペックごとの結果を集計
+                        if status == "success":
+                            if spec_records > 0:
+                                success_count += 1
+                            else:
+                                nodata_count += 1
+                            total_records += spec_records
+                        elif status == "skipped":
+                            skipped_count += 1
+                            self.warnings.append(f"時系列{spec}: {error_msg}")
+                            # 契約外の場合、残りのレースをスキップ
+                            global_processed = spec_idx * total_races
                         else:
-                            status = "failed"
-                            error_msg = error_str[:80]
+                            failed_count += 1
 
+                    # 最終の進捗更新
                     elapsed = time.time() - start_time
+                    speed = total_records / elapsed if elapsed > 0 else 0
+                    progress.update_download(download_task, completed=total_items, status="完了")
+                    progress.update(main_task, completed=total_items, status="完了")
+                    progress.update_stats(
+                        fetched=total_records,
+                        parsed=total_records,
+                        speed=speed,
+                    )
 
-                    # 行をクリアして結果表示
-                    console.print(" " * 80, end="\r")  # 進捗表示をクリア
-
-                    # ステータス表示
-                    if status == "success":
-                        if spec_records > 0:
-                            console.print(f"    [green]✓[/green] 完了: [bold]{spec_records:,}件[/bold]保存 [dim]({elapsed:.1f}秒)[/dim]")
-                            success_count += 1
-                        else:
-                            console.print(f"    [dim]- データなし[/dim] [dim]({elapsed:.1f}秒)[/dim]")
-                            nodata_count += 1
-                        total_records += spec_records
-                    elif status == "skipped":
-                        console.print(f"    [yellow]⚠[/yellow] 契約外 [dim]({elapsed:.1f}秒)[/dim]")
-                        skipped_count += 1
-                        self.warnings.append(f"時系列{spec}: {error_msg}")
-                    else:
-                        console.print(f"    [red]✗[/red] エラー [dim]({elapsed:.1f}秒)[/dim]")
-                        if error_msg:
-                            console.print(f"      [red]原因:[/red] {error_msg}")
-                        failed_count += 1
+            # 完了メッセージ
+            elapsed = time.time() - start_time
+            console.print(f"    [green]✓[/green] 完了: [bold]{total_records:,}件[/bold]保存 [dim]({elapsed:.1f}秒)[/dim]")
 
             # 統計をself.statsに追加
             self.stats['timeseries_success'] = success_count
@@ -1314,17 +1346,21 @@ class QuickstartRunner:
         """データ取得（Rich UI）- リアルタイム進捗表示"""
         specs_to_fetch = self._get_specs_for_mode()
 
-        total_specs = len(specs_to_fetch)
+        historical_specs = len(specs_to_fetch)
+        # 時系列オッズを含む場合は+7（0B30-0B36の7スペック）
+        timeseries_specs = 7 if self._should_fetch_timeseries() else 0
+        total_specs = historical_specs + timeseries_specs
 
         console.print()
         console.print(Panel(
-            f"[bold]データ取得[/bold] ({total_specs}スペック)",
+            f"[bold]データ取得[/bold] ({historical_specs}スペック" +
+            (f" + 時系列{timeseries_specs}スペック" if timeseries_specs > 0 else "") + ")",
             border_style="blue",
         ))
 
         # 各スペックを順番に処理（リアルタイム進捗表示）
         for idx, (spec, description, option) in enumerate(specs_to_fetch, 1):
-            # ヘッダー表示
+            # ヘッダー表示（全体の進捗を表示）
             console.print(f"\n  [cyan]({idx}/{total_specs})[/cyan] [bold]{spec}[/bold]: {description}")
 
             start_time = time.time()
