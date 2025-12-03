@@ -1206,6 +1206,7 @@ class QuickstartRunner:
             skipped_count = 0
             failed_count = 0
             global_processed = 0  # 全体の処理済みアイテム数
+            cumulative_records = 0  # 累計レコード数（リアルタイム表示用）
 
             with db:
                 fetcher = RealtimeFetcher(sid="JLTSQL")
@@ -1267,13 +1268,14 @@ class QuickstartRunner:
                                         if raw_buff:
                                             updater.process_record(raw_buff, timeseries=True)
                                             spec_records += 1
+                                            cumulative_records += 1
 
-                                    # 統計を更新
+                                    # 統計を更新（リアルタイム）
                                     elapsed = time.time() - start_time
-                                    speed = total_records / elapsed if elapsed > 0 else 0
+                                    speed = cumulative_records / elapsed if elapsed > 0 else 0
                                     progress.update_stats(
-                                        fetched=total_records + spec_records,
-                                        parsed=total_records + spec_records,
+                                        fetched=cumulative_records,
+                                        parsed=cumulative_records,
                                         speed=speed,
                                     )
 
@@ -1314,25 +1316,25 @@ class QuickstartRunner:
 
                     # 最終の進捗更新
                     elapsed = time.time() - start_time
-                    speed = total_records / elapsed if elapsed > 0 else 0
+                    speed = cumulative_records / elapsed if elapsed > 0 else 0
                     progress.update_download(download_task, completed=total_items, status="完了")
                     progress.update(main_task, completed=total_items, status="完了")
                     progress.update_stats(
-                        fetched=total_records,
-                        parsed=total_records,
+                        fetched=cumulative_records,
+                        parsed=cumulative_records,
                         speed=speed,
                     )
 
             # 完了メッセージ
             elapsed = time.time() - start_time
-            console.print(f"    [green]✓[/green] 完了: [bold]{total_records:,}件[/bold]保存 [dim]({elapsed:.1f}秒)[/dim]")
+            console.print(f"    [green]✓[/green] 完了: [bold]{cumulative_records:,}件[/bold]保存 [dim]({elapsed:.1f}秒)[/dim]")
 
             # 統計をself.statsに追加
             self.stats['timeseries_success'] = success_count
             self.stats['timeseries_nodata'] = nodata_count
             self.stats['timeseries_skipped'] = skipped_count
             self.stats['timeseries_failed'] = failed_count
-            self.stats['timeseries_records'] = total_records
+            self.stats['timeseries_records'] = cumulative_records
 
             return (success_count + nodata_count) > 0
 
