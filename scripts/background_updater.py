@@ -50,6 +50,21 @@ if sys.platform == "win32" and sys.stdout.encoding.lower() != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
+# Rich UI（オプション）
+try:
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+    from rich.live import Live
+    from rich.layout import Layout
+    from rich.text import Text
+    from rich.style import Style
+    RICH_AVAILABLE = True
+    console = Console()
+except ImportError:
+    RICH_AVAILABLE = False
+    console = None
+
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
@@ -697,10 +712,21 @@ class BackgroundUpdater:
         ("0B12", "速報レース情報・払戻"),
         ("0B14", "速報開催情報・一括"),
         ("0B15", "速報レース情報"),
-        ("0B16", "速報開催情報・変更"),
-        # 速報オッズ（レース単位キー: YYYYMMDDJJRR）
-        ("0B30", "速報オッズ・全賭式"),
-        ("0B31", "速報オッズ・単複枠"),
+        # 注意: 0B16（速報開催情報・変更）は-114エラーを返すため除外
+        # 0B14（一括）で同等の情報が取得可能
+    ]
+
+    # 時系列データ（レース単位キー: YYYYMMDDJJRR）
+    # 0B20: 票数情報、0B30-0B36: オッズ
+    TIME_SERIES_SPECS = [
+        ("0B20", "票数情報"),
+        ("0B30", "単勝オッズ"),
+        ("0B31", "複勝・枠連オッズ"),
+        ("0B32", "馬連オッズ"),
+        ("0B33", "ワイドオッズ"),
+        ("0B34", "馬単オッズ"),
+        ("0B35", "3連複オッズ"),
+        ("0B36", "3連単オッズ"),
     ]
 
     def __init__(
@@ -769,6 +795,113 @@ class BackgroundUpdater:
             "last_realtime_update": None,
         }
 
+    def _display_startup_rich(self, api_status: str):
+        """Rich UIでスタートアップ画面を表示"""
+        console.print()
+
+        # ヘッダーパネル
+        header_text = Text()
+        header_text.append("JLTSQL バックグラウンド更新サービス\n", style="bold cyan")
+        header_text.append("リアルタイムで競馬データを更新します", style="dim")
+        console.print(Panel(header_text, border_style="cyan"))
+
+        # 設定テーブル
+        table = Table(show_header=False, box=None, padding=(0, 2))
+        table.add_column("項目", style="dim")
+        table.add_column("値", style="bold")
+
+        # 蓄積系更新
+        hist_status = f"[green]有効[/green] (間隔: {self.historical_interval_minutes}分)" if self.update_historical else "[red]無効[/red]"
+        table.add_row("蓄積系更新", hist_status)
+
+        # 速報系監視
+        rt_status = "[green]有効[/green] (動的間隔)" if self.monitor_realtime else "[red]無効[/red]"
+        table.add_row("速報系監視", rt_status)
+
+        # HTTP API
+        if api_status == "無効":
+            table.add_row("HTTP API", "[red]無効[/red]")
+        elif api_status == "起動失敗":
+            table.add_row("HTTP API", "[red]起動失敗[/red]")
+        else:
+            table.add_row("HTTP API", f"[cyan]{api_status}[/cyan]")
+
+        # レート制限
+        if self.enable_api and self.enable_rate_limit:
+            table.add_row("レート制限", f"[yellow]{self.rate_limit_short_term}回/分, {self.rate_limit_long_term}回/時[/yellow]")
+
+        # 開催状況
+        race_status = self.schedule_manager.get_status_display()
+        if self.schedule_manager.is_race_day():
+            table.add_row("開催状況", f"[green]{race_status}[/green]")
+        else:
+            table.add_row("開催状況", f"[dim]{race_status}[/dim]")
+
+        # 本日レース
+        race_count = self.schedule_manager._today_race_count
+        if race_count > 0:
+            table.add_row("本日レース", f"[green]{race_count}件[/green]")
+        else:
+            table.add_row("本日レース", "[dim]0件[/dim]")
+
+        # 開始時刻
+        table.add_row("開始時刻", f"[cyan]{self._stats['started_at'].strftime('%Y-%m-%d %H:%M:%S')}[/cyan]")
+
+        console.print(Panel(table, title="[bold]設定[/bold]", border_style="blue"))
+
+        # 操作説明
+        console.print()
+        console.print("[dim]停止するには [bold]Ctrl+C[/bold] を押してください[/dim]")
+        console.print()
+
+    def _display_startup_plain(self, api_status: str):
+        """プレーンテキストでスタートアップ画面を表示"""
+        print("=" * 70)
+        print("JLTSQL バックグラウンド更新サービス")
+        print("=" * 70)
+        print(f"  蓄積系更新: {'有効' if self.update_historical else '無効'} (間隔: {self.historical_interval_minutes}分)")
+        print(f"  速報系監視: {'有効' if self.monitor_realtime else '無効'} (動的間隔)")
+        print(f"  HTTP API:   {api_status}")
+        if self.enable_api and self.enable_rate_limit:
+            print(f"  レート制限: {self.rate_limit_short_term}回/分, {self.rate_limit_long_term}回/時")
+        print(f"  開催状況:   {self.schedule_manager.get_status_display()}")
+        print(f"  本日レース: {self.schedule_manager._today_race_count}件")
+        print(f"  開始時刻:   {self._stats['started_at'].strftime('%Y-%m-%d %H:%M:%S')}")
+        print("=" * 70)
+        print()
+        print("停止するには Ctrl+C を押してください")
+        print()
+
+    def _print_status(self, message: str, style: str = ""):
+        """ステータスメッセージを表示"""
+        now = datetime.now().strftime('%H:%M:%S')
+        if RICH_AVAILABLE:
+            if style:
+                console.print(f"[dim][{now}][/dim] [{style}]{message}[/{style}]")
+            else:
+                console.print(f"[dim][{now}][/dim] {message}")
+        else:
+            print(f"[{now}] {message}")
+
+    def _print_update_result(self, spec: str, description: str, success: bool, message: str = ""):
+        """更新結果を表示"""
+        if RICH_AVAILABLE:
+            if success:
+                if message:
+                    console.print(f"  [cyan]{spec}[/cyan]: {description}... [green]OK[/green] [dim]({message})[/dim]")
+                else:
+                    console.print(f"  [cyan]{spec}[/cyan]: {description}... [green]OK[/green]")
+            else:
+                if message:
+                    console.print(f"  [cyan]{spec}[/cyan]: {description}... [red]NG[/red] [dim]({message})[/dim]")
+                else:
+                    console.print(f"  [cyan]{spec}[/cyan]: {description}... [red]NG[/red]")
+        else:
+            if success:
+                print(f"  {spec}: {description}... OK" + (f" ({message})" if message else ""))
+            else:
+                print(f"  {spec}: {description}... NG" + (f" ({message})" if message else ""))
+
     def start(self):
         """サービス開始"""
         self._running = True
@@ -796,21 +929,10 @@ class BackgroundUpdater:
             else:
                 api_status = "起動失敗"
 
-        print("=" * 70)
-        print("JLTSQL バックグラウンド更新サービス")
-        print("=" * 70)
-        print(f"  蓄積系更新: {'有効' if self.update_historical else '無効'} (間隔: {self.historical_interval_minutes}分)")
-        print(f"  速報系監視: {'有効' if self.monitor_realtime else '無効'} (動的間隔)")
-        print(f"  HTTP API:   {api_status}")
-        if self.enable_api and self.enable_rate_limit:
-            print(f"  レート制限: {self.rate_limit_short_term}回/分, {self.rate_limit_long_term}回/時")
-        print(f"  開催状況:   {self.schedule_manager.get_status_display()}")
-        print(f"  本日レース: {self.schedule_manager._today_race_count}件")
-        print(f"  開始時刻:   {self._stats['started_at'].strftime('%Y-%m-%d %H:%M:%S')}")
-        print("=" * 70)
-        print()
-        print("停止するには Ctrl+C を押してください")
-        print()
+        if RICH_AVAILABLE:
+            self._display_startup_rich(api_status)
+        else:
+            self._display_startup_plain(api_status)
 
         logger.info(
             "Background updater started",
@@ -859,7 +981,12 @@ class BackgroundUpdater:
         if not self._running:
             return
 
-        print("\nサービスを停止中...")
+        if RICH_AVAILABLE:
+            console.print()
+            console.print("[yellow]サービスを停止中...[/yellow]")
+        else:
+            print("\nサービスを停止中...")
+
         logger.info("Stopping background updater")
 
         self._running = False
@@ -874,7 +1001,10 @@ class BackgroundUpdater:
         for thread in self._threads:
             thread.join(timeout=5)
 
-        print("サービスを停止しました")
+        if RICH_AVAILABLE:
+            console.print("[green]サービスを停止しました[/green]")
+        else:
+            print("サービスを停止しました")
         logger.info("Background updater stopped", **self._stats)
 
     def _signal_handler(self, signum, frame):
@@ -899,7 +1029,19 @@ class BackgroundUpdater:
 
                 interval, reason = self.schedule_manager.get_update_interval()
                 status = self.schedule_manager.get_status_display()
-                print(f"[{now.strftime('%H:%M:%S')}] 状態: {status} | 速報更新間隔: {interval}秒 | 蓄積={self._stats['historical_updates']} 速報={self._stats['realtime_updates']}")
+
+                if RICH_AVAILABLE:
+                    # Rich UIでステータス表示
+                    status_parts = []
+                    status_parts.append(f"[cyan]{status}[/cyan]")
+                    if interval > 0:
+                        status_parts.append(f"速報間隔: [yellow]{interval}秒[/yellow]")
+                    status_parts.append(f"蓄積=[green]{self._stats['historical_updates']}[/green]")
+                    status_parts.append(f"速報=[green]{self._stats['realtime_updates']}[/green]")
+                    console.print(f"[dim][{now.strftime('%H:%M:%S')}][/dim] {' | '.join(status_parts)}")
+                else:
+                    print(f"[{now.strftime('%H:%M:%S')}] 状態: {status} | 速報更新間隔: {interval}秒 | 蓄積={self._stats['historical_updates']} 速報={self._stats['realtime_updates']}")
+
                 last_display = now
 
             self._stop_event.wait(timeout=10)
@@ -970,7 +1112,10 @@ class BackgroundUpdater:
             # トリガーファイルをチェック
             if self._check_and_process_trigger():
                 now = datetime.now()
-                print(f"[{now.strftime('%H:%M:%S')}] 強制更新完了")
+                if RICH_AVAILABLE:
+                    console.print(f"[dim][{now.strftime('%H:%M:%S')}][/dim] [green]強制更新完了[/green]")
+                else:
+                    print(f"[{now.strftime('%H:%M:%S')}] 強制更新完了")
 
             # 1秒間隔でチェック
             if self._stop_event.wait(timeout=1):
@@ -1011,7 +1156,11 @@ class BackgroundUpdater:
 
         # トリガー検出ログ
         now = datetime.now()
-        print(f"\n[{now.strftime('%H:%M:%S')}] 強制更新トリガーを検出 ({content})")
+        if RICH_AVAILABLE:
+            console.print()
+            console.print(f"[dim][{now.strftime('%H:%M:%S')}][/dim] [bold yellow]強制更新トリガーを検出[/bold yellow] [dim]({content})[/dim]")
+        else:
+            print(f"\n[{now.strftime('%H:%M:%S')}] 強制更新トリガーを検出 ({content})")
         logger.info(f"Forced update trigger detected: {content}")
 
         self._stats["forced_updates"] += 1
@@ -1031,13 +1180,13 @@ class BackgroundUpdater:
         # 多重起動防止チェック
         if self._historical_updating.is_set():
             logger.warning("Historical update already in progress, skipping")
-            print("  [スキップ] 蓄積系更新が既に実行中です")
+            self._print_status("[yellow]スキップ[/yellow] 蓄積系更新が既に実行中です", "yellow")
             return
 
         # JV-Link排他制御ロック取得
         if not self._jvlink_lock.acquire(blocking=False):
             logger.warning("JV-Link is busy (locked by another operation), skipping historical update")
-            print("  [スキップ] JV-Linkが他の処理で使用中です")
+            self._print_status("[yellow]スキップ[/yellow] JV-Linkが他の処理で使用中です", "yellow")
             return
 
         try:
@@ -1047,7 +1196,13 @@ class BackgroundUpdater:
             today = now.strftime("%Y%m%d")
             # データ欠損防止: to_dateを1年先に設定（差分更新で未来データも取得可能にする）
             future_date = (now + timedelta(days=365)).strftime("%Y%m%d")
-            print(f"\n[{now.strftime('%H:%M:%S')}] 蓄積系データ更新を開始...")
+
+            if RICH_AVAILABLE:
+                console.print()
+                console.print(f"[dim][{now.strftime('%H:%M:%S')}][/dim] [bold cyan]蓄積系データ更新[/bold cyan]")
+            else:
+                print(f"\n[{now.strftime('%H:%M:%S')}] 蓄積系データ更新を開始...")
+
             logger.info("Starting historical data update", from_date=today, to_date=future_date)
 
             success_count = 0
@@ -1056,8 +1211,6 @@ class BackgroundUpdater:
             for spec, description in self.HISTORICAL_SPECS:
                 if not self._running:
                     break
-
-                print(f"  {spec}: {description}...", end=" ", flush=True)
 
                 process = None
                 try:
@@ -1087,24 +1240,24 @@ class BackgroundUpdater:
                         logger.warning(f"Process timeout for {spec}, killing process")
                         process.kill()
                         process.wait()  # ゾンビプロセス防止
-                        print("タイムアウト")
+                        self._print_update_result(spec, description, False, "タイムアウト")
                         error_count += 1
                         continue
 
                     if returncode == 0:
-                        print("OK")
+                        self._print_update_result(spec, description, True)
                         success_count += 1
                     else:
                         if "no data" in stdout.lower() or "データなし" in stdout:
-                            print("(データなし)")
+                            self._print_update_result(spec, description, True, "データなし")
                             success_count += 1
                         else:
-                            print("NG")
+                            self._print_update_result(spec, description, False)
                             error_count += 1
                             logger.error(f"Failed to update {spec}", stderr=stderr[:200] if stderr else "")
 
                 except Exception as e:
-                    print(f"エラー: {e}")
+                    self._print_update_result(spec, description, False, str(e)[:50])
                     error_count += 1
                     logger.error(f"Exception during historical update for {spec}", error=str(e))
                     # プロセスがまだ動いていたらkill
@@ -1116,7 +1269,14 @@ class BackgroundUpdater:
             self._stats["historical_errors"] += error_count
             self._stats["last_historical_update"] = datetime.now()
 
-            print(f"  完了: 成功={success_count}, エラー={error_count}")
+            if RICH_AVAILABLE:
+                if error_count == 0:
+                    console.print(f"  [green]完了[/green]: 成功=[green]{success_count}[/green]")
+                else:
+                    console.print(f"  [yellow]完了[/yellow]: 成功=[green]{success_count}[/green], エラー=[red]{error_count}[/red]")
+            else:
+                print(f"  完了: 成功={success_count}, エラー={error_count}")
+
             logger.info("Historical update completed", success=success_count, errors=error_count)
 
             # スケジュール更新（YSCHが更新された可能性）
@@ -1147,12 +1307,12 @@ class BackgroundUpdater:
             success_count = 0
             error_count = 0
 
+            # 速報系データ取得（YYYYMMDD形式）
             for spec, description in self.REALTIME_SPECS:
                 if not self._running:
                     break
 
                 try:
-                    # RealtimeFetcherを使用
                     from src.fetcher.realtime import RealtimeFetcher
                     from src.database.sqlite_handler import SQLiteDatabase
                     from src.importer.importer import DataImporter
@@ -1184,21 +1344,109 @@ class BackgroundUpdater:
 
                 except Exception as e:
                     error_count += 1
-                    # エラーログレベルをdebugからwarningに変更
                     logger.warning(f"Realtime update error for {spec}: {e}")
+
+            # 時系列データ取得（YYYYMMDDJJRR形式） - 次のレースのオッズを取得
+            time_series_count = self._run_time_series_update()
+            success_count += time_series_count
 
             self._stats["realtime_updates"] += 1
             self._stats["realtime_errors"] += error_count
             self._stats["last_realtime_update"] = datetime.now()
 
             if success_count > 0:
-                print(f"[{now.strftime('%H:%M:%S')}] 速報更新: {success_count}件 ({reason})")
+                if RICH_AVAILABLE:
+                    console.print(f"[dim][{now.strftime('%H:%M:%S')}][/dim] [magenta]速報更新[/magenta]: [green]{success_count}件[/green] [dim]({reason})[/dim]")
+                else:
+                    print(f"[{now.strftime('%H:%M:%S')}] 速報更新: {success_count}件 ({reason})")
 
             logger.info("Realtime update completed", records=success_count, errors=error_count, reason=reason)
 
         finally:
             self._realtime_updating.clear()
             self._jvlink_lock.release()
+
+    def _run_time_series_update(self) -> int:
+        """時系列データ（オッズ・票数）の取得
+
+        次のレースのオッズデータを取得します。
+        時系列データはYYYYMMDDJJRR形式のkeyが必要です。
+
+        Returns:
+            int: 取得したレコード数
+        """
+        # 次のレースがなければスキップ
+        next_race = self.schedule_manager.get_next_race()
+        if not next_race:
+            logger.debug("No next race, skipping time series update")
+            return 0
+
+        # レース1時間前からオッズ取得開始
+        now = datetime.now()
+        time_to_race = (next_race['race_time'] - now).total_seconds()
+        if time_to_race > 60 * 60:  # 1時間以上先
+            logger.debug("Next race is more than 1 hour away, skipping time series update")
+            return 0
+
+        jyo_code = next_race['jyo_cd']
+        race_num = next_race['race_num']
+        date = now.strftime("%Y%m%d")
+
+        logger.info(
+            "Fetching time series data for next race",
+            track=next_race['jyo_name'],
+            race_num=race_num,
+            time_to_race=int(time_to_race // 60),
+        )
+
+        success_count = 0
+
+        try:
+            from src.fetcher.realtime import RealtimeFetcher
+            from src.database.sqlite_handler import SQLiteDatabase
+            from src.importer.importer import DataImporter
+
+            db = SQLiteDatabase({"path": str(self.db_path)})
+
+            with db:
+                fetcher = RealtimeFetcher(sid="BGUPDATE")
+                importer = DataImporter(db, batch_size=1000)
+
+                # 単勝・複勝オッズを優先取得（0B30, 0B31）
+                priority_specs = [("0B30", "単勝オッズ"), ("0B31", "複勝・枠連オッズ")]
+
+                for spec, description in priority_specs:
+                    if not self._running:
+                        break
+
+                    try:
+                        records = []
+                        for record in fetcher.fetch_time_series(
+                            data_spec=spec,
+                            jyo_code=jyo_code,
+                            race_num=int(race_num),
+                            date=date,
+                        ):
+                            records.append(record)
+
+                        if records:
+                            importer.import_records(iter(records), auto_commit=True)
+                            success_count += len(records)
+                            logger.debug(f"Time series {spec}: {len(records)} records")
+
+                    except Exception as e:
+                        error_str = str(e)
+                        # 契約外・データなしエラーはスキップ
+                        if '-111' in error_str or '-114' in error_str or '-115' in error_str:
+                            continue
+                        if '契約' in error_str or 'no data' in error_str.lower():
+                            continue
+                        logger.warning(f"Time series update error for {spec}: {e}")
+
+        except Exception as e:
+            logger.warning(f"Time series update failed: {e}")
+
+        return success_count
 
 
 def main():

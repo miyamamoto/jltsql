@@ -77,6 +77,7 @@ DATA_SPEC_O6 = "O6"  # 3連単オッズ
 
 # 速報系データ (0B1x系) - JRA-VAN公式仕様に基づく
 # 参照: JV-Data仕様書、EveryDB2マニュアル表5.1-1
+# 注意: 速報系はYYYYMMDD形式のkeyを使用（日付単位）
 JVRTOPEN_SPEED_REPORT_SPECS = {
     "0B11": "速報馬体重",              # WH: 馬体重情報
     "0B12": "速報レース情報・払戻",     # RA, SE, HR: 成績確定後
@@ -85,23 +86,29 @@ JVRTOPEN_SPEED_REPORT_SPECS = {
     "0B15": "速報レース情報",          # RA, SE, HR: 出走馬名表～
     "0B16": "速報開催情報・変更",       # WE, AV, JC, TC, CC: 騎手変更等
     "0B17": "対戦型データマイニング予想", # TM: 対戦型データマイニング
-    "0B30": "速報オッズ・全賭式",       # O1-O6: 全賭式オッズ
-    "0B31": "速報オッズ・単複枠",       # O1: 単勝・複勝・枠連
     "0B41": "騎手変更情報",            # RC: 騎手変更（個別）
     "0B42": "調教師変更情報",          # TC: 調教師変更（個別）
     "0B51": "コース情報",              # CS: コース情報
 }
+# 注意: 0B30, 0B31 はオッズデータで、YYYYMMDDJJRR形式のkeyが必要（時系列データ）
+# 速報系のYYYYMMDD形式では-114エラーになるため、時系列専用として定義
 
 # 時系列データ (0B2x-0B3x系) - 継続更新オッズ・票数
 # 注意: 時系列データはYYYYMMDDJJRR形式のkeyが必要（レース単位）
+#
+# 公式情報 (https://developer.jra-van.jp/t/topic/112):
+#   - 公式提供期間: 過去1年間
+#   - 実際の遡及可能期間: 2003年10月4日まで（保証外）
+#   - JV-Link速報系データ: 1週間分のみ保存
+#   - 多くのユーザーは独自に蓄積している
 JVRTOPEN_TIME_SERIES_SPECS = {
     "0B20": "票数情報",           # H1, H6: 票数
     "0B30": "単勝オッズ",         # O1: 単勝
-    "0B31": "複勝・枠連オッズ",    # O1, O2: 複勝・枠連
-    "0B32": "馬連オッズ",         # O3: 馬連
-    "0B33": "ワイドオッズ",       # O4: ワイド
-    "0B34": "馬単オッズ",         # O5: 馬単
-    "0B35": "3連複オッズ",        # O6: 3連複
+    "0B31": "複勝・枠連オッズ",    # O1, O2: 複勝+枠連
+    "0B32": "馬連オッズ",         # O2: 馬連  ※O3ではない
+    "0B33": "ワイドオッズ",       # O3: ワイド ※O4ではない
+    "0B34": "馬単オッズ",         # O4: 馬単  ※O5ではない
+    "0B35": "3連複オッズ",        # O5: 3連複 ※O6ではない
     "0B36": "3連単オッズ",        # O6: 3連単
 }
 
@@ -142,9 +149,9 @@ JVRTOPEN_DATA_SPECS = (
 )
 
 # 便利な定数
-DATA_SPEC_RT_RACE = "0B12"     # 速報レース情報
-DATA_SPEC_RT_WEIGHT = "0B16"   # 速報馬体重 (0B15→0B16に修正)
-DATA_SPEC_RT_PAYOUT = "0B15"   # 速報払戻
+DATA_SPEC_RT_RACE = "0B12"     # 速報レース情報・払戻
+DATA_SPEC_RT_WEIGHT = "0B11"   # 速報馬体重 (WH)
+DATA_SPEC_RT_EVENT = "0B14"    # 速報開催情報・一括
 DATA_SPEC_RT_ODDS = "0B30"     # 時系列オッズ（単勝）
 DATA_SPEC_RT_VOTES = "0B20"    # 時系列票数
 
@@ -162,6 +169,64 @@ def is_time_series_spec(data_spec: str) -> bool:
 def is_valid_jvrtopen_spec(data_spec: str) -> bool:
     """Check if data_spec is valid for JVRTOpen."""
     return data_spec in JVRTOPEN_DATA_SPECS
+
+
+def generate_time_series_key(date: str, jyo_code: str, race_num: int) -> str:
+    """Generate YYYYMMDDJJRR format key for time series data.
+
+    Args:
+        date: Date in YYYYMMDD format (e.g., "20251130")
+        jyo_code: Track code (01-10)
+        race_num: Race number (1-12)
+
+    Returns:
+        Key in YYYYMMDDJJRR format (e.g., "202511300511")
+
+    Raises:
+        ValueError: If parameters are invalid
+
+    Examples:
+        >>> generate_time_series_key("20251130", "05", 11)
+        '202511300511'
+    """
+    # Validate date format
+    if not isinstance(date, str) or len(date) != 8 or not date.isdigit():
+        raise ValueError(f"Invalid date format: {date}. Must be YYYYMMDD format.")
+
+    # Validate jyo_code
+    if jyo_code not in JYO_CODES:
+        raise ValueError(f"Invalid jyo_code: {jyo_code}. Must be 01-10.")
+
+    # Validate race_num
+    if not isinstance(race_num, int) or not (1 <= race_num <= 12):
+        raise ValueError(f"Invalid race_num: {race_num}. Must be integer 1-12.")
+
+    return f"{date}{jyo_code}{race_num:02d}"
+
+
+def get_all_race_keys_for_date(date: str) -> list:
+    """Generate all possible race keys for a given date.
+
+    Generates keys for all 10 tracks and 12 races each.
+
+    Args:
+        date: Date in YYYYMMDD format
+
+    Returns:
+        List of 120 keys in YYYYMMDDJJRR format
+
+    Examples:
+        >>> keys = get_all_race_keys_for_date("20251130")
+        >>> len(keys)
+        120
+        >>> keys[0]
+        '202511300101'
+    """
+    keys = []
+    for jyo_code in sorted(JYO_CODES.keys()):
+        for race_num in range(1, 13):
+            keys.append(generate_time_series_key(date, jyo_code, race_num))
+    return keys
 
 
 # JVOpen データ種別とoption対応表

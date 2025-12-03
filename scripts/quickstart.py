@@ -298,18 +298,50 @@ def _check_jvlink_service_key() -> tuple[bool, str]:
         return False, f"JV-Link未インストール: {e}"
 
 
-def _interactive_setup_rich() -> dict:
-    """Rich UIで対話形式設定"""
-    console.clear()
+# マスコット - シンプルな絵文字ベース
+HORSE_EMOJI = "🐴"
+HORSE_EMOJI_HAPPY = "🐴✨"
+HORSE_EMOJI_SAD = "🐴💦"
+HORSE_EMOJI_WORK = "🐴💨"
+
+
+def _get_version() -> str:
+    """Gitタグからバージョンを取得"""
+    import subprocess
+    try:
+        # git describe でタグからバージョン取得
+        result = subprocess.run(
+            ["git", "describe", "--tags", "--abbrev=0"],
+            capture_output=True,
+            text=True,
+            cwd=project_root,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return "dev"
+
+
+def _print_header_rich():
+    """ヘッダー表示（馬絵文字付き）"""
+    version = _get_version()
     console.print()
     console.print(Panel(
-        "[bold]JRA-VAN DataLab -> SQLite[/bold]\n"
+        f"[bold]{HORSE_EMOJI} JLTSQL[/bold] [dim]{version}[/dim]\n"
+        "[white]JRA-VAN DataLab → SQLite[/white]\n"
         "[dim]競馬データベース自動セットアップ[/dim]",
-        title="[bold blue]JLTSQL[/bold blue]",
         border_style="blue",
         padding=(1, 2),
     ))
     console.print()
+
+
+def _interactive_setup_rich() -> dict:
+    """Rich UIで対話形式設定"""
+    console.clear()
+    _print_header_rich()
 
     settings = {}
 
@@ -341,22 +373,22 @@ def _interactive_setup_rich() -> dict:
     mode_table = Table(show_header=True, box=box.SIMPLE, padding=(0, 1))
     mode_table.add_column("No", style="cyan", width=3, justify="center")
     mode_table.add_column("モード", width=6)
-    mode_table.add_column("対象データ", width=35)
+    mode_table.add_column("対象データ", width=40)
     mode_table.add_column("期間", width=18)
 
     mode_table.add_row(
         "1", "簡易",
-        "RACE, DIFF\n[dim](レース結果・馬情報)[/dim]",
+        "RACE, DIFF\n[dim](レース結果・確定オッズ・馬情報)[/dim]",
         "全期間\n[dim](1986年〜)[/dim]"
     )
     mode_table.add_row(
         "2", "標準",
-        "簡易 + BLOD,YSCH,TOKU,SNAP,SLOP,HOYU,HOSE\n[dim](血統・調教・スケジュール等)[/dim]",
+        "簡易 + BLOD,YSCH,TOKU,SLOP,HOYU,HOSE等\n[dim](血統・調教・スケジュール等)[/dim]",
         "全期間\n[dim](1986年〜)[/dim]"
     )
     mode_table.add_row(
         "3", "フル",
-        "標準 + O1〜O6\n[dim](確定オッズ)[/dim]",
+        "標準 + MING,WOOD,COMM\n[dim](マイニング・調教詳細・解説)[/dim]",
         "全期間\n[dim](1986年〜)[/dim]"
     )
 
@@ -426,16 +458,87 @@ def _interactive_setup_rich() -> dict:
 
     console.print()
 
-    # 速報系データの取得
-    console.print("[bold]2. 速報系データ[/bold]")
-    console.print("[dim]過去約1週間分のリアルタイムデータ（オッズ変動・馬体重等）[/dim]")
+    # 時系列オッズの取得
+    console.print("[bold]2. オッズ変動履歴の取得[/bold]")
+    console.print("[dim]過去のレースで、発売開始から締切までオッズがどう変化したかを記録したデータです。[/dim]")
+    console.print("[dim]例: 発売開始時は10倍だった馬が、締切時には3倍になった、など[/dim]")
     console.print()
-    settings['include_realtime'] = Confirm.ask("速報系データも取得しますか？", default=False)
+
+    ts_table = Table(show_header=False, box=None, padding=(0, 1))
+    ts_table.add_column("Key", style="dim", width=12)
+    ts_table.add_column("Value", style="white")
+    ts_table.add_row("取得可能期間", "[cyan]過去1年間[/cyan]")
+    ts_table.add_row("用途", "オッズ分析・予想の参考に")
+    console.print(ts_table)
+    console.print()
+
+    settings['include_timeseries'] = Confirm.ask("オッズ変動履歴を取得しますか？", default=False)
+
+    if settings['include_timeseries']:
+        console.print()
+        console.print("[dim]取得期間を選択してください:[/dim]")
+        console.print("  [cyan]1[/cyan]. 過去1ヶ月")
+        console.print("  [cyan]2[/cyan]. 過去3ヶ月")
+        console.print("  [cyan]3[/cyan]. 過去6ヶ月")
+        console.print("  [cyan]4[/cyan]. 過去1年間 [dim](推奨)[/dim]")
+        console.print("  [cyan]5[/cyan]. カスタム期間")
+        console.print()
+
+        while True:
+            choice = Prompt.ask("選択", default="4")
+            if choice == "1":
+                settings['timeseries_months'] = 1
+                break
+            elif choice == "2":
+                settings['timeseries_months'] = 3
+                break
+            elif choice == "3":
+                settings['timeseries_months'] = 6
+                break
+            elif choice == "4":
+                settings['timeseries_months'] = 12
+                break
+            elif choice == "5":
+                months_str = Prompt.ask("何ヶ月分取得しますか？ (1-24)", default="12")
+                try:
+                    months = int(months_str)
+                    if months < 1:
+                        months = 1
+                    if months > 12:
+                        console.print()
+                        console.print(Panel(
+                            f"[yellow]警告: {months}ヶ月分は非常に時間がかかります[/yellow]\n"
+                            "[dim]1年以上前のデータは公式サポート外です。\n"
+                            "APIコールが多いため、数時間かかる可能性があります。[/dim]",
+                            border_style="yellow",
+                        ))
+                        if not Confirm.ask("本当に続行しますか？", default=False):
+                            settings['timeseries_months'] = 12
+                            console.print("[dim]1年間に設定しました[/dim]")
+                            break
+                    settings['timeseries_months'] = months
+                    break
+                except ValueError:
+                    console.print("[red]数値を入力してください[/red]")
+            else:
+                console.print("[red]1-5の数字を入力してください[/red]")
+    else:
+        settings['timeseries_months'] = 12  # デフォルト
+
+    console.print()
+
+    # 速報系データの取得
+    console.print("[bold]3. 当日レース情報の取得[/bold]")
+    console.print("[dim]レース当日に更新される情報を取得します。[/dim]")
+    console.print("[dim]含まれる情報: 馬体重、出走取消、騎手変更、天候・馬場状態など[/dim]")
+    console.print()
+    settings['include_realtime'] = Confirm.ask("当日レース情報を取得しますか？", default=False)
     console.print()
 
     # バックグラウンド更新
-    console.print("[bold]3. バックグラウンド更新[/bold]")
-    console.print("[dim]蓄積系データの定期更新（30分毎）と速報系データの監視[/dim]")
+    console.print("[bold]4. 自動更新サービス[/bold]")
+    console.print("[dim]データを自動で最新に保つバックグラウンドサービスです。[/dim]")
+    console.print("[dim]起動しておくと、新しいレース情報やオッズが自動的にDBに追加されます。[/dim]")
     console.print()
 
     # 既存のバックグラウンドプロセスをチェック
@@ -480,7 +583,7 @@ def _interactive_setup_rich() -> dict:
 
     # 自動起動設定（バックグラウンドが有効または継続の場合のみ）
     if settings.get('enable_background') or settings.get('keep_existing_background'):
-        console.print("[bold]4. Windows起動時の自動起動[/bold]")
+        console.print("[bold]5. Windows起動時の自動起動[/bold]")
         if auto_start_enabled:
             console.print("[dim]現在: [green]有効[/green] (Windowsスタートアップに登録済み)[/dim]")
         else:
@@ -526,14 +629,15 @@ def _interactive_setup_rich() -> dict:
     confirm_table.add_column("Key", style="dim")
     confirm_table.add_column("Value", style="white")
 
-    confirm_table.add_row("モード", settings['mode_name'])
-    confirm_table.add_row("速報系", "[green]取得[/green]" if settings.get('include_realtime') else "[dim]なし[/dim]")
+    confirm_table.add_row("取得モード", settings['mode_name'])
+    confirm_table.add_row("オッズ変動履歴", "[green]取得する[/green]" if settings.get('include_timeseries') else "[dim]取得しない[/dim]")
+    confirm_table.add_row("当日レース情報", "[green]取得する[/green]" if settings.get('include_realtime') else "[dim]取得しない[/dim]")
     if settings.get('keep_existing_background'):
-        confirm_table.add_row("定期更新", "[cyan]継続（既存プロセス）[/cyan]")
+        confirm_table.add_row("自動更新", "[cyan]起動中（継続）[/cyan]")
     else:
-        confirm_table.add_row("定期更新", "[green]開始[/green]" if settings.get('enable_background') else "[dim]なし[/dim]")
+        confirm_table.add_row("自動更新", "[green]起動する[/green]" if settings.get('enable_background') else "[dim]起動しない[/dim]")
     if settings.get('auto_start'):
-        confirm_table.add_row("自動起動", "[green]有効[/green]")
+        confirm_table.add_row("PC起動時に自動起動", "[green]有効[/green]")
 
     console.print(confirm_table)
     console.print()
@@ -579,11 +683,11 @@ def _interactive_setup_simple() -> dict:
     # セットアップモード
     print("1. セットアップモードを選択してください:")
     print()
-    print("   No  モード  対象データ                          期間")
-    print("   ──────────────────────────────────────────────────────────")
-    print("   1)  簡易    RACE,DIFF (レース結果・馬情報)       全期間(1986年〜)")
-    print("   2)  標準    簡易+BLOD,YSCH,TOKU,SNAP等           全期間(1986年〜)")
-    print("   3)  フル    標準+O1〜O6 (確定オッズ)             全期間(1986年〜)")
+    print("   No  モード  対象データ                                期間")
+    print("   ──────────────────────────────────────────────────────────────")
+    print("   1)  簡易    RACE,DIFF (レース結果・確定オッズ・馬情報)   全期間(1986年〜)")
+    print("   2)  標準    簡易+BLOD,YSCH,TOKU,SLOP等                   全期間(1986年〜)")
+    print("   3)  フル    標準+MING,WOOD,COMM (マイニング・解説等)     全期間(1986年〜)")
     if last_setup:
         last_date = datetime.fromisoformat(last_setup['timestamp'])
         print(f"   4)  更新    前回({last_setup.get('mode_name', '?')})と同じ          前回({last_date.strftime('%Y-%m-%d')})以降")
@@ -631,17 +735,75 @@ def _interactive_setup_simple() -> dict:
 
     print()
 
+    # 時系列オッズ
+    print("2. オッズ変動履歴を取得しますか？")
+    print("   過去のレースで、発売開始から締切までオッズがどう変化したかの記録です。")
+    print("   例: 発売開始時10倍だった馬が、締切時には3倍になった、など")
+    print()
+    print("   取得可能期間: 過去1年間")
+    print("   用途:         オッズ分析・予想の参考に")
+    print()
+    print("   [y/N]: ", end="")
+    timeseries_choice = input().strip().lower()
+    settings['include_timeseries'] = timeseries_choice in ('y', 'yes')
+
+    if settings['include_timeseries']:
+        print()
+        print("   取得期間を選択してください:")
+        print("     1) 過去1ヶ月")
+        print("     2) 過去3ヶ月")
+        print("     3) 過去6ヶ月")
+        print("     4) 過去1年間 (推奨)")
+        print("     5) カスタム期間")
+        print()
+        print("   [1-5, デフォルト=4]: ", end="")
+        period_choice = input().strip()
+
+        if period_choice == "1":
+            settings['timeseries_months'] = 1
+        elif period_choice == "2":
+            settings['timeseries_months'] = 3
+        elif period_choice == "3":
+            settings['timeseries_months'] = 6
+        elif period_choice == "5":
+            print("   何ヶ月分取得しますか？ (1-24): ", end="")
+            try:
+                months = int(input().strip())
+                if months < 1:
+                    months = 1
+                if months > 12:
+                    print()
+                    print("   [警告] {}ヶ月分は非常に時間がかかります".format(months))
+                    print("   1年以上前のデータは公式サポート外です。")
+                    print("   APIコールが多いため、数時間かかる可能性があります。")
+                    print()
+                    print("   本当に続行しますか？ [y/N]: ", end="")
+                    confirm = input().strip().lower()
+                    if confirm not in ('y', 'yes'):
+                        months = 12
+                        print("   1年間に設定しました")
+                settings['timeseries_months'] = months
+            except ValueError:
+                settings['timeseries_months'] = 12
+        else:
+            settings['timeseries_months'] = 12
+    else:
+        settings['timeseries_months'] = 12
+
+    print()
+
     # 速報系データ
-    print("2. 速報系データも取得しますか？")
-    print("   (過去約1週間分のオッズ変動・馬体重等)")
+    print("3. 当日レース情報を取得しますか？")
+    print("   レース当日に更新される情報（馬体重、出走取消、騎手変更など）")
     print("   [y/N]: ", end="")
     realtime_choice = input().strip().lower()
     settings['include_realtime'] = realtime_choice in ('y', 'yes')
     print()
 
     # バックグラウンド更新
-    print("3. バックグラウンド更新を開始しますか？")
-    print("   (蓄積系データの定期更新 + 速報系データの監視)")
+    print("4. 自動更新サービスを起動しますか？")
+    print("   データを自動で最新に保つバックグラウンドサービスです。")
+    print("   起動しておくと、新しいレース情報やオッズが自動的にDBに追加されます。")
     print()
 
     # 既存のバックグラウンドプロセスをチェック
@@ -724,14 +886,15 @@ def _interactive_setup_simple() -> dict:
     # 確認
     print("-" * 60)
     print("設定確認:")
-    print(f"  モード: {settings['mode_name']}")
-    print(f"  速報系: {'取得' if settings.get('include_realtime') else 'なし'}")
+    print(f"  取得モード:       {settings['mode_name']}")
+    print(f"  オッズ変動履歴:   {'取得する' if settings.get('include_timeseries') else '取得しない'}")
+    print(f"  当日レース情報:   {'取得する' if settings.get('include_realtime') else '取得しない'}")
     if settings.get('keep_existing_background'):
-        print("  定期更新: 継続（既存プロセス）")
+        print("  自動更新:         起動中（継続）")
     else:
-        print(f"  定期更新: {'開始' if settings.get('enable_background') else 'なし'}")
+        print(f"  自動更新:         {'起動する' if settings.get('enable_background') else '起動しない'}")
     if settings.get('auto_start'):
-        print("  自動起動: 有効")
+        print("  PC起動時に自動起動: 有効")
     print("-" * 60)
     print()
 
@@ -909,6 +1072,11 @@ class QuickstartRunner:
             self._print_summary_rich(success=False)
             return 1
 
+        # 時系列オッズ取得（オプション）
+        if self._should_fetch_timeseries():
+            if not self._run_fetch_timeseries_rich():
+                self.warnings.append("時系列オッズの取得に失敗（一部またはすべて）")
+
         # 速報系データ取得（オプション）
         if self._should_fetch_realtime():
             if not self._run_fetch_realtime_rich():
@@ -989,6 +1157,235 @@ class QuickstartRunner:
         """速報系データを取得するかどうか"""
         return self.settings.get('include_realtime', False)
 
+    def _should_fetch_timeseries(self) -> bool:
+        """時系列オッズを取得するかどうか"""
+        return self.settings.get('include_timeseries', False)
+
+    def _get_races_from_db(self, from_date: str, to_date: str) -> list:
+        """データベースから開催レース情報を取得
+
+        Args:
+            from_date: 開始日 (YYYYMMDD)
+            to_date: 終了日 (YYYYMMDD)
+
+        Returns:
+            [(date, jyo_code, race_num), ...] のリスト
+        """
+        import sqlite3
+        races = []
+        try:
+            conn = sqlite3.connect(str(self.db_path))
+            cursor = conn.cursor()
+
+            # NL_RAテーブルから開催情報を取得
+            # Year + MonthDay で日付を構成
+            query = """
+                SELECT DISTINCT
+                    Year || MonthDay as race_date,
+                    JyoCD,
+                    RaceNum
+                FROM NL_RA
+                WHERE Year || MonthDay >= ?
+                  AND Year || MonthDay <= ?
+                ORDER BY race_date, JyoCD, RaceNum
+            """
+            cursor.execute(query, (from_date, to_date))
+            races = [(row[0], row[1], int(row[2])) for row in cursor.fetchall()]
+            conn.close()
+        except Exception as e:
+            pass  # 開催情報取得エラーは無視（NL_RAにデータがない場合など）
+        return races
+
+    def _run_fetch_timeseries_rich(self) -> bool:
+        """時系列オッズ取得（Rich UI）
+
+        時系列オッズをTS_O1-O6テーブルに保存。
+        NL_RAから実際の開催情報を取得して、開催があるレースのみを対象に取得。
+        蓄積系データ取得（_run_fetch_all_rich）と同じUIデザインを使用。
+
+        NL_RAから実際の開催情報を取得するため、開催があるレースのみをフェッチします。
+        """
+        from datetime import datetime, timedelta
+
+        # 設定された期間を取得（デフォルト12ヶ月）
+        months = self.settings.get('timeseries_months', 12)
+        today = datetime.now()
+        start_date = today - timedelta(days=months * 30)  # 概算
+        from_date = start_date.strftime("%Y%m%d")
+        to_date = today.strftime("%Y%m%d")
+
+        # 期間の表示用テキスト
+        if months == 1:
+            period_text = "過去1ヶ月"
+        elif months == 12:
+            period_text = "過去1年間"
+        else:
+            period_text = f"過去{months}ヶ月"
+
+        # 時系列オッズスペック（0B30-0B36）
+        timeseries_specs = [
+            ("0B30", "単勝オッズ"),
+            ("0B31", "複勝・枠連オッズ"),
+            ("0B32", "馬連オッズ"),
+            ("0B33", "ワイドオッズ"),
+            ("0B34", "馬単オッズ"),
+            ("0B35", "3連複オッズ"),
+            ("0B36", "3連単オッズ"),
+        ]
+
+        # NL_RAから実際の開催レースを取得
+        races = self._get_races_from_db(from_date, to_date)
+        fallback_mode = False
+
+        if not races:
+            # フォールバック: NL_RAにデータがない場合は過去1週間に制限して全競馬場をスキャン
+            fallback_mode = True
+            fallback_days = 7
+            fallback_start = today - timedelta(days=fallback_days)
+            from_date = fallback_start.strftime("%Y%m%d")
+            period_text = f"過去{fallback_days}日間（フォールバック）"
+
+            # 全競馬場・全レースの組み合わせを生成
+            from src.jvlink.constants import JYO_CODES
+            races = []
+            current = fallback_start
+            while current <= today:
+                date_str = current.strftime("%Y%m%d")
+                for jyo_code in JYO_CODES.keys():
+                    for race_num in range(1, 13):
+                        races.append((date_str, jyo_code, race_num))
+                current += timedelta(days=1)
+
+            console.print()
+            console.print(Panel(
+                "[bold yellow]注意[/bold yellow]\n"
+                "NL_RAに開催情報がないため、フォールバックモードで動作します。\n"
+                f"期間を過去{fallback_days}日間に制限し、全競馬場をスキャンします。\n"
+                "[dim]※ 蓄積系データを取得すると最適化されます[/dim]",
+                border_style="yellow",
+            ))
+
+        total_specs = len(timeseries_specs)
+        total_races = len(races)
+
+        console.print()
+        console.print(Panel(
+            f"[bold]時系列オッズ取得[/bold] ({total_specs}スペック × {total_races}レース)\n"
+            f"[dim]期間: {from_date} 〜 {to_date}（{period_text}）[/dim]",
+            border_style="yellow",
+        ))
+
+        try:
+            from src.fetcher.realtime import RealtimeFetcher
+            from src.database.sqlite_handler import SQLiteDatabase
+            from src.realtime.updater import RealtimeUpdater
+            from src.jvlink.constants import JYO_CODES
+
+            db = SQLiteDatabase({"path": str(self.db_path)})
+
+            total_records = 0
+            success_count = 0
+            nodata_count = 0
+            skipped_count = 0
+            failed_count = 0
+
+            with db:
+                fetcher = RealtimeFetcher(sid="JLTSQL")
+                updater = RealtimeUpdater(db)
+
+                # 各スペックを順番に処理
+                for idx, (spec, desc) in enumerate(timeseries_specs, 1):
+                    # ヘッダー表示
+                    console.print(f"\n  [cyan]({idx}/{total_specs})[/cyan] [bold]{spec}[/bold]: {desc}")
+
+                    start_time = time.time()
+                    spec_records = 0
+                    status = "success"
+                    error_msg = ""
+                    race_count = 0
+
+                    try:
+                        # 開催レースごとに取得（進捗表示付き）
+                        for race_idx, (race_date, jyo_code, race_num) in enumerate(races, 1):
+                            race_count += 1
+                            # 進捗表示（同じ行を上書き）
+                            track_name = JYO_CODES.get(jyo_code, jyo_code)
+                            console.print(
+                                f"    [dim]{race_date} {track_name}{race_num}R[/dim] "
+                                f"[dim]({race_idx}/{total_races})[/dim]",
+                                end="\r"
+                            )
+
+                            try:
+                                for record in fetcher.fetch_time_series(
+                                    data_spec=spec,
+                                    jyo_code=jyo_code,
+                                    race_num=race_num,
+                                    date=race_date,
+                                ):
+                                    raw_buff = record.get("_raw", "")
+                                    if raw_buff:
+                                        updater.process_record(raw_buff, timeseries=True)
+                                        spec_records += 1
+                            except Exception as e:
+                                error_str = str(e)
+                                if '-111' in error_str or '-114' in error_str:
+                                    # 契約外はスキップ
+                                    status = "skipped"
+                                    error_msg = "契約外"
+                                    break
+                                # -1はデータなし（正常）
+                                elif '-1' not in error_str:
+                                    pass  # その他のエラーは無視
+
+                    except Exception as e:
+                        error_str = str(e)
+                        if '-111' in error_str or '-114' in error_str or '契約' in error_str:
+                            status = "skipped"
+                            error_msg = "データ提供サービス契約外"
+                        else:
+                            status = "failed"
+                            error_msg = error_str[:80]
+
+                    elapsed = time.time() - start_time
+
+                    # 行をクリアして結果表示
+                    console.print(" " * 80, end="\r")  # 進捗表示をクリア
+
+                    # ステータス表示
+                    if status == "success":
+                        if spec_records > 0:
+                            console.print(f"    [green]✓[/green] 完了: [bold]{spec_records:,}件[/bold]保存 [dim]({elapsed:.1f}秒)[/dim]")
+                            success_count += 1
+                        else:
+                            console.print(f"    [dim]- データなし[/dim] [dim]({elapsed:.1f}秒)[/dim]")
+                            nodata_count += 1
+                        total_records += spec_records
+                    elif status == "skipped":
+                        console.print(f"    [yellow]⚠[/yellow] 契約外 [dim]({elapsed:.1f}秒)[/dim]")
+                        skipped_count += 1
+                        self.warnings.append(f"時系列{spec}: {error_msg}")
+                    else:
+                        console.print(f"    [red]✗[/red] エラー [dim]({elapsed:.1f}秒)[/dim]")
+                        if error_msg:
+                            console.print(f"      [red]原因:[/red] {error_msg}")
+                        failed_count += 1
+
+            # 統計をself.statsに追加
+            self.stats['timeseries_success'] = success_count
+            self.stats['timeseries_nodata'] = nodata_count
+            self.stats['timeseries_skipped'] = skipped_count
+            self.stats['timeseries_failed'] = failed_count
+            self.stats['timeseries_records'] = total_records
+
+            return (success_count + nodata_count) > 0
+
+        except Exception as e:
+            console.print(f"\n    [red]✗[/red] 初期化エラー")
+            console.print(f"      [red]原因:[/red] {e}")
+            self.errors.append(f"時系列オッズ取得エラー: {e}")
+            return False
+
     def _run_fetch_all_rich(self) -> bool:
         """データ取得（Rich UI）- リアルタイム進捗表示"""
         specs_to_fetch = self._get_specs_for_mode()
@@ -1041,7 +1438,8 @@ class QuickstartRunner:
 
         if success:
             console.print(Panel(
-                "[bold green]セットアップ完了！[/bold green]",
+                f"[bold green]{HORSE_EMOJI_HAPPY} セットアップ完了！[/bold green]\n"
+                "[dim]お疲れ様でした[/dim]",
                 border_style="green",
             ))
 
@@ -1075,7 +1473,8 @@ class QuickstartRunner:
                 console.print("  [cyan]jltsql monitor --stop[/cyan] - 監視停止")
         else:
             console.print(Panel(
-                "[bold red]セットアップ失敗[/bold red]",
+                f"[bold red]{HORSE_EMOJI_SAD} セットアップ失敗[/bold red]\n"
+                "[dim]エラーを確認してください[/dim]",
                 border_style="red",
             ))
 
@@ -1778,6 +2177,10 @@ def main():
 
     parser.add_argument("--mode", choices=["simple", "standard", "full", "update"], default=None,
                         help="セットアップモード: simple(簡易), standard(標準), full(フル), update(更新)")
+    parser.add_argument("--include-timeseries", action="store_true",
+                        help="時系列オッズを取得（オッズ推移→TS_O1-O6テーブル）")
+    parser.add_argument("--timeseries-months", type=int, default=12,
+                        help="時系列オッズの取得期間（月数、デフォルト: 12）。12以上は非推奨")
     parser.add_argument("--include-realtime", action="store_true",
                         help="速報系データも取得（過去約1週間分）")
     parser.add_argument("--background", action="store_true",
@@ -1843,6 +2246,10 @@ def main():
         settings['mode'] = mode
         mode_names = {'simple': '簡易', 'standard': '標準', 'full': 'フル', 'update': '更新'}
         settings['mode_name'] = mode_names[mode]
+
+        # 時系列オッズ取得オプション
+        settings['include_timeseries'] = args.include_timeseries
+        settings['timeseries_months'] = args.timeseries_months
 
         # 速報系データ取得オプション
         settings['include_realtime'] = args.include_realtime

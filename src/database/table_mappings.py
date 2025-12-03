@@ -117,3 +117,15 @@ JLTSQL_TO_JRAVAN: Dict[str, str] = {
 TABLE_TO_RECORD_TYPE: Dict[str, str] = {
     v: k for k, v in RECORD_TYPE_TO_TABLE.items()
 }
+
+# 時系列オッズ専用マッピング (TS_O1-O6)
+# 時系列データ取得時にHassoTimeを含むPRIMARY KEYでデータを保存
+# これにより複数時点のオッズ推移を記録可能
+TIMESERIES_RECORD_TYPE_TO_TABLE: Dict[str, str] = {
+    "O1": "TS_O1",  # 単複オッズ時系列
+    "O2": "TS_O2",  # 馬連オッズ時系列
+    "O3": "TS_O3",  # ワイドオッズ時系列
+    "O4": "TS_O4",  # 馬単オッズ時系列
+    "O5": "TS_O5",  # 三連複オッズ時系列
+    "O6": "TS_O6",  # 三連単オッズ時系列
+}

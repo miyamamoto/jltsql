@@ -2082,6 +2082,156 @@ SCHEMAS = {
             MaeDirtBabaCD TEXT,
             PRIMARY KEY (Year, MonthDay, JyoCD, Kaiji, Nichiji, HappyoTime, HenkoID)
         )
+    """,
+    # ========================================
+    # 時系列オッズテーブル (TS_O1-O6)
+    # オッズの推移を記録するための専用テーブル
+    # HassoTimeをPRIMARY KEYに含めて複数時点のデータを保持
+    # ========================================
+    "TS_O1": """
+        CREATE TABLE IF NOT EXISTS TS_O1 (
+            RecordSpec TEXT,
+            DataKubun TEXT,
+            MakeDate TEXT,
+            Year INTEGER,
+            MonthDay INTEGER,
+            JyoCD TEXT,
+            Kaiji INTEGER,
+            Nichiji INTEGER,
+            RaceNum INTEGER,
+            HassoTime TEXT,
+            TorokuTosu INTEGER,
+            SyussoTosu INTEGER,
+            TanFlag TEXT,
+            FukuFlag TEXT,
+            WakurenFlag TEXT,
+            FukuChakubaraiKey TEXT,
+            Umaban INTEGER,
+            TanOdds REAL,
+            TanNinki INTEGER,
+            FukuUmaban INTEGER,
+            FukuOddsLow REAL,
+            FukuOddsHigh REAL,
+            FukuNinki INTEGER,
+            Kumi TEXT,
+            WakurenOdds REAL,
+            WakurenNinki INTEGER,
+            TanVote INTEGER,
+            FukuVote INTEGER,
+            WakurenVote INTEGER,
+            PRIMARY KEY (Year, MonthDay, JyoCD, Kaiji, Nichiji, RaceNum, Umaban, HassoTime)
+        )
+    """,
+    "TS_O2": """
+        CREATE TABLE IF NOT EXISTS TS_O2 (
+            RecordSpec TEXT,
+            DataKubun TEXT,
+            MakeDate TEXT,
+            Year INTEGER,
+            MonthDay INTEGER,
+            JyoCD TEXT,
+            Kaiji INTEGER,
+            Nichiji INTEGER,
+            RaceNum INTEGER,
+            HassoTime TEXT,
+            TorokuTosu INTEGER,
+            SyussoTosu INTEGER,
+            UmarenFlag TEXT,
+            Kumi TEXT,
+            Odds REAL,
+            Ninki INTEGER,
+            Vote INTEGER,
+            PRIMARY KEY (Year, MonthDay, JyoCD, Kaiji, Nichiji, RaceNum, Kumi, HassoTime)
+        )
+    """,
+    "TS_O3": """
+        CREATE TABLE IF NOT EXISTS TS_O3 (
+            RecordSpec TEXT,
+            DataKubun TEXT,
+            MakeDate TEXT,
+            Year INTEGER,
+            MonthDay INTEGER,
+            JyoCD TEXT,
+            Kaiji INTEGER,
+            Nichiji INTEGER,
+            RaceNum INTEGER,
+            HassoTime TEXT,
+            TorokuTosu INTEGER,
+            SyussoTosu INTEGER,
+            WideFlag TEXT,
+            Kumi TEXT,
+            OddsLow REAL,
+            OddsHigh REAL,
+            Ninki INTEGER,
+            Vote INTEGER,
+            PRIMARY KEY (Year, MonthDay, JyoCD, Kaiji, Nichiji, RaceNum, Kumi, HassoTime)
+        )
+    """,
+    "TS_O4": """
+        CREATE TABLE IF NOT EXISTS TS_O4 (
+            RecordSpec TEXT,
+            DataKubun TEXT,
+            MakeDate TEXT,
+            Year INTEGER,
+            MonthDay INTEGER,
+            JyoCD TEXT,
+            Kaiji INTEGER,
+            Nichiji INTEGER,
+            RaceNum INTEGER,
+            HassoTime TEXT,
+            TorokuTosu INTEGER,
+            SyussoTosu INTEGER,
+            UmatanFlag TEXT,
+            Kumi TEXT,
+            Odds REAL,
+            Ninki INTEGER,
+            Vote INTEGER,
+            PRIMARY KEY (Year, MonthDay, JyoCD, Kaiji, Nichiji, RaceNum, Kumi, HassoTime)
+        )
+    """,
+    "TS_O5": """
+        CREATE TABLE IF NOT EXISTS TS_O5 (
+            RecordSpec TEXT,
+            DataKubun TEXT,
+            MakeDate TEXT,
+            Year INTEGER,
+            MonthDay INTEGER,
+            JyoCD TEXT,
+            Kaiji INTEGER,
+            Nichiji INTEGER,
+            RaceNum INTEGER,
+            HassoTime TEXT,
+            TorokuTosu INTEGER,
+            SyussoTosu INTEGER,
+            SanrenpukuFlag TEXT,
+            Kumi TEXT,
+            Odds REAL,
+            Ninki INTEGER,
+            Vote INTEGER,
+            PRIMARY KEY (Year, MonthDay, JyoCD, Kaiji, Nichiji, RaceNum, Kumi, HassoTime)
+        )
+    """,
+    "TS_O6": """
+        CREATE TABLE IF NOT EXISTS TS_O6 (
+            RecordSpec TEXT,
+            DataKubun TEXT,
+            MakeDate TEXT,
+            Year INTEGER,
+            MonthDay INTEGER,
+            JyoCD TEXT,
+            Kaiji INTEGER,
+            Nichiji INTEGER,
+            RaceNum INTEGER,
+            HassoTime TEXT,
+            TorokuTosu INTEGER,
+            SyussoTosu INTEGER,
+            SanrentanFlag TEXT,
+            Kumi TEXT,
+            Odds REAL,
+            Ninki INTEGER,
+            Vote INTEGER,
+            PRIMARY KEY (Year, MonthDay, JyoCD, Kaiji, Nichiji, RaceNum, Kumi, HassoTime)
+        )
     """
 }
 

@@ -83,6 +83,17 @@ class RealtimeUpdater:
         # 0B42: 調教師変更情報 - TCで対応済み
     }
 
+    # 時系列オッズ専用テーブルマッピング (TS_O1-O6)
+    # HassoTimeをPRIMARY KEYに含めて複数時点のデータを保持
+    TIMESERIES_RECORD_TYPE_TABLE = {
+        "O1": "TS_O1",  # 単複オッズ時系列
+        "O2": "TS_O2",  # 馬連オッズ時系列
+        "O3": "TS_O3",  # ワイドオッズ時系列
+        "O4": "TS_O4",  # 馬単オッズ時系列
+        "O5": "TS_O5",  # 三連複オッズ時系列
+        "O6": "TS_O6",  # 三連単オッズ時系列
+    }
+
     # Note: The following record types are NOT provided in real-time:
     # - TK (特別登録馬) - Accumulated data only
     # - UM, KS, CH, BR, BN, HN, SK (Master data) - Updated via DIFF/DIFN
@@ -101,11 +112,14 @@ class RealtimeUpdater:
 
         logger.info("RealtimeUpdater initialized")
 
-    def process_record(self, buff: str) -> Optional[Dict]:
+    def process_record(self, buff: str, timeseries: bool = False) -> Optional[Dict]:
         """Process real-time data record.
 
         Args:
             buff: Raw JV-Data record buffer
+            timeseries: If True, save odds data to TS_O* tables (time series)
+                       instead of RT_O* tables. This preserves odds history
+                       with HassoTime as part of the primary key.
 
         Returns:
             Dictionary with processing result, or None if failed
@@ -126,7 +140,12 @@ class RealtimeUpdater:
                 return None
 
             # Get table name
-            table_name = self.RECORD_TYPE_TABLE.get(record_type)
+            # For timeseries mode, use TS_O* tables for odds data
+            if timeseries and record_type in self.TIMESERIES_RECORD_TYPE_TABLE:
+                table_name = self.TIMESERIES_RECORD_TYPE_TABLE.get(record_type)
+            else:
+                table_name = self.RECORD_TYPE_TABLE.get(record_type)
+
             if not table_name:
                 logger.warning(f"Unknown record type: {record_type}")
                 return None
@@ -260,6 +279,14 @@ class RealtimeUpdater:
 
             # Change data - 騎手変更情報 (0B41)
             "RT_RC": ["Year", "MonthDay", "JyoCD", "Kaiji", "Nichiji", "RaceNum", "Umaban"],
+
+            # 時系列オッズ (HassoTimeを含むPRIMARY KEY)
+            "TS_O1": ["Year", "MonthDay", "JyoCD", "Kaiji", "Nichiji", "RaceNum", "Umaban", "HassoTime"],
+            "TS_O2": ["Year", "MonthDay", "JyoCD", "Kaiji", "Nichiji", "RaceNum", "Kumi", "HassoTime"],
+            "TS_O3": ["Year", "MonthDay", "JyoCD", "Kaiji", "Nichiji", "RaceNum", "Kumi", "HassoTime"],
+            "TS_O4": ["Year", "MonthDay", "JyoCD", "Kaiji", "Nichiji", "RaceNum", "Kumi", "HassoTime"],
+            "TS_O5": ["Year", "MonthDay", "JyoCD", "Kaiji", "Nichiji", "RaceNum", "Kumi", "HassoTime"],
+            "TS_O6": ["Year", "MonthDay", "JyoCD", "Kaiji", "Nichiji", "RaceNum", "Kumi", "HassoTime"],
 
             # Tables without explicit PRIMARY KEY in schema
             # These tables don't have PRIMARY KEY constraints defined
