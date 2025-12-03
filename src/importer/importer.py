@@ -452,19 +452,28 @@ class DataImporter:
         except DatabaseError as e:
             # Rollback failed batch transaction
             logger.warning(
-                f"Batch insert failed, rolling back and trying individual inserts",
+                f"Batch insert failed, trying individual inserts",
                 table=table_name,
                 error=str(e),
             )
 
+            # PostgreSQL (pg8000.native) uses autocommit mode and doesn't support rollback
+            # Only attempt rollback for databases that support it (e.g., SQLite)
             try:
-                self.database.rollback()
-            except Exception as rollback_error:
-                logger.error(
-                    "Rollback failed",
-                    table=table_name,
-                    error=str(rollback_error),
-                )
+                db_type = self.database.get_db_type()
+            except AttributeError:
+                # Fallback for databases without get_db_type() method
+                db_type = 'unknown'
+
+            if db_type != 'postgresql':
+                try:
+                    self.database.rollback()
+                except Exception as rollback_error:
+                    logger.debug(
+                        "Rollback failed (expected for PostgreSQL autocommit mode)",
+                        table=table_name,
+                        error=str(rollback_error),
+                    )
 
             # Try inserting one by one on batch failure
             success_count = 0

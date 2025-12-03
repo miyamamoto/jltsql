@@ -1973,7 +1973,7 @@ class QuickstartRunner:
             elif status == "nodata":
                 self.stats['specs_nodata'] += 1
                 spec_status[spec] = "nodata"
-                results.append(f"  [dim]-[/dim] {spec}: データなし")
+                results.append(f"  [dim]-[/dim] 最新です: {spec} - 新しいデータはありません")
             elif status == "skipped":
                 self.stats['specs_skipped'] += 1
                 spec_status[spec] = "skipped"
@@ -2190,7 +2190,7 @@ class QuickstartRunner:
                 print("OK")
             elif status == "nodata":
                 self.stats['specs_nodata'] += 1
-                print("(データなし)")
+                print(f"(最新です: {spec} - 新しいデータはありません)")
             elif status == "skipped":
                 self.stats['specs_skipped'] += 1
                 print("(契約外)")
@@ -2248,7 +2248,7 @@ class QuickstartRunner:
                 console.print(f"    [green]OK[/green] 完了 [dim]({elapsed:.1f}秒)[/dim]")
         elif status == "nodata":
             self.stats['specs_nodata'] += 1
-            console.print(f"    [dim]- データなし[/dim] [dim]({elapsed:.1f}秒)[/dim]")
+            console.print(f"    [dim]- 最新です: {spec} - 新しいデータはありません[/dim] [dim]({elapsed:.1f}秒)[/dim]")
         elif status == "skipped":
             self.stats['specs_skipped'] += 1
             console.print(f"    [yellow]![/yellow] 契約外 [dim]({elapsed:.1f}秒)[/dim]")
@@ -2274,7 +2274,7 @@ class QuickstartRunner:
         for idx, (spec, desc) in enumerate(speed_specs, 1):
             print(f"  [{idx}/{len(speed_specs)}] {spec}: {desc}...", end=" ", flush=True)
             status, _ = self._fetch_single_realtime_spec(spec)
-            self._print_realtime_status(status)
+            self._print_realtime_status(status, spec)
             time.sleep(0.3)
 
         # 時系列データ
@@ -2282,20 +2282,20 @@ class QuickstartRunner:
         for idx, (spec, desc) in enumerate(time_specs, 1):
             print(f"  [{idx}/{len(time_specs)}] {spec}: {desc}...", end=" ", flush=True)
             status, _ = self._fetch_single_realtime_spec(spec)
-            self._print_realtime_status(status)
+            self._print_realtime_status(status, spec)
             time.sleep(0.3)
 
         print(f"\n  取得成功: {self.stats['specs_success']}, データなし: {self.stats['specs_nodata']}, 契約外: {self.stats['specs_skipped']}, エラー: {self.stats['specs_failed']}")
         return (self.stats['specs_success'] + self.stats['specs_nodata']) > 0
 
-    def _print_realtime_status(self, status: str):
+    def _print_realtime_status(self, status: str, spec: str):
         """リアルタイム取得ステータスを表示"""
         if status == "success":
             self.stats['specs_success'] += 1
             print("OK")
         elif status == "nodata":
             self.stats['specs_nodata'] += 1
-            print("(データなし)")
+            print(f"(最新です: {spec} - 新しいデータはありません)")
         elif status == "skipped":
             self.stats['specs_skipped'] += 1
             print("(契約外)")
