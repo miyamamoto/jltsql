@@ -68,6 +68,55 @@ SPEC_DESCRIPTIONS = {
     "0B52": "票数（馬連）",
 }
 
+# スペックのカテゴリ分類
+SPEC_CATEGORIES = {
+    # 蓄積系データ（JVOpen: 1986年〜全期間）
+    "RACE": "蓄積系",
+    "DIFF": "蓄積系",
+    "BLOD": "蓄積系",
+    "SNAP": "蓄積系",
+    "SLOP": "蓄積系",
+    "WOOD": "蓄積系",
+    "YSCH": "蓄積系",
+    "HOSE": "蓄積系",
+    "HOYU": "蓄積系",
+    "CHOK": "蓄積系",
+    "KISI": "蓄積系",
+    "BRDR": "蓄積系",
+    "TOKU": "蓄積系",
+    "COMM": "蓄積系",
+    "PARA": "蓄積系",
+    "MING": "蓄積系",
+    # 速報系データ（JVRTOpen: 当日〜直近）
+    "0B11": "速報系",
+    "0B12": "速報系",
+    "0B13": "速報系",
+    "0B14": "速報系",
+    "0B15": "速報系",
+    "0B16": "速報系",
+    "0B17": "速報系",
+    "0B41": "速報系",
+    "0B42": "速報系",
+    "0B51": "速報系",
+    "0B52": "速報系",
+    # 時系列データ（JVRTOpen: 過去12ヶ月）
+    "0B20": "時系列",
+    "0B30": "時系列",
+    "0B31": "時系列",
+    "0B32": "時系列",
+    "0B33": "時系列",
+    "0B34": "時系列",
+    "0B35": "時系列",
+    "0B36": "時系列",
+}
+
+# カテゴリごとの期間説明
+CATEGORY_PERIODS = {
+    "蓄積系": "1986年〜",
+    "速報系": "当日データ",
+    "時系列": "過去12ヶ月",
+}
+
 
 class CompactTimeColumn(ProgressColumn):
     """Compact time display showing elapsed/remaining."""
@@ -454,12 +503,19 @@ class JVLinkProgressDisplay:
         """
         # スペック名の日本語説明を取得
         description = SPEC_DESCRIPTIONS.get(spec, "")
+        # カテゴリと期間を取得
+        category = SPEC_CATEGORIES.get(spec, "")
+        period = CATEGORY_PERIODS.get(category, "") if category else ""
 
         self.console.print()
+        # フォーマット: ━━━ SPEC (説明) ━━━ [カテゴリ: 期間]
+        parts = [f"[bold blue]━━━[/] [bold white]{spec}[/]"]
         if description:
-            self.console.print(f"[bold blue]━━━[/] [bold white]{spec}[/] [dim]({description})[/] [bold blue]━━━[/]")
-        else:
-            self.console.print(f"[bold blue]━━━[/] [bold white]{spec}[/] [bold blue]━━━[/]")
+            parts.append(f"[dim]({description})[/]")
+        parts.append("[bold blue]━━━[/]")
+        if category and period:
+            parts.append(f"[cyan][{category}: {period}][/]")
+        self.console.print(" ".join(parts))
 
     @contextmanager
     def task_context(self, description: str, total: Optional[float] = None):
