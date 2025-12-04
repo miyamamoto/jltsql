@@ -10,11 +10,11 @@
 3. HTTP API - 外部サービスからの強制更新トリガー
 
 更新スケジュール:
-- 開催日・レース30分前〜発走: 30秒毎
-- 開催日・レース1時間前〜30分前: 1分毎
-- 開催日・発売中〜1時間前: 5分毎
-- 開催日・レース後: 10分毎（払戻確認まで）
-- 非開催日: 速報系更新なし、蓄積系は60分毎
+- 開催日・締め切り1分前〜発走: 2秒毎
+- 開催日・1時間前〜1分前: 60秒毎
+- 開催日・それ以外: 5分毎
+- 非開催日: 速報系更新なし
+- 蓄積系: 60分毎（開催日/非開催日とも）
 
 HTTP API (デフォルト: http://localhost:8765):
 - GET /trigger              - 全データ強制更新
@@ -825,22 +825,20 @@ class RaceScheduleManager:
             time_to_race = (next_race['race_time'] - now).total_seconds()
             race_info = f"{next_race['jyo_name']}{next_race['race_num']}R"
 
-            if time_to_race <= 30 * 60:  # 30分以内
-                return (30, f"レース30分前 ({race_info} {next_race['time_str']})")
-            elif time_to_race <= 60 * 60:  # 1時間以内
-                return (60, f"レース1時間前 ({race_info})")
+            if time_to_race <= 60:  # 締め切り1分前以内
+                return (2, f"締め切り直前 ({race_info} {next_race['time_str']})")
+            elif time_to_race <= 60 * 60:  # 締め切り1時間前以内
+                return (60, f"締め切り1時間前 ({race_info})")
             else:
-                return (300, f"発売中 ({race_info})")
+                return (300, f"開催中 ({race_info})")
 
         # 次のレースがない場合（全レース終了後）
         if current_race:
             time_since_race = (now - current_race['race_time']).total_seconds()
             if time_since_race <= 30 * 60:  # レース後30分以内
                 return (60, f"レース後 ({current_race['jyo_name']}{current_race['race_num']}R)")
-            else:
-                return (600, "払戻確認中")
 
-        return (600, "開催終了待ち")
+        return (300, "開催終了待ち")
 
     def get_status_display(self) -> str:
         """現在の状態を表示用文字列で返す"""
@@ -912,7 +910,7 @@ class BackgroundUpdater:
         self,
         update_historical: bool = True,
         monitor_realtime: bool = True,
-        historical_interval_minutes: int = 30,
+        historical_interval_minutes: int = 60,
         enable_api: bool = True,
         api_port: int = 8765,
         enable_rate_limit: bool = True,
@@ -998,7 +996,7 @@ class BackgroundUpdater:
 
         # 速報系監視
         if self.monitor_realtime:
-            rt_status = "[green]有効[/green] (発走30分前〜: 30秒, 1時間前〜: 1分, それ以前: 5分)"
+            rt_status = "[green]有効[/green] (締め切り1分前〜: 2秒, 1時間前〜: 60秒, それ以外: 5分)"
         else:
             rt_status = "[red]無効[/red]"
         table.add_row("速報系監視", rt_status)
@@ -1045,7 +1043,7 @@ class BackgroundUpdater:
         print("JLTSQL バックグラウンド更新サービス")
         print("=" * 70)
         print(f"  蓄積系更新: {'有効' if self.update_historical else '無効'} (間隔: {self.historical_interval_minutes}分)")
-        rt_detail = "(発走30分前〜: 30秒, 1時間前〜: 1分, それ以前: 5分)" if self.monitor_realtime else ""
+        rt_detail = "(締め切り1分前〜: 2秒, 1時間前〜: 60秒, それ以外: 5分)" if self.monitor_realtime else ""
         print(f"  速報系監視: {'有効' if self.monitor_realtime else '無効'} {rt_detail}")
         print(f"  HTTP API:   {api_status}")
         if self.enable_api and self.enable_rate_limit:
@@ -1275,12 +1273,8 @@ class BackgroundUpdater:
             if first_run:
                 first_run = False
             else:
-                # 開催日かどうかで間隔を変える
-                if self.schedule_manager.is_race_day():
-                    wait_minutes = self.historical_interval_minutes
-                else:
-                    wait_minutes = 60  # 非開催日は60分毎
-
+                # 常に設定値（デフォルト60分）で更新
+                wait_minutes = self.historical_interval_minutes
                 wait_seconds = wait_minutes * 60
                 logger.info(f"Waiting {wait_minutes} minutes until next historical update")
                 if self._stop_event.wait(timeout=wait_seconds):
@@ -1673,11 +1667,11 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 更新スケジュール:
-  開催日・レース30分前〜: 30秒毎（オッズ集中監視）
-  開催日・レース1時間前〜: 1分毎
-  開催日・発売中: 5分毎
-  開催日・レース後: 10分毎（払戻確認）
+  開催日・締め切り1分前〜: 2秒毎（オッズ集中監視）
+  開催日・1時間前〜1分前: 60秒毎
+  開催日・それ以外: 5分毎
   非開催日: 速報系更新なし
+  蓄積系: 60分毎（開催日/非開催日とも）
 
 HTTP API エンドポイント (デフォルト: http://localhost:8765):
   GET /trigger              全データ強制更新
@@ -1700,8 +1694,8 @@ HTTP API エンドポイント (デフォルト: http://localhost:8765):
     )
 
     parser.add_argument(
-        "--interval", type=int, default=30,
-        help="蓄積系データの更新間隔（分、デフォルト: 30）"
+        "--interval", type=int, default=60,
+        help="蓄積系データの更新間隔（分、デフォルト: 60）"
     )
     parser.add_argument(
         "--no-historical", action="store_true",
@@ -1729,7 +1723,7 @@ HTTP API エンドポイント (デフォルト: http://localhost:8765):
     )
     parser.add_argument(
         "--rate-limit-long", type=int, default=30,
-        help="長期レート制限（回/時、デフォルト: 30）"
+        help="長期レート制限（回/時、デフォルト: 60）"
     )
     parser.add_argument(
         "--trigger",

@@ -783,16 +783,51 @@ def _interactive_setup_rich() -> dict:
     if choice == "1":
         settings['mode'] = 'simple'
         settings['mode_name'] = '簡易'
-        settings['from_date'] = "19860101"
     elif choice == "2":
         settings['mode'] = 'standard'
         settings['mode_name'] = '標準'
-        settings['from_date'] = "19860101"
     elif choice == "3":
         settings['mode'] = 'full'
         settings['mode_name'] = 'フル'
-        settings['from_date'] = "19860101"
-    else:  # choice == "4" (更新モード)
+
+    # 更新モード以外は期間選択
+    if choice in ["1", "2", "3"]:
+        console.print()
+        console.print("[bold cyan]取得期間を選択してください[/bold cyan]")
+        console.print()
+
+        period_table = Table(show_header=True, header_style="bold", box=None)
+        period_table.add_column("No", width=4)
+        period_table.add_column("期間", width=20)
+        period_table.add_column("説明", width=40)
+
+        period_table.add_row("1", "直近1週間", "[dim]デバッグ・テスト用（高速）[/dim]")
+        period_table.add_row("2", "直近1ヶ月", "[dim]短期テスト用[/dim]")
+        period_table.add_row("3", "直近1年", "[dim]実用的な範囲[/dim]")
+        period_table.add_row("4", "直近5年", "[dim]中長期分析用[/dim]")
+        period_table.add_row("5", "全期間", "[dim]1986年〜（時間がかかります）[/dim]")
+
+        console.print(period_table)
+        console.print()
+
+        period_choice = Prompt.ask(
+            "選択",
+            choices=["1", "2", "3", "4", "5"],
+            default="3"
+        )
+
+        if period_choice == "1":
+            settings['from_date'] = (today - timedelta(days=7)).strftime("%Y%m%d")
+        elif period_choice == "2":
+            settings['from_date'] = (today - timedelta(days=30)).strftime("%Y%m%d")
+        elif period_choice == "3":
+            settings['from_date'] = (today - timedelta(days=365)).strftime("%Y%m%d")
+        elif period_choice == "4":
+            settings['from_date'] = (today - timedelta(days=365*5)).strftime("%Y%m%d")
+        else:
+            settings['from_date'] = "19860101"
+
+    if choice == "4":  # 更新モード
         settings['mode'] = 'update'
         settings['mode_name'] = '更新'
         # 前回のセットアップ情報を引き継ぐ
@@ -1160,16 +1195,41 @@ def _interactive_setup_simple() -> dict:
     if choice == "1":
         settings['mode'] = 'simple'
         settings['mode_name'] = '簡易'
-        settings['from_date'] = "19860101"
     elif choice == "2":
         settings['mode'] = 'standard'
         settings['mode_name'] = '標準'
-        settings['from_date'] = "19860101"
     elif choice == "3":
         settings['mode'] = 'full'
         settings['mode_name'] = 'フル'
-        settings['from_date'] = "19860101"
-    else:  # choice == "4" (更新モード)
+
+    # 更新モード以外は期間選択
+    if choice in ["1", "2", "3"]:
+        print()
+        print("取得期間を選択してください:")
+        print()
+        print("   1)  直近1週間   デバッグ・テスト用（高速）")
+        print("   2)  直近1ヶ月   短期テスト用")
+        print("   3)  直近1年     実用的な範囲")
+        print("   4)  直近5年     中長期分析用")
+        print("   5)  全期間      1986年〜（時間がかかります）")
+        print()
+
+        period_choice = input("選択 [3]: ").strip() or "3"
+        if period_choice not in ["1", "2", "3", "4", "5"]:
+            period_choice = "3"
+
+        if period_choice == "1":
+            settings['from_date'] = (today - timedelta(days=7)).strftime("%Y%m%d")
+        elif period_choice == "2":
+            settings['from_date'] = (today - timedelta(days=30)).strftime("%Y%m%d")
+        elif period_choice == "3":
+            settings['from_date'] = (today - timedelta(days=365)).strftime("%Y%m%d")
+        elif period_choice == "4":
+            settings['from_date'] = (today - timedelta(days=365*5)).strftime("%Y%m%d")
+        else:
+            settings['from_date'] = "19860101"
+
+    if choice == "4":  # 更新モード
         settings['mode'] = 'update'
         settings['mode_name'] = '更新'
         settings['last_setup'] = last_setup

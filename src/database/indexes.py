@@ -201,9 +201,9 @@ INDEXES = {
         "CREATE INDEX IF NOT EXISTS idx_rt_ra_date ON RT_RA(Year, MonthDay)",
         "CREATE INDEX IF NOT EXISTS idx_rt_ra_venue ON RT_RA(JyoCD)",
         "CREATE INDEX IF NOT EXISTS idx_rt_ra_race ON RT_RA(RaceNum)",
-        "CREATE INDEX IF NOT EXISTS idx_rt_ra_time ON RT_RA(HappyoTime)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_ra_time ON RT_RA(HassoTime)",
         # Real-time specific: recent data queries
-        "CREATE INDEX IF NOT EXISTS idx_rt_ra_venue_time ON RT_RA(JyoCD, HappyoTime)",
+        "CREATE INDEX IF NOT EXISTS idx_rt_ra_venue_time ON RT_RA(JyoCD, HassoTime)",
     ],
 
     "RT_AV": [
@@ -283,9 +283,9 @@ INDEXES = {
 
     "RT_WH": [
         # リアルタイム: 馬体重
+        # Note: RT_WH has no RaceNum column, only HappyoTime and HenkoID
         "CREATE INDEX IF NOT EXISTS idx_rt_wh_date ON RT_WH(Year, MonthDay)",
         "CREATE INDEX IF NOT EXISTS idx_rt_wh_venue ON RT_WH(JyoCD)",
-        "CREATE INDEX IF NOT EXISTS idx_rt_wh_race ON RT_WH(RaceNum)",
         "CREATE INDEX IF NOT EXISTS idx_rt_wh_time ON RT_WH(HappyoTime)",
     ],
 
