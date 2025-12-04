@@ -151,15 +151,17 @@ class StatsDisplay:
         self.fetched = 0
         self.parsed = 0
         self.failed = 0
+        self.skipped = 0
         self.inserted = 0
         self.speed: Optional[float] = None
 
     def update(self, fetched: int = 0, parsed: int = 0, failed: int = 0,
-               inserted: int = 0, speed: Optional[float] = None):
+               skipped: int = 0, inserted: int = 0, speed: Optional[float] = None):
         with self._lock:
             self.fetched = fetched
             self.parsed = parsed
             self.failed = failed
+            self.skipped = skipped
             self.inserted = inserted
             self.speed = speed
 
@@ -171,6 +173,9 @@ class StatsDisplay:
             # Build compact stats line
             parts.append(f"[bold cyan]取得[/]: [green]{self.fetched:,}[/]")
             parts.append(f"[bold cyan]成功[/]: [green]{self.parsed:,}[/]")
+
+            if self.skipped > 0:
+                parts.append(f"[bold yellow]スキップ[/]: [yellow]{self.skipped:,}[/]")
 
             if self.failed > 0:
                 parts.append(f"[bold red]失敗[/]: [red]{self.failed:,}[/]")
@@ -439,6 +444,7 @@ class JVLinkProgressDisplay:
         fetched: int = 0,
         parsed: int = 0,
         failed: int = 0,
+        skipped: int = 0,
         inserted: int = 0,
         speed: Optional[float] = None,
     ):
@@ -448,6 +454,7 @@ class JVLinkProgressDisplay:
             fetched: Number of records fetched
             parsed: Number of records parsed
             failed: Number of failed records
+            skipped: Number of records/specs skipped (e.g., contract not available)
             inserted: Number of records inserted to database
             speed: Processing speed (records/sec)
         """
@@ -455,6 +462,7 @@ class JVLinkProgressDisplay:
             fetched=fetched,
             parsed=parsed,
             failed=failed,
+            skipped=skipped,
             inserted=inserted,
             speed=speed,
         )

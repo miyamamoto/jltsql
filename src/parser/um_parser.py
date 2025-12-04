@@ -29,8 +29,8 @@ class UMParser:
     def decode_field(data: bytes) -> str:
         """バイトデータをデコードして文字列に変換"""
         try:
-            # Shift-JISでデコード、空白を除去
-            return data.decode("shift-jis", errors="ignore").strip()
+            # CP932でデコード、空白を除去
+            return data.decode("cp932", errors="replace").strip()
         except Exception:
             return ""
 

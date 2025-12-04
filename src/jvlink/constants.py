@@ -464,7 +464,7 @@ WEATHER_SNOW = "5"  # 雪
 WEATHER_LIGHT_SNOW = "6"  # 小雪
 
 # Encoding
-ENCODING_JVDATA = "shift_jis"  # JV-Data encoding
+ENCODING_JVDATA = "cp932"  # JV-Data encoding (Windows-31J / Shift_JIS with extensions)
 ENCODING_DATABASE = "utf-8"  # Database encoding
 
 # Buffer Sizes

@@ -80,7 +80,7 @@ class TestIndividualParsers:
         for record_type in ALL_RECORD_TYPES:
             length = record_lengths.get(record_type, 100)
             # RecordSpec(2) + DataKubun(1) + MakeDate(8) = 11バイト + 残りをスペースで埋める
-            data = record_type.encode('shift-jis')  # RecordSpec (2 bytes)
+            data = record_type.encode('cp932')  # RecordSpec (2 bytes)
             data += b'1'  # DataKubun (1 byte)
             data += b'20240601'  # MakeDate (8 bytes)
             # 残りのフィールドをスペースで埋める
@@ -179,7 +179,7 @@ class TestIndividualParsers:
         parser = parser_factory.get_parser(record_type)
 
         # 最小限の短いデータ（RecordSpec + DataKubun のみ）
-        short_data = record_type.encode('shift-jis') + b'1'
+        short_data = record_type.encode('cp932') + b'1'
 
         # パーサーによってはNoneを返すか、ログに警告を出す、または例外を発生させる
         try:
@@ -351,7 +351,7 @@ class TestParserEncodingHandling:
         return ParserFactory()
 
     def test_shift_jis_encoding(self, parser_factory):
-        """Shift-JISエンコーディングのテスト"""
+        """CP932エンコーディングのテスト"""
         parser = parser_factory.get_parser('RA')
 
         # 日本語を含むデータ
@@ -361,8 +361,8 @@ class TestParserEncodingHandling:
         data += b' ' * (32 - len(data))  # パディング
         # 競走名本題（日本語）
         race_name = 'テストレース'
-        data += race_name.encode('shift-jis')
-        data += b' ' * (60 - len(race_name.encode('shift-jis')))
+        data += race_name.encode('cp932')
+        data += b' ' * (60 - len(race_name.encode('cp932')))
         data += b' ' * (856 - len(data))  # 残りをスペースで埋める
 
         result = parser.parse(data)
@@ -387,7 +387,7 @@ class TestParserRobustness:
         parser = parser_factory.get_parser(record_type)
 
         # 正確な長さのデータを作成
-        data = record_type.encode('shift-jis')
+        data = record_type.encode('cp932')
         data += b'1'
         data += b'20240601'
         data += b' ' * (parser.RECORD_LENGTH - len(data))
@@ -404,7 +404,7 @@ class TestParserRobustness:
         parser = parser_factory.get_parser(record_type)
 
         # 長すぎるデータを作成
-        data = record_type.encode('shift-jis')
+        data = record_type.encode('cp932')
         data += b'1'
         data += b'20240601'
         data += b' ' * (parser.RECORD_LENGTH + 100)

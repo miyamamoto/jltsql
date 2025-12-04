@@ -147,11 +147,11 @@ class HistoricalFetcher(BaseFetcher):
                     "No data available from specified timestamp",
                     data_spec=data_spec,
                     fromtime=fromtime,
-                    note="No new data since this timestamp",
+                    note="No data on JRA-VAN server for this spec/period",
                 )
                 if self.progress_display:
                     self.progress_display.print_info(
-                        f"最新です: {data_spec} - 新しいデータはありません"
+                        f"{data_spec}: サーバーにデータなし"
                     )
                 return  # No data to fetch
 

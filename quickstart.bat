@@ -32,7 +32,7 @@ echo     jltsql --help   - その他のコマンド
 echo.
 echo   Claude Code / Claude Desktop をお使いの方へ:
 echo     MCP Server をインストールすると、AIから直接DBにアクセスできます
-echo     https://github.com/miyamamoto/jvlink-mcp-server/releases
+echo     https://github.com/miyamamoto/jvlink-mcp-server
 echo.
-echo   Enterキーを押すと終了します...
+echo   Enterキーを押すと終了します(この画面を閉じます)...
 set /p dummy=

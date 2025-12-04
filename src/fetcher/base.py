@@ -160,6 +160,8 @@ class BaseFetcher(ABC):
                                 continue
 
                             self._records_parsed += 1
+                            # Include raw buffer for callers that need it (e.g., RealtimeUpdater)
+                            data["_raw"] = buff
                             yield data
                         else:
                             self._records_failed += 1

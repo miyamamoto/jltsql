@@ -127,9 +127,14 @@ class BaseParser(ABC):
             raise ValueError("Empty record")
 
         # Decode record from Shift_JIS
+        # Use errors='replace' to handle invalid byte sequences gracefully
+        # instead of throwing an exception. Invalid sequences are replaced with '�'.
+        # This prevents data loss while preserving field positions.
         try:
-            record_str = record.decode(ENCODING_JVDATA)
+            record_str = record.decode(ENCODING_JVDATA, errors='replace')
         except UnicodeDecodeError as e:
+            # Fallback if errors='replace' somehow still fails
+            logger.warning(f"Failed to decode record with replacement: {e}")
             raise ValueError(f"Failed to decode record: {e}")
 
         # Verify record type

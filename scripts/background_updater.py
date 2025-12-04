@@ -90,8 +90,26 @@ def get_pid() -> Optional[int]:
     if not PID_FILE.exists():
         return None
     try:
-        return int(PID_FILE.read_text().strip())
-    except (ValueError, IOError):
+        content = PID_FILE.read_text().strip()
+        pid = int(content)
+
+        # PIDが正の整数かチェック
+        if pid <= 0:
+            logger.warning(f"無効なPID: {pid}")
+            PID_FILE.unlink(missing_ok=True)
+            return None
+
+        return pid
+    except ValueError as e:
+        # PIDファイルが破損している場合はログを出して削除
+        logger.warning(f"PIDファイルが破損しています: {e}")
+        try:
+            PID_FILE.unlink(missing_ok=True)
+        except Exception:
+            pass
+        return None
+    except IOError as e:
+        logger.warning(f"PIDファイルの読み取りに失敗: {e}")
         return None
 
 
@@ -979,7 +997,10 @@ class BackgroundUpdater:
         table.add_row("蓄積系更新", hist_status)
 
         # 速報系監視
-        rt_status = "[green]有効[/green] (動的間隔)" if self.monitor_realtime else "[red]無効[/red]"
+        if self.monitor_realtime:
+            rt_status = "[green]有効[/green] (発走30分前〜: 30秒, 1時間前〜: 1分, それ以前: 5分)"
+        else:
+            rt_status = "[red]無効[/red]"
         table.add_row("速報系監視", rt_status)
 
         # HTTP API
@@ -1024,7 +1045,8 @@ class BackgroundUpdater:
         print("JLTSQL バックグラウンド更新サービス")
         print("=" * 70)
         print(f"  蓄積系更新: {'有効' if self.update_historical else '無効'} (間隔: {self.historical_interval_minutes}分)")
-        print(f"  速報系監視: {'有効' if self.monitor_realtime else '無効'} (動的間隔)")
+        rt_detail = "(発走30分前〜: 30秒, 1時間前〜: 1分, それ以前: 5分)" if self.monitor_realtime else ""
+        print(f"  速報系監視: {'有効' if self.monitor_realtime else '無効'} {rt_detail}")
         print(f"  HTTP API:   {api_status}")
         if self.enable_api and self.enable_rate_limit:
             print(f"  レート制限: {self.rate_limit_short_term}回/分, {self.rate_limit_long_term}回/時")
@@ -1221,13 +1243,13 @@ class BackgroundUpdater:
                             next_hist = last_hist + timedelta(minutes=60)
                             mins_until = int((next_hist - now).total_seconds() // 60)
                             if mins_until > 0:
-                                next_update_str = f"次回更新まで{mins_until}分"
+                                next_update_str = f"次回蓄積取得: {mins_until}分後"
                             else:
-                                next_update_str = "まもなく更新"
+                                next_update_str = "蓄積取得: まもなく"
                         else:
                             next_update_str = ""
 
-                        status_parts.append(f"[dim]💤 非開催日[/dim]")
+                        status_parts.append(f"[dim]💤 非開催日 - 監視中[/dim]")
                         status_parts.append(f"稼働: [green]{uptime_str}[/green]")
                         if next_update_str:
                             status_parts.append(f"[dim]{next_update_str}[/dim]")

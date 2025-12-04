@@ -6,7 +6,14 @@ This module handles real-time data updates to the database.
 from typing import Dict, Optional
 
 from src.database.base import BaseDatabase
-from src.jvlink.constants import DATA_KUBUN_NEW, DATA_KUBUN_UPDATE, DATA_KUBUN_DELETE
+from src.jvlink.constants import (
+    DATA_KUBUN_NEW,
+    DATA_KUBUN_UPDATE,
+    DATA_KUBUN_DELETE,
+    DATA_KUBUN_REFRESH,
+    DATA_KUBUN_REREGISTER,
+    DATA_KUBUN_ERASE,
+)
 from src.parser.factory import ParserFactory
 from src.utils.logger import get_logger
 
@@ -164,6 +171,13 @@ class RealtimeUpdater:
             elif head_data_kubun == DATA_KUBUN_UPDATE:
                 return self._handle_update_record(table_name, parsed_data)
             elif head_data_kubun == DATA_KUBUN_DELETE:
+                return self._handle_delete_record(table_name, parsed_data)
+            elif head_data_kubun in (DATA_KUBUN_REFRESH, DATA_KUBUN_REREGISTER):
+                # REFRESH(4) and REREGISTER(3) are treated as new records
+                # TODO: Implement proper UPSERT logic when PRIMARY KEY is available
+                return self._handle_new_record(table_name, parsed_data)
+            elif head_data_kubun == DATA_KUBUN_ERASE:
+                # ERASE(0) is treated same as DELETE
                 return self._handle_delete_record(table_name, parsed_data)
             else:
                 logger.warning(f"Unknown headDataKubun: {head_data_kubun}")

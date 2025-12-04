@@ -111,5 +111,5 @@ advanced:
     db_connect: 10
     db_query: 300
   encoding:
-    jvdata: "shift_jis"
+    jvdata: "cp932"
     database: "utf-8"

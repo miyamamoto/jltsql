@@ -113,7 +113,7 @@ Each of the 38 parsers is tested for:
    - Detailed field extraction for SE parser
 
 6. **TestParserEncodingHandling** (1 test)
-   - Shift-JIS encoding validation
+   - CP932 encoding validation
    - Japanese character handling
 
 7. **TestParserRobustness** (8 tests)
@@ -203,7 +203,7 @@ Sample data structure for each record type:
 
 ```python
 # RecordSpec (2 bytes) + DataKubun (1 byte) + MakeDate (8 bytes) + padding
-data = record_type.encode('shift-jis')  # e.g., "RA", "SE"
+data = record_type.encode('cp932')  # e.g., "RA", "SE"
 data += b'1'                             # DataKubun
 data += b'20240601'                      # MakeDate
 data += b' ' * (RECORD_LENGTH - 11)      # Padding to full length

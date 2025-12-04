@@ -176,7 +176,7 @@ class SchemaParserValidator:
 
             # カラム定義行を解析
             # 形式: ColumnName TYPE [constraints],
-            match = re.match(r'(\w+)\s+(TEXT|INTEGER|REAL)', line)
+            match = re.match(r'(\w+)\s+(TEXT|INTEGER|REAL|BIGINT)', line)
             if match:
                 column_name = match.group(1)
                 columns.add(column_name)

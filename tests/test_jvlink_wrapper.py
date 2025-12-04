@@ -195,7 +195,7 @@ class TestJVLinkWrapper:
         ret_code, buff, filename = wrapper.jv_read()
 
         assert ret_code == len(test_data)
-        assert buff == test_data.encode("shift_jis")
+        assert buff == test_data.encode("cp932")
         assert filename == "test.jvd"
 
     @patch("win32com.client.Dispatch")

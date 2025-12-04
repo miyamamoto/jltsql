@@ -73,7 +73,7 @@ def test_setup_download():
                             result_code, data_bytes, filename = jv.jv_read()
                             if result_code > 0:
                                 # Successfully read data
-                                data_str = data_bytes.decode('shift_jis', errors='ignore') if data_bytes else ''
+                                data_str = data_bytes.decode('cp932', errors='ignore') if data_bytes else ''
                                 preview = data_str[:80] + "..." if len(data_str) > 80 else data_str
                                 print(f"    Record {i+1}: [{result_code} bytes] {preview}")
                             elif result_code == 0:

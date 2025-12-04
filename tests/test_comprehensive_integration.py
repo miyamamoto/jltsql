@@ -68,7 +68,7 @@ class TestFullPipelineIntegration(unittest.TestCase):
         )
 
         # Parse
-        record = self.factory.parse(sample_ra.encode('shift_jis'))
+        record = self.factory.parse(sample_ra.encode('cp932'))
 
         if record:  # Parser may return None for incomplete data
             self.assertEqual(record.get('レコード種別ID'), 'RA')
