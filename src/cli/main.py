@@ -1040,6 +1040,174 @@ def stop(ctx):
 
 
 @realtime.command()
+@click.option(
+    "--spec",
+    "-s",
+    default="0B30",
+    help="Data spec code (0B30-0B36, default: 0B30 for 単勝オッズ)",
+)
+@click.option(
+    "--from-date",
+    "-f",
+    type=str,
+    default=None,
+    help="Start date in YYYYMMDD format (default: 1 year ago)",
+)
+@click.option(
+    "--to-date",
+    "-t",
+    type=str,
+    default=None,
+    help="End date in YYYYMMDD format (default: today)",
+)
+@click.option(
+    "--db",
+    type=click.Choice(["sqlite", "postgresql"]),
+    default=None,
+    help="Database type (overrides config)",
+)
+@click.option(
+    "--db-path",
+    type=str,
+    default=None,
+    help="SQLite database path (overrides config)",
+)
+@click.pass_context
+def timeseries(ctx, spec, from_date, to_date, db, db_path):
+    """Fetch time series odds data from JV-Link.
+
+    Fetches historical time series odds data for races already in the database.
+    JV-Link provides up to 1 year of historical odds data.
+
+    \b
+    Data specs:
+      0B30 - 単勝オッズ (Win odds)
+      0B31 - 複勝・枠連オッズ (Place/Bracket quinella odds)
+      0B32 - 馬連オッズ (Quinella odds)
+      0B33 - ワイドオッズ (Wide odds)
+      0B34 - 馬単オッズ (Exacta odds)
+      0B35 - 3連複オッズ (Trio odds)
+      0B36 - 3連単オッズ (Trifecta odds)
+
+    \b
+    Examples:
+      jltsql realtime timeseries
+      jltsql realtime timeseries --spec 0B30 --from-date 20241201
+      jltsql realtime timeseries --spec 0B31,0B32 --db-path data/keiba.db
+    """
+    from datetime import datetime, timedelta
+    from src.database.sqlite_handler import SQLiteDatabase
+    from src.fetcher.realtime import RealtimeFetcher
+    from src.realtime.updater import RealtimeUpdater
+
+    config = ctx.obj.get("config")
+
+    # Determine database path
+    if db_path:
+        sqlite_path = db_path
+    elif config:
+        sqlite_path = config.get("databases.sqlite.path", "data/keiba.db")
+    else:
+        sqlite_path = "data/keiba.db"
+
+    # Resolve path
+    sqlite_path = str(Path(sqlite_path).resolve())
+
+    # Default date range (1 year for JVRTOpen)
+    if not from_date:
+        one_year_ago = datetime.now() - timedelta(days=365)
+        from_date = one_year_ago.strftime("%Y%m%d")
+    if not to_date:
+        to_date = datetime.now().strftime("%Y%m%d")
+
+    # Parse multiple specs
+    specs_list = [s.strip() for s in spec.split(",")]
+
+    console.print("[bold cyan]Fetching time series odds data...[/bold cyan]\n")
+    console.print(f"  Data specs:    {', '.join(specs_list)}")
+    console.print(f"  Database:      {sqlite_path}")
+    console.print(f"  Date range:    {from_date} - {to_date}")
+    console.print()
+
+    try:
+        # Initialize database for saving
+        db_config = {"path": sqlite_path}
+        database = SQLiteDatabase(db_config)
+
+        with database:
+            # Ensure TS_O* tables exist
+            from src.database.schema import get_schema_registry
+            schema_registry = get_schema_registry()
+            for spec_code in specs_list:
+                # Map spec to table name
+                table_map = {
+                    "0B30": "TS_O1",
+                    "0B31": "TS_O1",  # Also has O2 data
+                    "0B32": "TS_O2",
+                    "0B33": "TS_O3",
+                    "0B34": "TS_O4",
+                    "0B35": "TS_O5",
+                    "0B36": "TS_O6",
+                }
+                table_name = table_map.get(spec_code)
+                if table_name and table_name in schema_registry:
+                    database.create_table(table_name, schema_registry[table_name])
+                    console.print(f"  [green]✓[/green] Table {table_name} ready")
+
+            # Initialize fetcher and updater
+            sid = config.get("jvlink.sid", "JLTSQL") if config else "JLTSQL"
+            fetcher = RealtimeFetcher(sid=sid)
+            updater = RealtimeUpdater(database)
+
+            total_records = 0
+            total_success = 0
+            total_errors = 0
+
+            for spec_code in specs_list:
+                console.print(f"\n[bold]Processing {spec_code}...[/bold]")
+
+                try:
+                    record_count = 0
+                    for record in fetcher.fetch_time_series_batch_from_db(
+                        data_spec=spec_code,
+                        db_path=sqlite_path,
+                        from_date=from_date,
+                        to_date=to_date,
+                    ):
+                        # Save with timeseries=True to use TS_O* tables
+                        raw_buff = record.get("_raw")
+                        if raw_buff:
+                            result = updater.process_record(raw_buff, timeseries=True)
+                            if result and result.get("success"):
+                                total_success += 1
+                            else:
+                                total_errors += 1
+                        record_count += 1
+                        total_records += 1
+
+                        # Progress indicator
+                        if record_count % 100 == 0:
+                            console.print(f"\r  Processed: {record_count:,} records", end="")
+
+                    console.print(f"\r  [green]✓[/green] {spec_code}: {record_count:,} records processed")
+
+                except Exception as e:
+                    console.print(f"  [red]✗[/red] {spec_code}: Error - {e}")
+                    logger.error(f"Error processing {spec_code}", error=str(e), exc_info=True)
+
+            console.print()
+            console.print(f"[bold green]Complete![/bold green]")
+            console.print(f"  Total records:  {total_records:,}")
+            console.print(f"  Saved:          {total_success:,}")
+            console.print(f"  Errors:         {total_errors:,}")
+
+    except Exception as e:
+        console.print(f"\n[red]Error:[/red] {e}", style="bold")
+        logger.error("Failed to fetch time series data", error=str(e), exc_info=True)
+        sys.exit(1)
+
+
+@realtime.command()
 def specs():
     """List available realtime data specification codes.
 
