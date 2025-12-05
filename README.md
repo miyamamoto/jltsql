@@ -1,6 +1,6 @@
 # JRVLTSQL
 
-JRA-VAN DataLabの競馬データをSQLiteにインポートするツール
+JRA-VAN DataLabの競馬データをSQLite/PostgreSQLにインポートするツール
 
 ## インストール
 
