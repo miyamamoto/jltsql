@@ -821,11 +821,13 @@ def _interactive_setup_rich() -> dict:
         period_table.add_column("説明", width=20)
         period_table.add_column("所要時間(税込)", width=20)
 
-        period_table.add_row("1", "直近1週間", "[dim]デバッグ・テスト用[/dim]", format_time(5))
-        period_table.add_row("2", "直近1ヶ月", "[dim]短期テスト用[/dim]", format_time(30))
-        period_table.add_row("3", "直近1年", "[dim]実用的な範囲[/dim]", format_time(120))
-        period_table.add_row("4", "直近5年", "[dim]中長期分析用[/dim]", format_time(360))
-        period_table.add_row("5", "全期間", "[dim]1986年〜[/dim]", format_time(720))
+        # セットアップモード(option=4)では調教データ等が全期間分返されるため
+        # 短期間でも相当な時間がかかる
+        period_table.add_row("1", "直近1週間", "[dim]デバッグ・テスト用[/dim]", format_time(30))
+        period_table.add_row("2", "直近1ヶ月", "[dim]短期テスト用[/dim]", format_time(60))
+        period_table.add_row("3", "直近1年", "[dim]実用的な範囲[/dim]", format_time(180))
+        period_table.add_row("4", "直近5年", "[dim]中長期分析用[/dim]", format_time(480))
+        period_table.add_row("5", "全期間", "[dim]1986年〜[/dim]", format_time(960))
         period_table.add_row("6", "カスタム", "[dim]日付を指定[/dim]", "[dim]期間による[/dim]")
 
         console.print(period_table)
@@ -870,8 +872,11 @@ def _interactive_setup_rich() -> dict:
                     settings['from_date'] = from_date_str
 
                     # 所要時間を計算して表示
+                    # セットアップモードでは調教データ等が全期間分取得されるため基準時間を増加
                     days_diff = (today - datetime.strptime(from_date_str, "%Y%m%d")).days
-                    estimated_minutes = (days_diff / 365) * 120 * time_multiplier  # 1年あたり120分
+                    estimated_minutes = (days_diff / 365) * 180 * time_multiplier  # 1年あたり180分
+                    # 最低30分（調教データ等の固定オーバーヘッド）
+                    estimated_minutes = max(estimated_minutes, 30 * time_multiplier)
                     if estimated_minutes < 60:
                         time_str = f"約{int(estimated_minutes)}分"
                     else:
@@ -1352,12 +1357,13 @@ def _interactive_setup_simple() -> dict:
 
         print()
         print("取得期間を選択してください:")
+        print("※セットアップモードでは調教データ等が全期間分取得されます")
         print()
-        print(f"   1)  直近1週間   デバッグ用 ({fmt_time(5)})")
-        print(f"   2)  直近1ヶ月   短期テスト ({fmt_time(30)})")
-        print(f"   3)  直近1年     実用的 ({fmt_time(120)})")
-        print(f"   4)  直近5年     中長期分析 ({fmt_time(360)})")
-        print(f"   5)  全期間      1986年〜 ({fmt_time(720)})")
+        print(f"   1)  直近1週間   デバッグ用 ({fmt_time(30)})")
+        print(f"   2)  直近1ヶ月   短期テスト ({fmt_time(60)})")
+        print(f"   3)  直近1年     実用的 ({fmt_time(180)})")
+        print(f"   4)  直近5年     中長期分析 ({fmt_time(480)})")
+        print(f"   5)  全期間      1986年〜 ({fmt_time(960)})")
         print(f"   6)  カスタム    日付を指定")
         print()
 
@@ -1398,8 +1404,11 @@ def _interactive_setup_simple() -> dict:
                     settings['from_date'] = from_date_str
 
                     # 所要時間を計算して表示
+                    # セットアップモードでは調教データ等が全期間分取得されるため基準時間を増加
                     days_diff = (today - datetime.strptime(from_date_str, "%Y%m%d")).days
-                    estimated_minutes = (days_diff / 365) * 120 * time_mult  # 1年あたり120分
+                    estimated_minutes = (days_diff / 365) * 180 * time_mult  # 1年あたり180分
+                    # 最低30分（調教データ等の固定オーバーヘッド）
+                    estimated_minutes = max(estimated_minutes, 30 * time_mult)
                     if estimated_minutes < 60:
                         time_str = f"約{int(estimated_minutes)}分"
                     else:
