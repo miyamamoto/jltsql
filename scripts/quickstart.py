@@ -2754,9 +2754,6 @@ class QuickstartRunner:
         # option=2（今週データ）はそのまま維持
         if option == 1:
             option = 4  # 分割セットアップモード（全データ取得）
-            logger.info(
-                f"セットアップモード(option=4)を使用: from_date={from_date}"
-            )
 
         try:
             # 設定読み込み
