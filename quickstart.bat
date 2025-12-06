@@ -13,8 +13,8 @@ if defined PYTHON32 (
     goto :run_python
 )
 
-REM py launcherからPython 32bitのパスを取得
-for /f "delims=" %%i in ('py -3-32 -c "import sys; print(sys.executable)"') do set PYTHON_EXE=%%i
+REM py launcherからPython 32bitのパスを取得（エラー出力を抑制）
+for /f "delims=" %%i in ('py -3-32 -c "import sys; print(sys.executable)" 2^>nul') do set PYTHON_EXE=%%i
 
 if not defined PYTHON_EXE (
     echo ERROR: Python 32bit が見つかりません
