@@ -1,24 +1,23 @@
-﻿@echo off
+@echo off
 chcp 65001 >nul 2>&1
 set PYTHONIOENCODING=utf-8
 title JLTSQL Setup
 
-REM batファイルのあるディレクトリに移動
+REM Move to batch file directory
 cd /d "%~dp0"
 
-REM Python 32bit版の実行パスを取得（py launcherを経由せず直接実行 - 高速化のため）
-REM 環境変数 PYTHON32 が設定されていればそれを使用
+REM Get Python 32bit executable path
 if defined PYTHON32 (
     set PYTHON_EXE=%PYTHON32%
     goto :run_python
 )
 
-REM py launcherからPython 32bitのパスを取得（エラー出力を抑制）
+REM Get path from py launcher
 for /f "delims=" %%i in ('py -3-32 -c "import sys; print(sys.executable)" 2^>nul') do set PYTHON_EXE=%%i
 
 if not defined PYTHON_EXE (
-    echo ERROR: Python 32bit が見つかりません
-    echo py -3-32 を実行できることを確認してください
+    echo ERROR: Python 32bit not found
+    echo Please ensure py -3-32 works
     pause
     exit /b 1
 )
@@ -28,23 +27,23 @@ if not defined PYTHON_EXE (
 
 echo.
 echo ============================================================
-echo   セットアップ完了
+echo   Setup Complete
 echo ============================================================
 echo.
-echo   データベースファイル: data\keiba.db (SQLite)
+echo   Database file: data\keiba.db (SQLite)
 echo.
-echo   データを確認するには:
-echo     - DB Browser for SQLite などで直接開く
+echo   To view data:
+echo     - Use DB Browser for SQLite
 echo     - Python: sqlite3.connect('data/keiba.db')
 echo.
-echo   CLIコマンド:
-echo     jltsql status   - データベースの状態を確認
-echo     jltsql fetch    - 追加データ取得
-echo     jltsql --help   - その他のコマンド
+echo   CLI commands:
+echo     jltsql status   - Check database status
+echo     jltsql fetch    - Fetch additional data
+echo     jltsql --help   - Other commands
 echo.
-echo   Claude Code / Claude Desktop をお使いの方へ:
-echo     MCP Server をインストールすると、AIから直接DBにアクセスできます
+echo   For Claude Code / Claude Desktop users:
+echo     Install MCP Server to access DB directly from AI
 echo     https://github.com/miyamamoto/jvlink-mcp-server
 echo.
-echo   Enterキーを押すと終了します(この画面を閉じます)...
+echo   Press Enter to close...
 set /p dummy=
