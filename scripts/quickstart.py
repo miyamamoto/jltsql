@@ -923,6 +923,8 @@ def _interactive_setup_rich() -> dict:
         # DB情報を表示
         if settings['db_type'] == 'postgresql':
             db_info = f"PostgreSQL ({settings['pg_user']}@{settings['pg_host']}:{settings['pg_port']}/{settings['pg_database']})"
+        elif settings['db_type'] == 'duckdb':
+            db_info = f"DuckDB ({settings['db_path']})"
         else:
             db_info = f"SQLite ({settings['db_path']})"
         update_info.add_row("データベース", db_info)
@@ -1133,6 +1135,8 @@ def _interactive_setup_rich() -> dict:
     # データベース情報
     if settings.get('db_type') == 'postgresql':
         db_info = f"PostgreSQL ({settings['pg_user']}@{settings['pg_host']}:{settings['pg_port']}/{settings['pg_database']})"
+    elif settings.get('db_type') == 'duckdb':
+        db_info = f"DuckDB ({settings.get('db_path', 'data/keiba.duckdb')})"
     else:
         db_info = f"SQLite ({settings.get('db_path', 'data/keiba.db')})"
     confirm_table.add_row("データベース", db_info)
@@ -1440,6 +1444,8 @@ def _interactive_setup_simple() -> dict:
         # DB情報を表示
         if settings['db_type'] == 'postgresql':
             db_info = f"PostgreSQL ({settings['pg_user']}@{settings['pg_host']}:{settings['pg_port']}/{settings['pg_database']})"
+        elif settings['db_type'] == 'duckdb':
+            db_info = f"DuckDB ({settings['db_path']})"
         else:
             db_info = f"SQLite ({settings['db_path']})"
         print(f"  データベース: {db_info}")
@@ -1647,6 +1653,8 @@ def _interactive_setup_simple() -> dict:
     # データベース情報
     if settings.get('db_type') == 'postgresql':
         db_info = f"PostgreSQL ({settings['pg_user']}@{settings['pg_host']}:{settings['pg_port']}/{settings['pg_database']})"
+    elif settings.get('db_type') == 'duckdb':
+        db_info = f"DuckDB ({settings.get('db_path', 'data/keiba.duckdb')})"
     else:
         db_info = f"SQLite ({settings.get('db_path', 'data/keiba.db')})"
     print(f"  データベース:     {db_info}")
