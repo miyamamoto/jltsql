@@ -304,7 +304,7 @@ class JVLinkProgressDisplay:
                 self.live = Live(
                     self._create_layout(),
                     console=self.console,
-                    refresh_per_second=1,  # 更新頻度を下げて高速化
+                    refresh_per_second=4,  # 4Hz更新で応答性を改善
                     transient=False,
                     vertical_overflow="visible",
                 )
