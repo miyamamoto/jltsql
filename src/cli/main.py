@@ -889,7 +889,7 @@ def realtime():
 )
 @click.option(
     "--db",
-    type=click.Choice(["sqlite", "postgresql"]),
+    type=click.Choice(["sqlite", "postgresql", "duckdb"]),
     default=None,
     help="Database type (default: from config)"
 )
@@ -1086,7 +1086,7 @@ def stop(ctx):
 )
 @click.option(
     "--db",
-    type=click.Choice(["sqlite", "postgresql"]),
+    type=click.Choice(["sqlite", "postgresql", "duckdb"]),
     default=None,
     help="Database type (overrides config)",
 )

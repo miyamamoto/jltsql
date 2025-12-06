@@ -51,6 +51,7 @@ class DuckDBDatabase(BaseDatabase):
         """Quote SQL identifier (column/table name).
 
         DuckDB uses double quotes for identifiers (SQL standard).
+        Internal double quotes are escaped by doubling them.
 
         Args:
             identifier: Column or table name to quote
@@ -58,7 +59,9 @@ class DuckDBDatabase(BaseDatabase):
         Returns:
             Quoted identifier string
         """
-        return f'"{identifier}"'
+        # Escape internal double quotes by doubling them
+        escaped = identifier.replace('"', '""')
+        return f'"{escaped}"'
 
     def get_db_type(self) -> str:
         """Get database type identifier.
@@ -158,8 +161,8 @@ class DuckDBDatabase(BaseDatabase):
             if self._connection:
                 try:
                     self._connection.rollback()
-                except Exception:
-                    pass
+                except Exception as rollback_error:
+                    logger.warning(f"Rollback failed: {rollback_error}")
             raise DatabaseError(f"SQL execution failed: {e}")
 
     def executemany(self, sql: str, parameters_list: List[tuple]) -> int:
@@ -190,8 +193,8 @@ class DuckDBDatabase(BaseDatabase):
             if self._connection:
                 try:
                     self._connection.rollback()
-                except Exception:
-                    pass
+                except Exception as rollback_error:
+                    logger.warning(f"Rollback failed: {rollback_error}")
             raise DatabaseError(f"SQL executemany failed: {e}")
 
     def fetch_one(self, sql: str, parameters: Optional[tuple] = None) -> Optional[Dict[str, Any]]:
@@ -228,8 +231,8 @@ class DuckDBDatabase(BaseDatabase):
             if self._connection:
                 try:
                     self._connection.rollback()
-                except Exception:
-                    pass
+                except Exception as rollback_error:
+                    logger.warning(f"Rollback failed: {rollback_error}")
             raise DatabaseError(f"SQL query failed: {e}")
 
     def fetch_all(self, sql: str, parameters: Optional[tuple] = None) -> List[Dict[str, Any]]:
@@ -266,8 +269,8 @@ class DuckDBDatabase(BaseDatabase):
             if self._connection:
                 try:
                     self._connection.rollback()
-                except Exception:
-                    pass
+                except Exception as rollback_error:
+                    logger.warning(f"Rollback failed: {rollback_error}")
             raise DatabaseError(f"SQL query failed: {e}")
 
     def create_table(self, table_name: str, schema: str) -> None:
@@ -412,8 +415,9 @@ class DuckDBDatabase(BaseDatabase):
                 ])
                 sql = f'INSERT INTO {table_name} ({", ".join(quoted_columns)}) VALUES ({placeholders}) ON CONFLICT ({conflict_target}) DO UPDATE SET {update_clause}'
             else:
-                # No primary key - use INSERT OR REPLACE syntax
-                sql = f'INSERT OR REPLACE INTO {table_name} ({", ".join(quoted_columns)}) VALUES ({placeholders})'
+                # No primary key - use plain INSERT (DuckDB doesn't support INSERT OR REPLACE)
+                logger.warning(f"No primary key found for {table_name}, using plain INSERT (duplicates may occur)")
+                sql = f'INSERT INTO {table_name} ({", ".join(quoted_columns)}) VALUES ({placeholders})'
         else:
             sql = f'INSERT INTO {table_name} ({", ".join(quoted_columns)}) VALUES ({placeholders})'
 
@@ -465,8 +469,9 @@ class DuckDBDatabase(BaseDatabase):
                 ])
                 sql = f'INSERT INTO {table_name} ({", ".join(quoted_columns)}) VALUES ({placeholders}) ON CONFLICT ({conflict_target}) DO UPDATE SET {update_clause}'
             else:
-                # No primary key - use INSERT OR REPLACE syntax
-                sql = f'INSERT OR REPLACE INTO {table_name} ({", ".join(quoted_columns)}) VALUES ({placeholders})'
+                # No primary key - use plain INSERT (DuckDB doesn't support INSERT OR REPLACE)
+                logger.warning(f"No primary key found for {table_name}, using plain INSERT (duplicates may occur)")
+                sql = f'INSERT INTO {table_name} ({", ".join(quoted_columns)}) VALUES ({placeholders})'
         else:
             sql = f'INSERT INTO {table_name} ({", ".join(quoted_columns)}) VALUES ({placeholders})'
 
