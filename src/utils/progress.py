@@ -171,8 +171,10 @@ class StatsDisplay:
             parts = []
 
             # Build compact stats line
-            parts.append(f"[bold cyan]取得[/]: [green]{self.fetched:,}[/]")
-            parts.append(f"[bold cyan]成功[/]: [green]{self.parsed:,}[/]")
+            # ファイル数: JV-Linkから取得したファイル数
+            # レコード数: パースして保存したレコード数
+            parts.append(f"[bold cyan]ファイル[/]: [green]{self.fetched:,}[/]")
+            parts.append(f"[bold cyan]レコード[/]: [green]{self.parsed:,}[/]")
 
             if self.skipped > 0:
                 parts.append(f"[bold yellow]スキップ[/]: [yellow]{self.skipped:,}[/]")
@@ -180,11 +182,8 @@ class StatsDisplay:
             if self.failed > 0:
                 parts.append(f"[bold red]失敗[/]: [red]{self.failed:,}[/]")
 
-            if self.inserted > 0:
-                parts.append(f"[bold cyan]挿入[/]: [cyan]{self.inserted:,}[/]")
-
             if self.speed is not None:
-                parts.append(f"[bold yellow]速度[/]: [yellow]{self.speed:,.0f}/秒[/]")
+                parts.append(f"[bold yellow]速度[/]: [yellow]{self.speed:,.0f}件/秒[/]")
 
             return Text.from_markup("  ".join(parts))
 
