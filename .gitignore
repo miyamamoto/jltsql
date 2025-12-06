@@ -229,9 +229,12 @@ scripts/validate_*.py
 !scripts/validate_schema_parser.py
 scripts/verify_*.py
 
-# Generated directories
-docs/
+# Generated directories (allow specific documentation)
+docs/_build/
 migrations/
+# Allow important documentation files
+!docs/
+!docs/*.md
 
 # Temporary files
 nul

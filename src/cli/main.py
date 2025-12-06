@@ -175,10 +175,12 @@ def version():
     help="JVOpen option: 1=通常データ（差分）, 2=今週データ, 3=セットアップ（ダイアログ）, 4=分割セットアップ (default: 1)"
 )
 @click.option("--db", type=click.Choice(["sqlite", "postgresql", "duckdb"]), default=None, help="Database type (default: from config)")
+@click.option("--duckdb-memory-limit", default=None, help="DuckDB memory limit (e.g., '2GB', '512MB')")
+@click.option("--duckdb-threads", type=int, default=None, help="DuckDB thread count")
 @click.option("--batch-size", default=1000, help="Batch size for imports (default: 1000)")
 @click.option("--progress/--no-progress", default=True, help="Show progress display (default: enabled)")
 @click.pass_context
-def fetch(ctx, date_from, date_to, data_spec, jv_option, db, batch_size, progress):
+def fetch(ctx, date_from, date_to, data_spec, jv_option, db, duckdb_memory_limit, duckdb_threads, batch_size, progress):
     """Fetch historical data from JRA-VAN DataLab.
 
     JVOpen option meanings:
@@ -254,6 +256,11 @@ def fetch(ctx, date_from, date_to, data_spec, jv_option, db, batch_size, progres
             database = PostgreSQLDatabase(config.get("databases.postgresql"))
         elif db_type == "duckdb":
             db_config = config.get("databases.duckdb") if config else {"path": "data/keiba.duckdb"}
+            # Apply DuckDB-specific options if provided
+            if duckdb_memory_limit is not None:
+                db_config["memory_limit"] = duckdb_memory_limit
+            if duckdb_threads is not None:
+                db_config["threads"] = duckdb_threads
             database = DuckDBDatabase(db_config)
         else:
             console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
@@ -312,8 +319,10 @@ def fetch(ctx, date_from, date_to, data_spec, jv_option, db, batch_size, progres
 @click.option("--spec", "data_spec", default="RACE", help="Data specification (default: RACE)")
 @click.option("--interval", default=60, help="Polling interval in seconds (default: 60)")
 @click.option("--db", type=click.Choice(["sqlite", "postgresql", "duckdb"]), default=None, help="Database type (default: from config)")
+@click.option("--duckdb-memory-limit", default=None, help="DuckDB memory limit (e.g., '2GB', '512MB')")
+@click.option("--duckdb-threads", type=int, default=None, help="DuckDB thread count")
 @click.pass_context
-def monitor(ctx, daemon, data_spec, interval, db):
+def monitor(ctx, daemon, data_spec, interval, db, duckdb_memory_limit, duckdb_threads):
     """Start real-time monitoring.
 
     \b
@@ -358,6 +367,11 @@ def monitor(ctx, daemon, data_spec, interval, db):
             database = PostgreSQLDatabase(config.get("databases.postgresql"))
         elif db_type == "duckdb":
             db_config = config.get("databases.duckdb") if config else {"path": "data/keiba.duckdb"}
+            # Apply DuckDB-specific options if provided
+            if duckdb_memory_limit is not None:
+                db_config["memory_limit"] = duckdb_memory_limit
+            if duckdb_threads is not None:
+                db_config["threads"] = duckdb_threads
             database = DuckDBDatabase(db_config)
         else:
             console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
@@ -420,11 +434,13 @@ def stop(ctx):
 
 @cli.command()
 @click.option("--db", type=click.Choice(["sqlite", "postgresql", "duckdb"]), default=None, help="Database type (default: from config)")
+@click.option("--duckdb-memory-limit", default=None, help="DuckDB memory limit (e.g., '2GB', '512MB')")
+@click.option("--duckdb-threads", type=int, default=None, help="DuckDB thread count")
 @click.option("--all", "create_all", is_flag=True, help="Create both NL_ and RT_ tables")
 @click.option("--nl-only", is_flag=True, help="Create only NL_ (Normal Load) tables")
 @click.option("--rt-only", is_flag=True, help="Create only RT_ (Real-Time) tables")
 @click.pass_context
-def create_tables(ctx, db, create_all, nl_only, rt_only):
+def create_tables(ctx, db, duckdb_memory_limit, duckdb_threads, create_all, nl_only, rt_only):
     """Create database tables.
 
     \b
@@ -465,6 +481,11 @@ def create_tables(ctx, db, create_all, nl_only, rt_only):
             database = PostgreSQLDatabase(config.get("databases.postgresql"))
         elif db_type == "duckdb":
             db_config = config.get("databases.duckdb") if config else {"path": "data/keiba.duckdb"}
+            # Apply DuckDB-specific options if provided
+            if duckdb_memory_limit is not None:
+                db_config["memory_limit"] = duckdb_memory_limit
+            if duckdb_threads is not None:
+                db_config["threads"] = duckdb_threads
             database = DuckDBDatabase(db_config)
         else:
             console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
@@ -526,9 +547,11 @@ def create_tables(ctx, db, create_all, nl_only, rt_only):
 
 @cli.command()
 @click.option("--db", type=click.Choice(["sqlite", "postgresql", "duckdb"]), default=None, help="Database type (default: from config)")
+@click.option("--duckdb-memory-limit", default=None, help="DuckDB memory limit (e.g., '2GB', '512MB')")
+@click.option("--duckdb-threads", type=int, default=None, help="DuckDB thread count")
 @click.option("--table", help="Create indexes for specific table only")
 @click.pass_context
-def create_indexes(ctx, db, table):
+def create_indexes(ctx, db, duckdb_memory_limit, duckdb_threads, table):
     """Create database indexes for improved query performance.
 
     \b
@@ -574,6 +597,11 @@ def create_indexes(ctx, db, table):
             database = PostgreSQLDatabase(config.get("databases.postgresql"))
         elif db_type == "duckdb":
             db_config = config.get("databases.duckdb") if config else {"path": "data/keiba.duckdb"}
+            # Apply DuckDB-specific options if provided
+            if duckdb_memory_limit is not None:
+                db_config["memory_limit"] = duckdb_memory_limit
+            if duckdb_threads is not None:
+                db_config["threads"] = duckdb_threads
             database = DuckDBDatabase(db_config)
         else:
             console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
@@ -635,8 +663,10 @@ def create_indexes(ctx, db, table):
 @click.option("--output", "-o", required=True, type=click.Path(), help="Output file path")
 @click.option("--where", help="SQL WHERE clause (e.g., '開催年月日 >= 20240101')")
 @click.option("--db", type=click.Choice(["sqlite", "postgresql", "duckdb"]), default=None, help="Database type (default: from config)")
+@click.option("--duckdb-memory-limit", default=None, help="DuckDB memory limit (e.g., '2GB', '512MB')")
+@click.option("--duckdb-threads", type=int, default=None, help="DuckDB thread count")
 @click.pass_context
-def export(ctx, table, output_format, output, where, db):
+def export(ctx, table, output_format, output, where, db, duckdb_memory_limit, duckdb_threads):
     """Export data from database to file.
 
     \b
@@ -688,6 +718,11 @@ def export(ctx, table, output_format, output, where, db):
             database = PostgreSQLDatabase(config.get("databases.postgresql"))
         elif db_type == "duckdb":
             db_config = config.get("databases.duckdb") if config else {"path": "data/keiba.duckdb"}
+            # Apply DuckDB-specific options if provided
+            if duckdb_memory_limit is not None:
+                db_config["memory_limit"] = duckdb_memory_limit
+            if duckdb_threads is not None:
+                db_config["threads"] = duckdb_threads
             database = DuckDBDatabase(db_config)
         else:
             console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
@@ -893,6 +928,8 @@ def realtime():
     default=None,
     help="Database type (default: from config)"
 )
+@click.option("--duckdb-memory-limit", default=None, help="DuckDB memory limit (e.g., '2GB', '512MB')")
+@click.option("--duckdb-threads", type=int, default=None, help="DuckDB thread count")
 @click.option(
     "--batch-size",
     default=100,
@@ -904,7 +941,7 @@ def realtime():
     help="Don't auto-create missing tables"
 )
 @click.pass_context
-def start(ctx, specs, db, batch_size, no_create_tables):
+def start(ctx, specs, db, duckdb_memory_limit, duckdb_threads, batch_size, no_create_tables):
     """Start realtime monitoring service.
 
     \b
@@ -967,6 +1004,11 @@ def start(ctx, specs, db, batch_size, no_create_tables):
             database = PostgreSQLDatabase(config.get("databases.postgresql"))
         elif db_type == "duckdb":
             db_config = config.get("databases.duckdb") if config else {"path": "data/keiba.duckdb"}
+            # Apply DuckDB-specific options if provided
+            if duckdb_memory_limit is not None:
+                db_config["memory_limit"] = duckdb_memory_limit
+            if duckdb_threads is not None:
+                db_config["threads"] = duckdb_threads
             database = DuckDBDatabase(db_config)
         else:
             console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
@@ -1090,6 +1132,8 @@ def stop(ctx):
     default=None,
     help="Database type (overrides config)",
 )
+@click.option("--duckdb-memory-limit", default=None, help="DuckDB memory limit (e.g., '2GB', '512MB')")
+@click.option("--duckdb-threads", type=int, default=None, help="DuckDB thread count")
 @click.option(
     "--db-path",
     type=str,
@@ -1097,7 +1141,7 @@ def stop(ctx):
     help="SQLite database path (overrides config)",
 )
 @click.pass_context
-def timeseries(ctx, spec, from_date, to_date, db, db_path):
+def timeseries(ctx, spec, from_date, to_date, db, duckdb_memory_limit, duckdb_threads, db_path):
     """Fetch time series odds data from JV-Link.
 
     Fetches historical time series odds data for races already in the database.
@@ -1121,21 +1165,34 @@ def timeseries(ctx, spec, from_date, to_date, db, db_path):
     """
     from datetime import datetime, timedelta
     from src.database.sqlite_handler import SQLiteDatabase
+    from src.database.duckdb_handler import DuckDBDatabase
     from src.fetcher.realtime import RealtimeFetcher
     from src.realtime.updater import RealtimeUpdater
 
     config = ctx.obj.get("config")
 
+    # Determine database type and path
+    if db:
+        db_type = db
+    else:
+        db_type = config.get("database.type", "sqlite") if config else "sqlite"
+
     # Determine database path
     if db_path:
-        sqlite_path = db_path
+        database_path = db_path
     elif config:
-        sqlite_path = config.get("databases.sqlite.path", "data/keiba.db")
+        if db_type == "duckdb":
+            database_path = config.get("databases.duckdb.path", "data/keiba.duckdb")
+        else:
+            database_path = config.get("databases.sqlite.path", "data/keiba.db")
     else:
-        sqlite_path = "data/keiba.db"
+        if db_type == "duckdb":
+            database_path = "data/keiba.duckdb"
+        else:
+            database_path = "data/keiba.db"
 
     # Resolve path
-    sqlite_path = str(Path(sqlite_path).resolve())
+    database_path = str(Path(database_path).resolve())
 
     # Default date range (1 year for JVRTOpen)
     if not from_date:
@@ -1149,14 +1206,22 @@ def timeseries(ctx, spec, from_date, to_date, db, db_path):
 
     console.print("[bold cyan]Fetching time series odds data...[/bold cyan]\n")
     console.print(f"  Data specs:    {', '.join(specs_list)}")
-    console.print(f"  Database:      {sqlite_path}")
+    console.print(f"  Database:      {database_path} ({db_type})")
     console.print(f"  Date range:    {from_date} - {to_date}")
     console.print()
 
     try:
         # Initialize database for saving
-        db_config = {"path": sqlite_path}
-        database = SQLiteDatabase(db_config)
+        db_config = {"path": database_path}
+        if db_type == "duckdb":
+            # Apply DuckDB-specific options if provided
+            if duckdb_memory_limit is not None:
+                db_config["memory_limit"] = duckdb_memory_limit
+            if duckdb_threads is not None:
+                db_config["threads"] = duckdb_threads
+            database = DuckDBDatabase(db_config)
+        else:
+            database = SQLiteDatabase(db_config)
 
         with database:
             # Ensure TS_O* tables exist
@@ -1194,7 +1259,7 @@ def timeseries(ctx, spec, from_date, to_date, db, db_path):
                     record_count = 0
                     for record in fetcher.fetch_time_series_batch_from_db(
                         data_spec=spec_code,
-                        db_path=sqlite_path,
+                        db_path=database_path,
                         from_date=from_date,
                         to_date=to_date,
                     ):
