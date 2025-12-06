@@ -939,8 +939,32 @@ def _interactive_setup_rich() -> dict:
     console.print()
     settings['include_timeseries'] = Confirm.ask("時系列オッズを取得しますか？", default=False)
     if settings['include_timeseries']:
-        console.print("[dim]取得期間: 過去12ヶ月間（蓄積系データの範囲に依存）[/dim]")
-        settings['timeseries_months'] = 12
+        # 期間選択
+        console.print()
+        console.print("[cyan]取得期間を選択してください:[/cyan]")
+
+        ts_period_table = Table(show_header=True, box=box.SIMPLE, padding=(0, 1))
+        ts_period_table.add_column("No", style="cyan", width=3, justify="center")
+        ts_period_table.add_column("期間", width=12)
+        ts_period_table.add_column("説明", width=30)
+
+        ts_period_table.add_row("1", "過去1ヶ月", "[dim]直近のオッズ変動のみ[/dim]")
+        ts_period_table.add_row("2", "過去3ヶ月", "[dim]短期分析向け[/dim]")
+        ts_period_table.add_row("3", "過去6ヶ月", "[dim]中期分析向け[/dim]")
+        ts_period_table.add_row("4", "過去12ヶ月", "[dim]1年分（公式サポート期間）[/dim]")
+
+        console.print(ts_period_table)
+        console.print()
+
+        ts_choice = Prompt.ask("期間を選択", choices=["1", "2", "3", "4"], default="4")
+        ts_months_map = {"1": 1, "2": 3, "3": 6, "4": 12}
+        settings['timeseries_months'] = ts_months_map[ts_choice]
+
+        months = settings['timeseries_months']
+        if months == 1:
+            console.print(f"[dim]取得期間: 過去1ヶ月[/dim]")
+        else:
+            console.print(f"[dim]取得期間: 過去{months}ヶ月[/dim]")
     else:
         settings['timeseries_months'] = 0
 
@@ -1377,8 +1401,27 @@ def _interactive_setup_simple() -> dict:
     timeseries_choice = input().strip().lower()
     settings['include_timeseries'] = timeseries_choice in ('y', 'yes')
     if settings['include_timeseries']:
-        print("   -> 過去12ヶ月間の時系列オッズを取得します")
-        settings['timeseries_months'] = 12
+        # 期間選択
+        print()
+        print("   取得期間を選択してください:")
+        print("   1) 過去1ヶ月  - 直近のオッズ変動のみ")
+        print("   2) 過去3ヶ月  - 短期分析向け")
+        print("   3) 過去6ヶ月  - 中期分析向け")
+        print("   4) 過去12ヶ月 - 1年分（公式サポート期間）")
+        print()
+        print("   期間を選択 [1-4] (デフォルト: 4): ", end="")
+        ts_period_input = input().strip()
+        if ts_period_input in ('1', '2', '3', '4'):
+            ts_months_map = {"1": 1, "2": 3, "3": 6, "4": 12}
+            settings['timeseries_months'] = ts_months_map[ts_period_input]
+        else:
+            settings['timeseries_months'] = 12
+
+        months = settings['timeseries_months']
+        if months == 1:
+            print(f"   -> 過去1ヶ月の時系列オッズを取得します")
+        else:
+            print(f"   -> 過去{months}ヶ月の時系列オッズを取得します")
     else:
         settings['timeseries_months'] = 0
 
