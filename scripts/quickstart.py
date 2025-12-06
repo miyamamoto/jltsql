@@ -817,13 +817,14 @@ def _interactive_setup_rich() -> dict:
         period_table.add_row("3", "直近1年", "[dim]実用的な範囲[/dim]", format_time(120))
         period_table.add_row("4", "直近5年", "[dim]中長期分析用[/dim]", format_time(360))
         period_table.add_row("5", "全期間", "[dim]1986年〜[/dim]", format_time(720))
+        period_table.add_row("6", "カスタム", "[dim]日付を指定[/dim]", "[dim]期間による[/dim]")
 
         console.print(period_table)
         console.print()
 
         period_choice = Prompt.ask(
             "選択",
-            choices=["1", "2", "3", "4", "5"],
+            choices=["1", "2", "3", "4", "5", "6"],
             default="3"
         )
 
@@ -835,8 +836,41 @@ def _interactive_setup_rich() -> dict:
             settings['from_date'] = (today - timedelta(days=365)).strftime("%Y%m%d")
         elif period_choice == "4":
             settings['from_date'] = (today - timedelta(days=365*5)).strftime("%Y%m%d")
-        else:
+        elif period_choice == "5":
             settings['from_date'] = "19860101"
+        else:
+            # カスタム日付入力
+            console.print()
+            console.print("[bold cyan]開始日を入力してください[/bold cyan]")
+            console.print("[dim]形式: YYYY-MM-DD または YYYYMMDD (例: 2020-01-01)[/dim]")
+            console.print()
+
+            while True:
+                from_input = Prompt.ask("開始日", default="2020-01-01")
+                # ハイフンを除去
+                from_date_str = from_input.replace("-", "").replace("/", "")
+                try:
+                    # 日付として有効か確認
+                    from_date = datetime.strptime(from_date_str, "%Y%m%d")
+                    if from_date < datetime(1986, 1, 1):
+                        console.print("[yellow]1986年より前のデータはありません。1986-01-01に設定します。[/yellow]")
+                        from_date_str = "19860101"
+                    elif from_date > today:
+                        console.print("[red]未来の日付は指定できません。[/red]")
+                        continue
+                    settings['from_date'] = from_date_str
+
+                    # 所要時間を計算して表示
+                    days_diff = (today - datetime.strptime(from_date_str, "%Y%m%d")).days
+                    estimated_minutes = (days_diff / 365) * 120 * time_multiplier  # 1年あたり120分
+                    if estimated_minutes < 60:
+                        time_str = f"約{int(estimated_minutes)}分"
+                    else:
+                        time_str = f"約{estimated_minutes/60:.0f}〜{estimated_minutes/60*1.5:.0f}時間"
+                    console.print(f"[cyan]推定所要時間: {time_str}[/cyan]")
+                    break
+                except ValueError:
+                    console.print("[red]無効な日付形式です。YYYY-MM-DD形式で入力してください。[/red]")
 
     if choice == "4":  # 更新モード
         settings['mode'] = 'update'
@@ -1233,10 +1267,11 @@ def _interactive_setup_simple() -> dict:
         print(f"   3)  直近1年     実用的 ({fmt_time(120)})")
         print(f"   4)  直近5年     中長期分析 ({fmt_time(360)})")
         print(f"   5)  全期間      1986年〜 ({fmt_time(720)})")
+        print(f"   6)  カスタム    日付を指定")
         print()
 
         period_choice = input("選択 [3]: ").strip() or "3"
-        if period_choice not in ["1", "2", "3", "4", "5"]:
+        if period_choice not in ["1", "2", "3", "4", "5", "6"]:
             period_choice = "3"
 
         if period_choice == "1":
@@ -1247,8 +1282,41 @@ def _interactive_setup_simple() -> dict:
             settings['from_date'] = (today - timedelta(days=365)).strftime("%Y%m%d")
         elif period_choice == "4":
             settings['from_date'] = (today - timedelta(days=365*5)).strftime("%Y%m%d")
-        else:
+        elif period_choice == "5":
             settings['from_date'] = "19860101"
+        else:
+            # カスタム日付入力
+            print()
+            print("開始日を入力してください")
+            print("形式: YYYY-MM-DD または YYYYMMDD (例: 2020-01-01)")
+            print()
+
+            while True:
+                from_input = input("開始日 [2020-01-01]: ").strip() or "2020-01-01"
+                # ハイフンを除去
+                from_date_str = from_input.replace("-", "").replace("/", "")
+                try:
+                    # 日付として有効か確認
+                    from_date = datetime.strptime(from_date_str, "%Y%m%d")
+                    if from_date < datetime(1986, 1, 1):
+                        print("1986年より前のデータはありません。1986-01-01に設定します。")
+                        from_date_str = "19860101"
+                    elif from_date > today:
+                        print("未来の日付は指定できません。")
+                        continue
+                    settings['from_date'] = from_date_str
+
+                    # 所要時間を計算して表示
+                    days_diff = (today - datetime.strptime(from_date_str, "%Y%m%d")).days
+                    estimated_minutes = (days_diff / 365) * 120 * time_mult  # 1年あたり120分
+                    if estimated_minutes < 60:
+                        time_str = f"約{int(estimated_minutes)}分"
+                    else:
+                        time_str = f"約{estimated_minutes/60:.0f}〜{estimated_minutes/60*1.5:.0f}時間"
+                    print(f"推定所要時間: {time_str}")
+                    break
+                except ValueError:
+                    print("無効な日付形式です。YYYY-MM-DD形式で入力してください。")
 
     if choice == "4":  # 更新モード
         settings['mode'] = 'update'
