@@ -40,9 +40,19 @@ jltsql monitor          # リアルタイム監視
 ### データベース選択
 
 ```bash
-jltsql fetch --db sqlite   # SQLite（デフォルト）
-jltsql fetch --db duckdb   # DuckDB（分析向け高速）
-jltsql fetch --db postgres # PostgreSQL
+jltsql fetch --db sqlite      # SQLite（デフォルト）
+jltsql fetch --db duckdb      # DuckDB（分析向け高速）
+jltsql fetch --db postgresql  # PostgreSQL
+```
+
+### DuckDBを使用する場合
+
+DuckDBはオプション依存関係です。使用する場合は追加インストールが必要です：
+
+```bash
+pip install duckdb pandas
+# または
+pip install git+https://github.com/miyamamoto/jrvltsql.git[duckdb]
 ```
 
 ## データ構造
