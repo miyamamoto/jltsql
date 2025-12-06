@@ -7,7 +7,7 @@ JRA-VAN DataLabの競馬データをSQLite/PostgreSQLにインポートするツ
 ### 必要要件
 
 - Windows 10/11
-- Python 3.10+ **(32bit版)**
+- Python 3.10+ （32bit/64bit両対応）
 - JRA-VAN DataLab会員
 
 ### セットアップ
@@ -18,12 +18,24 @@ pip install git+https://github.com/miyamamoto/jrvltsql.git
 
 **quickstart.bat をダブルクリック** で対話形式のセットアップが始まります。
 
-### Python 32bit版について
+### Python 32bit/64bit について
 
-JV-Link APIは32bit専用です。64bit版Pythonでは動作しません。
+JV-Link APIは32bit DLLですが、**64bit Pythonでも使用可能**です。
+
+#### 64bit Pythonを使う場合（推奨）
+
+`tools/enable_64bit_python.bat` を**管理者権限**で実行してください。
+WindowsのDLLサロゲート機能を有効化し、64bit Pythonから32bit JV-Linkを呼び出せるようになります。
+
+```batch
+# 管理者権限でコマンドプロンプトを開いて実行
+cd tools
+enable_64bit_python.bat
+```
+
+#### Pythonバージョン確認
 
 ```bash
-# 確認方法
 python -c "import struct; print(struct.calcsize('P') * 8, 'bit')"
 ```
 
