@@ -46,6 +46,10 @@ dev = [
     "mypy>=1.5",
     "pre-commit>=3.0",
 ]
+duckdb = [
+    "duckdb>=1.0.0",
+    "pandas>=2.0.0",
+]
 
 [project.scripts]
 jltsql = "src.cli.main:cli"

@@ -103,7 +103,7 @@ def _save_setup_history(settings: dict, specs: list):
         'include_realtime': settings.get('include_realtime', False),
         # データベース設定
         'db_type': settings.get('db_type', 'sqlite'),
-        'db_path': settings.get('db_path', 'data/keiba.db'),
+        'db_path': settings.get('db_path', 'data/keiba.db' if settings.get('db_type') != 'duckdb' else 'data/keiba.duckdb'),
     }
 
     # PostgreSQL設定（パスワード以外を保存）
@@ -343,7 +343,7 @@ def _print_header_rich():
     console.print()
     console.print(Panel(
         f"[bold]{HORSE_EMOJI} JLTSQL[/bold] [dim]{version}[/dim]\n"
-        "[white]JRA-VAN DataLab → SQLite / PostgreSQL[/white]\n"
+        "[white]JRA-VAN DataLab → SQLite / PostgreSQL / DuckDB[/white]\n"
         "[dim]競馬データベース自動セットアップ[/dim]",
         border_style="blue",
         padding=(1, 2),
@@ -576,13 +576,17 @@ def _interactive_setup_rich() -> dict:
         "2", "PostgreSQL",
         "高性能データベース、サーバー設定が必要"
     )
+    db_table.add_row(
+        "3", "DuckDB",
+        "分析向け高速DB、SQLiteと同様に設定不要"
+    )
 
     console.print(db_table)
     console.print()
 
     db_choice = Prompt.ask(
         "選択",
-        choices=["1", "2"],
+        choices=["1", "2", "3"],
         default="1"
     )
 
@@ -591,7 +595,7 @@ def _interactive_setup_rich() -> dict:
         settings['db_type'] = 'sqlite'
         settings['db_path'] = 'data/keiba.db'
         console.print("[dim]SQLiteを使用します (data/keiba.db)[/dim]")
-    else:
+    elif db_choice == "2":
         # PostgreSQL
         settings['db_type'] = 'postgresql'
         console.print()
@@ -705,6 +709,11 @@ def _interactive_setup_rich() -> dict:
                     settings['db_path'] = 'data/keiba.db'
                     break
                 # retry_choice == "1" の場合はループ継続
+    else:
+        # DuckDB
+        settings['db_type'] = 'duckdb'
+        settings['db_path'] = 'data/keiba.duckdb'
+        console.print("[dim]DuckDBを使用します (data/keiba.duckdb)[/dim]")
 
     console.print()
 
@@ -1162,6 +1171,7 @@ def _interactive_setup_simple() -> dict:
     print()
     print("   1) SQLite (デフォルト) - ファイルベースのデータベース、設定不要")
     print("   2) PostgreSQL - 高性能データベース、サーバー設定が必要")
+    print("   3) DuckDB - 分析向け高速DB、SQLiteと同様に設定不要")
     print()
 
     db_choice = input("選択 [1]: ").strip() or "1"
@@ -1255,6 +1265,11 @@ def _interactive_setup_simple() -> dict:
                     settings['db_type'] = 'sqlite'
                     settings['db_path'] = 'data/keiba.db'
                     break
+    elif db_choice == "3":
+        # DuckDB
+        settings['db_type'] = 'duckdb'
+        settings['db_path'] = 'data/keiba.duckdb'
+        print("DuckDBを使用します (data/keiba.duckdb)")
     else:
         # SQLite (デフォルト)
         settings['db_type'] = 'sqlite'
@@ -1767,10 +1782,11 @@ class QuickstartRunner:
         """設定に基づいてデータベースハンドラを作成
 
         Returns:
-            BaseDatabase: SQLiteDatabaseまたはPostgreSQLDatabaseのインスタンス
+            BaseDatabase: SQLiteDatabase, PostgreSQLDatabase, または DuckDBDatabaseのインスタンス
         """
         from src.database.sqlite_handler import SQLiteDatabase
         from src.database.postgresql_handler import PostgreSQLDatabase
+        from src.database.duckdb_handler import DuckDBDatabase
         from src.database.base import DatabaseError
 
         db_type = self.settings.get('db_type', 'sqlite')
@@ -1788,6 +1804,10 @@ class QuickstartRunner:
                 return PostgreSQLDatabase(db_config)
             except Exception as e:
                 raise DatabaseError(f"PostgreSQL接続に失敗しました: {e}")
+        elif db_type == 'duckdb':
+            # DuckDB設定
+            db_config = {"path": str(self.db_path)}
+            return DuckDBDatabase(db_config)
         else:
             # SQLite設定（デフォルト）
             db_config = {"path": str(self.db_path)}

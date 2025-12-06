@@ -9,7 +9,7 @@ jvlink:
 
 # Database Settings
 database:
-  # Default database type (sqlite, postgresql)
+  # Default database type (sqlite, postgresql, duckdb)
   type: "sqlite"
 
 databases:
@@ -33,6 +33,14 @@ databases:
     password: "${POSTGRES_PASSWORD}"
     pool_size: 5
     max_overflow: 10
+
+  # DuckDB Database (for analytical queries and OLAP workloads)
+  duckdb:
+    enabled: false
+    path: "./data/keiba.duckdb"
+    read_only: false
+    memory_limit: "2GB"  # Optional: e.g., "2GB", "512MB"
+    threads: null  # Optional: null for auto-detect
 
 # Data Fetch Settings
 data_fetch:

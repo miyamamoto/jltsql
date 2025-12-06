@@ -36,7 +36,7 @@ logger = get_logger(__name__)
 def cli(ctx, config, verbose):
     """JRVLTSQL - JRA-VAN Link To SQL
 
-    JRA-VAN DataLabの競馬データをSQLite/PostgreSQLに
+    JRA-VAN DataLabの競馬データをSQLite/PostgreSQL/DuckDBに
     リアルタイムインポートするツール
 
     \b
@@ -174,7 +174,7 @@ def version():
     default=1,
     help="JVOpen option: 1=通常データ（差分）, 2=今週データ, 3=セットアップ（ダイアログ）, 4=分割セットアップ (default: 1)"
 )
-@click.option("--db", type=click.Choice(["sqlite", "postgresql"]), default=None, help="Database type (default: from config)")
+@click.option("--db", type=click.Choice(["sqlite", "postgresql", "duckdb"]), default=None, help="Database type (default: from config)")
 @click.option("--batch-size", default=1000, help="Batch size for imports (default: 1000)")
 @click.option("--progress/--no-progress", default=True, help="Show progress display (default: enabled)")
 @click.pass_context
@@ -204,6 +204,7 @@ def fetch(ctx, date_from, date_to, data_spec, jv_option, db, batch_size, progres
     from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn
     from src.database.sqlite_handler import SQLiteDatabase
     from src.database.postgresql_handler import PostgreSQLDatabase
+    from src.database.duckdb_handler import DuckDBDatabase
     from src.database.schema import create_all_tables
     from src.importer.batch import BatchProcessor
 
@@ -251,6 +252,9 @@ def fetch(ctx, date_from, date_to, data_spec, jv_option, db, batch_size, progres
                 console.print("[red]Error:[/red] PostgreSQL requires configuration file.")
                 sys.exit(1)
             database = PostgreSQLDatabase(config.get("databases.postgresql"))
+        elif db_type == "duckdb":
+            db_config = config.get("databases.duckdb") if config else {"path": "data/keiba.duckdb"}
+            database = DuckDBDatabase(db_config)
         else:
             console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
             sys.exit(1)
@@ -307,7 +311,7 @@ def fetch(ctx, date_from, date_to, data_spec, jv_option, db, batch_size, progres
 @click.option("--daemon", is_flag=True, help="Run in background")
 @click.option("--spec", "data_spec", default="RACE", help="Data specification (default: RACE)")
 @click.option("--interval", default=60, help="Polling interval in seconds (default: 60)")
-@click.option("--db", type=click.Choice(["sqlite", "postgresql"]), default=None, help="Database type (default: from config)")
+@click.option("--db", type=click.Choice(["sqlite", "postgresql", "duckdb"]), default=None, help="Database type (default: from config)")
 @click.pass_context
 def monitor(ctx, daemon, data_spec, interval, db):
     """Start real-time monitoring.
@@ -320,6 +324,7 @@ def monitor(ctx, daemon, data_spec, interval, db):
     """
     from src.database.sqlite_handler import SQLiteDatabase
     from src.database.postgresql_handler import PostgreSQLDatabase
+    from src.database.duckdb_handler import DuckDBDatabase
     from src.database.schema import create_all_tables
     from src.realtime.monitor import RealtimeMonitor
 
@@ -351,6 +356,9 @@ def monitor(ctx, daemon, data_spec, interval, db):
                 console.print("[red]Error:[/red] PostgreSQL requires configuration file.")
                 sys.exit(1)
             database = PostgreSQLDatabase(config.get("databases.postgresql"))
+        elif db_type == "duckdb":
+            db_config = config.get("databases.duckdb") if config else {"path": "data/keiba.duckdb"}
+            database = DuckDBDatabase(db_config)
         else:
             console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
             sys.exit(1)
@@ -411,7 +419,7 @@ def stop(ctx):
 
 
 @cli.command()
-@click.option("--db", type=click.Choice(["sqlite", "postgresql"]), default=None, help="Database type (default: from config)")
+@click.option("--db", type=click.Choice(["sqlite", "postgresql", "duckdb"]), default=None, help="Database type (default: from config)")
 @click.option("--all", "create_all", is_flag=True, help="Create both NL_ and RT_ tables")
 @click.option("--nl-only", is_flag=True, help="Create only NL_ (Normal Load) tables")
 @click.option("--rt-only", is_flag=True, help="Create only RT_ (Real-Time) tables")
@@ -430,6 +438,7 @@ def create_tables(ctx, db, create_all, nl_only, rt_only):
     from src.database.schema import SCHEMAS, create_all_tables
     from src.database.sqlite_handler import SQLiteDatabase
     from src.database.postgresql_handler import PostgreSQLDatabase
+    from src.database.duckdb_handler import DuckDBDatabase
 
     config = ctx.obj.get("config")
     if not config and not db:
@@ -454,6 +463,9 @@ def create_tables(ctx, db, create_all, nl_only, rt_only):
                 console.print("[red]Error:[/red] PostgreSQL requires configuration file.")
                 sys.exit(1)
             database = PostgreSQLDatabase(config.get("databases.postgresql"))
+        elif db_type == "duckdb":
+            db_config = config.get("databases.duckdb") if config else {"path": "data/keiba.duckdb"}
+            database = DuckDBDatabase(db_config)
         else:
             console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
             sys.exit(1)
@@ -513,7 +525,7 @@ def create_tables(ctx, db, create_all, nl_only, rt_only):
 
 
 @cli.command()
-@click.option("--db", type=click.Choice(["sqlite", "postgresql"]), default=None, help="Database type (default: from config)")
+@click.option("--db", type=click.Choice(["sqlite", "postgresql", "duckdb"]), default=None, help="Database type (default: from config)")
 @click.option("--table", help="Create indexes for specific table only")
 @click.pass_context
 def create_indexes(ctx, db, table):
@@ -535,6 +547,7 @@ def create_indexes(ctx, db, table):
     from src.database.indexes import IndexManager
     from src.database.sqlite_handler import SQLiteDatabase
     from src.database.postgresql_handler import PostgreSQLDatabase
+    from src.database.duckdb_handler import DuckDBDatabase
 
     config = ctx.obj.get("config")
     if not config and not db:
@@ -559,6 +572,9 @@ def create_indexes(ctx, db, table):
                 console.print("[red]Error:[/red] PostgreSQL requires configuration file.")
                 sys.exit(1)
             database = PostgreSQLDatabase(config.get("databases.postgresql"))
+        elif db_type == "duckdb":
+            db_config = config.get("databases.duckdb") if config else {"path": "data/keiba.duckdb"}
+            database = DuckDBDatabase(db_config)
         else:
             console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
             sys.exit(1)
@@ -618,7 +634,7 @@ def create_indexes(ctx, db, table):
 @click.option("--format", "output_format", type=click.Choice(["csv", "json", "parquet"]), default="csv", help="Output format (default: csv)")
 @click.option("--output", "-o", required=True, type=click.Path(), help="Output file path")
 @click.option("--where", help="SQL WHERE clause (e.g., '開催年月日 >= 20240101')")
-@click.option("--db", type=click.Choice(["sqlite", "postgresql"]), default=None, help="Database type (default: from config)")
+@click.option("--db", type=click.Choice(["sqlite", "postgresql", "duckdb"]), default=None, help="Database type (default: from config)")
 @click.pass_context
 def export(ctx, table, output_format, output, where, db):
     """Export data from database to file.
@@ -639,6 +655,7 @@ def export(ctx, table, output_format, output, where, db):
     from pathlib import Path
     from src.database.sqlite_handler import SQLiteDatabase
     from src.database.postgresql_handler import PostgreSQLDatabase
+    from src.database.duckdb_handler import DuckDBDatabase
 
     config = ctx.obj.get("config")
     if not config and not db:
@@ -669,6 +686,9 @@ def export(ctx, table, output_format, output, where, db):
                 console.print("[red]Error:[/red] PostgreSQL requires configuration file.")
                 sys.exit(1)
             database = PostgreSQLDatabase(config.get("databases.postgresql"))
+        elif db_type == "duckdb":
+            db_config = config.get("databases.duckdb") if config else {"path": "data/keiba.duckdb"}
+            database = DuckDBDatabase(db_config)
         else:
             console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
             sys.exit(1)
@@ -908,6 +928,7 @@ def start(ctx, specs, db, batch_size, no_create_tables):
     """
     from src.database.sqlite_handler import SQLiteDatabase
     from src.database.postgresql_handler import PostgreSQLDatabase
+    from src.database.duckdb_handler import DuckDBDatabase
     from src.services.realtime_monitor import RealtimeMonitor
 
     config = ctx.obj.get("config")
@@ -944,6 +965,9 @@ def start(ctx, specs, db, batch_size, no_create_tables):
                 console.print("[red]Error:[/red] PostgreSQL requires configuration file.")
                 sys.exit(1)
             database = PostgreSQLDatabase(config.get("databases.postgresql"))
+        elif db_type == "duckdb":
+            db_config = config.get("databases.duckdb") if config else {"path": "data/keiba.duckdb"}
+            database = DuckDBDatabase(db_config)
         else:
             console.print(f"[red]Error:[/red] Unsupported database type: {db_type}")
             sys.exit(1)
