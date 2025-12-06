@@ -931,10 +931,9 @@ def _interactive_setup_rich() -> dict:
         "例: 発売開始時10倍 → 締切時3倍 のような変化を追跡できます。\n\n"
         "[cyan]取得条件:[/cyan]\n"
         "  - 提供期間: 過去1年間（公式サポート期間）\n"
-        "  - 必要な前提: 先にRACEデータが取得済みであること\n"
         "  - TS_O1〜O6テーブルに保存されます\n\n"
-        "[dim]注: 時系列オッズの取得には、NL_RAテーブルから取得した\n"
-        "回次・日次情報が必要なため、蓄積系データ取得後に実行します。[/dim]",
+        "[dim]注: 時系列オッズ取得には回次・日次情報（NL_RA）が必要です。\n"
+        "NL_RAが不足している場合は、必要な期間のRACEデータを自動取得します。[/dim]",
         border_style="blue",
     ))
     console.print()
@@ -1370,8 +1369,8 @@ def _interactive_setup_simple() -> dict:
     print("   │                                                        │")
     print("   │ 取得条件:                                              │")
     print("   │   - 提供期間: 過去1年間                                │")
-    print("   │   - 前提: 先にRACEデータが取得済みであること           │")
     print("   │   - TS_O1〜O6テーブルに保存されます                    │")
+    print("   │   - NL_RA不足時は自動でRACEデータを取得します          │")
     print("   └────────────────────────────────────────────────────────┘")
     print()
     print("時系列オッズを取得しますか？ [y/N]: ", end="")
@@ -1909,18 +1908,55 @@ class QuickstartRunner:
         races = self._get_races_from_db(from_date, to_date)
 
         if not races:
-            # フォールバック: NL_RAにデータがない場合は時系列オッズ取得をスキップ
+            # NL_RAにデータがない場合は、自動的にRACEデータを取得
             console.print()
             console.print(Panel(
-                "[bold yellow]注意[/bold yellow]\n"
-                "NL_RAに開催情報がないため、時系列オッズは取得できません。\n"
-                "[dim]先に蓄積系データ（RACE）を取得してから再実行してください。[/dim]\n\n"
-                "[cyan]技術的背景:[/cyan]\n"
-                "JVRTOpenの時系列オッズ取得には16桁のキー（回次・日次含む）が必要です。\n"
-                "Kaiji/NichijiはNL_RAテーブルから取得するため、先にRACEデータが必要です。",
-                border_style="yellow",
+                "[bold cyan]NL_RAデータの自動取得[/bold cyan]\n\n"
+                f"時系列オッズ取得に必要な開催情報（NL_RA）が不足しています。\n"
+                f"期間 {from_date[:4]}/{from_date[4:6]}/{from_date[6:]} 〜 {to_date[:4]}/{to_date[4:6]}/{to_date[6:]} の\n"
+                "RACEデータを自動的に取得します。\n\n"
+                "[dim]これは時系列オッズ取得のために回次・日次情報を取得するために必要です。[/dim]",
+                border_style="cyan",
             ))
-            return True  # 警告のみで続行
+
+            # 一時的に設定を保存して、RACE取得用の設定に変更
+            original_from_date = self.settings.get('from_date')
+            original_to_date = self.settings.get('to_date')
+            self.settings['from_date'] = from_date
+            self.settings['to_date'] = to_date
+
+            try:
+                # RACEデータを取得（NL_RAが含まれる）
+                console.print("\n[bold]RACEデータ取得中...[/bold]")
+                status, details = self._fetch_single_spec_with_progress("RACE", 4)
+
+                if status == "success":
+                    console.print(f"[green]✓ RACEデータ取得完了: {details.get('records_saved', 0):,}件[/green]")
+                elif status == "nodata":
+                    console.print("[yellow]⚠ 該当期間にRACEデータがありませんでした[/yellow]")
+                else:
+                    console.print(f"[red]✗ RACEデータ取得失敗: {details.get('error_message', '不明なエラー')}[/red]")
+
+            finally:
+                # 設定を元に戻す
+                if original_from_date is not None:
+                    self.settings['from_date'] = original_from_date
+                if original_to_date is not None:
+                    self.settings['to_date'] = original_to_date
+
+            # NL_RAから再度レースを取得
+            races = self._get_races_from_db(from_date, to_date)
+
+            if not races:
+                # それでもデータがない場合はスキップ
+                console.print()
+                console.print(Panel(
+                    "[bold yellow]注意[/bold yellow]\n"
+                    "RACEデータを取得しましたが、NL_RAに開催情報が見つかりませんでした。\n"
+                    "[dim]該当期間にレースがない可能性があります。時系列オッズ取得をスキップします。[/dim]",
+                    border_style="yellow",
+                ))
+                return True  # 警告のみで続行
 
         total_specs = len(timeseries_specs)
         total_races = len(races)
