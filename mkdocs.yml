@@ -71,6 +71,7 @@ nav:
     - コントリビュート: development/contributing.md
   - 参考資料:
     - テーブル一覧: reference/tables.md
+    - スキーマ詳細: reference/schema-details.md
     - エラーコード: reference/error-codes.md
     - 変更履歴: reference/changelog.md
 
