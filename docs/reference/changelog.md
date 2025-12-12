@@ -83,7 +83,13 @@ JRVLTSQLのバージョン履歴です。
 ### v2.1.x → v2.2.0
 
 ```bash
-pip install --upgrade jrvltsql
+# GitHubから最新版をインストール
+pip install --upgrade git+https://github.com/miyamamoto/jrvltsql.git
+
+# または開発版として
+cd jrvltsql
+git pull origin master
+pip install -e .
 ```
 
 DuckDBが標準でインストールされるようになりました。
