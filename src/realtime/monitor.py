@@ -10,8 +10,8 @@ from datetime import datetime
 from typing import Optional
 
 from src.jvlink.constants import JV_RT_SUCCESS, JV_READ_SUCCESS
-from src.jvlink.wrapper import JVLinkWrapper
 from src.realtime.updater import RealtimeUpdater
+from src.utils.data_source import DataSource
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -39,6 +39,7 @@ class RealtimeMonitor:
         data_spec: str = "RACE",
         polling_interval: int = 60,
         sid: str = "REALTIME",
+        data_source: DataSource = DataSource.JRA,
     ):
         """Initialize real-time monitor.
 
@@ -47,14 +48,23 @@ class RealtimeMonitor:
             data_spec: Data specification code (default: "RACE")
             polling_interval: Polling interval in seconds (default: 60)
             sid: Session ID for JV-Link API (default: "REALTIME")
+            data_source: Data source (DataSource.JRA or DataSource.NAR, default: JRA)
         """
         self.database = database
         self.data_spec = data_spec
         self.polling_interval = polling_interval
         self.sid = sid
+        self.data_source = data_source
 
-        self.jvlink = JVLinkWrapper(sid=sid)
-        self.updater = RealtimeUpdater(database)
+        # Select wrapper based on data source
+        if data_source == DataSource.NAR:
+            from src.nvlink.wrapper import NVLinkWrapper
+            self.jvlink = NVLinkWrapper(sid=sid)
+        else:
+            from src.jvlink.wrapper import JVLinkWrapper
+            self.jvlink = JVLinkWrapper(sid=sid)
+
+        self.updater = RealtimeUpdater(database, data_source=data_source)
 
         self._running = False
         self._thread: Optional[threading.Thread] = None
@@ -75,6 +85,7 @@ class RealtimeMonitor:
             "RealtimeMonitor initialized",
             data_spec=data_spec,
             polling_interval=polling_interval,
+            data_source=data_source.value,
         )
 
     def start(self, daemon: bool = False) -> None:
@@ -243,6 +254,21 @@ class RealtimeMonitor:
         logger.info(f"Received signal {signum}, shutting down gracefully")
         self.stop()
 
+    def _get_track_name(self, track_code: str) -> str:
+        """Get track name based on data source.
+
+        Args:
+            track_code: Track code (e.g., "05", "30")
+
+        Returns:
+            Track name in Japanese
+        """
+        if self.data_source == DataSource.NAR:
+            from src.nvlink.constants import get_nar_track_name
+            return get_nar_track_name(track_code)
+        else:
+            from src.jvlink.constants import get_track_name
+            return get_track_name(track_code)
 
     def __enter__(self):
         """Context manager entry."""

@@ -21,6 +21,15 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
+# Set COM threading model to Apartment Threaded (STA)
+# This MUST be set before any other COM/win32com imports or usage
+# Required for 64-bit Python to communicate with 32-bit UmaConn (ActiveX/GUI)
+try:
+    sys.coinit_flags = 2
+except AttributeError:
+    # sys module might not be fully initialized yet in some environments
+    pass
+
 # Windows cp932対策: stdoutをUTF-8に再設定
 if sys.platform == "win32" and sys.stdout.encoding.lower() != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
@@ -103,7 +112,7 @@ def _save_setup_history(settings: dict, specs: list):
         'include_realtime': settings.get('include_realtime', False),
         # データベース設定
         'db_type': settings.get('db_type', 'sqlite'),
-        'db_path': settings.get('db_path', 'data/keiba.db' if settings.get('db_type') != 'duckdb' else 'data/keiba.duckdb'),
+        'db_path': settings.get('db_path', 'data/keiba.db'),
     }
 
     # PostgreSQL設定（パスワード以外を保存）
@@ -311,6 +320,160 @@ def _check_jvlink_service_key() -> tuple[bool, str]:
         return False, f"JV-Link未インストール: {e}"
 
 
+def _check_nvlink_service_key() -> tuple[bool, str]:
+    """NV-Link（UmaConn）のサービスキー設定状況を実際にAPIで確認
+    
+    Note:
+        64-bit Python環境でのCOM初期化(STAモード)を確実に有効にするため、
+        現在のプロセスではなく、独立したサブプロセスでチェックを行います。
+        これにより、他ライブラリによるCOM干渉を防ぎます。
+
+    Returns:
+        (is_valid, message): サービスキーが有効かどうかとメッセージ
+    """
+    import subprocess
+    import sys
+    
+    # 独立したプロセスで実行する検証コード
+    check_code = """
+import sys
+try:
+    sys.coinit_flags = 2  # STA mode
+except:
+    pass
+import win32com.client
+import pythoncom
+
+try:
+    pythoncom.CoInitialize()
+    nvlink = win32com.client.Dispatch("NVDTLabLib.NVLink")
+    result = nvlink.NVInit("JLTSQL_CHECK")
+    print(f"RESULT:{result}")
+except Exception as e:
+    print(f"ERROR:{e}")
+"""
+    
+    try:
+        # サブプロセスで実行
+        proc = subprocess.run(
+            [sys.executable, "-c", check_code],
+            capture_output=True,
+            text=True,
+            encoding='utf-8', # Force UTF-8 for communication
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
+        )
+        
+        output = proc.stdout.strip()
+        
+        # 結果の解析
+        if "RESULT:0" in output:
+             return True, "NV-Link（UmaConn）認証OK"
+        elif "RESULT:" in output:
+            try:
+                # RESULT:-100 などを抽出
+                result_code = int(output.split("RESULT:")[1].strip())
+                if result_code == -100:
+                    return False, "サービスキー未設定"
+                elif result_code == -101:
+                    return False, "サービスキーが無効"
+                elif result_code == -102:
+                    return False, "サービスキーの有効期限切れ"
+                elif result_code == -103:
+                    return False, "サービス利用不可"
+                else:
+                    return False, f"NV-Link初期化エラー (code: {result_code})"
+            except:
+                return False, f"予期しないレスポンス: {output}"
+        else:
+            # エラーメッセージが含まれている場合
+            if "ERROR:" in output:
+                error_msg = output.split("ERROR:")[1].strip()
+                return False, f"NV-Linkエラー: {error_msg}"
+            return False, f"NV-Link検証プロセスが失敗しました: {proc.stderr}"
+
+    except Exception as e:
+        return False, f"NV-Link検証実行エラー: {e}"
+
+
+def _check_service_key_detailed(data_source: str = "jra") -> dict:
+    """データソースに応じたサービスキー確認（詳細版）
+
+    Args:
+        data_source: "jra", "nar", または "all"
+
+    Returns:
+        dict with:
+            - all_valid: bool - すべて有効か
+            - jra_valid: bool - JRAが有効か（all/jraの場合）
+            - nar_valid: bool - NARが有効か（all/narの場合）
+            - jra_msg: str - JRAのメッセージ
+            - nar_msg: str - NARのメッセージ
+            - available_sources: list - 利用可能なソース ['jra', 'nar']
+    """
+    result = {
+        'all_valid': False,
+        'jra_valid': False,
+        'nar_valid': False,
+        'jra_msg': '',
+        'nar_msg': '',
+        'available_sources': []
+    }
+
+    if data_source == "nar":
+        nar_valid, nar_msg = _check_nvlink_service_key()
+        result['nar_valid'] = nar_valid
+        result['nar_msg'] = nar_msg
+        result['all_valid'] = nar_valid
+        if nar_valid:
+            result['available_sources'] = ['nar']
+    elif data_source == "all":
+        jra_valid, jra_msg = _check_jvlink_service_key()
+        nar_valid, nar_msg = _check_nvlink_service_key()
+        result['jra_valid'] = jra_valid
+        result['nar_valid'] = nar_valid
+        result['jra_msg'] = jra_msg
+        result['nar_msg'] = nar_msg
+        result['all_valid'] = jra_valid and nar_valid
+        if jra_valid:
+            result['available_sources'].append('jra')
+        if nar_valid:
+            result['available_sources'].append('nar')
+    else:  # jra
+        jra_valid, jra_msg = _check_jvlink_service_key()
+        result['jra_valid'] = jra_valid
+        result['jra_msg'] = jra_msg
+        result['all_valid'] = jra_valid
+        if jra_valid:
+            result['available_sources'] = ['jra']
+
+    return result
+
+
+def _check_service_key(data_source: str = "jra") -> tuple[bool, str]:
+    """データソースに応じたサービスキー確認
+
+    Args:
+        data_source: "jra", "nar", または "all"
+
+    Returns:
+        (is_valid, message): サービスキーが有効かどうかとメッセージ
+    """
+    if data_source == "nar":
+        return _check_nvlink_service_key()
+    elif data_source == "all":
+        # 両方チェック
+        jra_valid, jra_msg = _check_jvlink_service_key()
+        nar_valid, nar_msg = _check_nvlink_service_key()
+        if jra_valid and nar_valid:
+            return True, f"JRA: {jra_msg}, NAR: {nar_msg}"
+        elif not jra_valid:
+            return False, f"JRA: {jra_msg}"
+        else:
+            return False, f"NAR: {nar_msg}"
+    else:
+        return _check_jvlink_service_key()
+
+
 # マスコット - シンプルな絵文字ベース
 HORSE_EMOJI = "🐴"
 HORSE_EMOJI_HAPPY = "🐴✨"
@@ -343,7 +506,7 @@ def _print_header_rich():
     console.print()
     console.print(Panel(
         f"[bold]{HORSE_EMOJI} JLTSQL[/bold] [dim]{version}[/dim]\n"
-        "[white]JRA-VAN DataLab → SQLite / PostgreSQL / DuckDB[/white]\n"
+        "[white]JRA-VAN DataLab → SQLite / PostgreSQL[/white]\n"
         "[dim]競馬データベース自動セットアップ[/dim]",
         border_style="blue",
         padding=(1, 2),
@@ -559,8 +722,51 @@ def _interactive_setup_rich() -> dict:
 
     settings = {}
 
+    # データソース選択
+    console.print("[bold]0. データソース選択[/bold]")
+    console.print()
+
+    source_table = Table(show_header=True, box=box.SIMPLE, padding=(0, 1))
+    source_table.add_column("No", style="cyan", width=3, justify="center")
+    source_table.add_column("データソース", width=12)
+    source_table.add_column("説明", width=50)
+
+    source_table.add_row(
+        "1", "中央競馬",
+        "[dim](デフォルト)[/dim] JRA-VAN DataLab (JV-Link)"
+    )
+    source_table.add_row(
+        "2", "地方競馬",
+        "地方競馬DATA (UmaConn/NV-Link)"
+    )
+    source_table.add_row(
+        "3", "両方",
+        "中央競馬と地方競馬の両方を同時に取得"
+    )
+
+    console.print(source_table)
+    console.print()
+
+    source_choice = Prompt.ask(
+        "選択",
+        choices=["1", "2", "3"],
+        default="1"
+    )
+
+    if source_choice == "1":
+        settings['data_source'] = 'jra'
+        console.print("[dim]中央競馬（JRA）を使用します[/dim]")
+    elif source_choice == "2":
+        settings['data_source'] = 'nar'
+        console.print("[dim]地方競馬（NAR）を使用します[/dim]")
+    else:
+        settings['data_source'] = 'all'
+        console.print("[dim]中央競馬（JRA）と地方競馬（NAR）の両方を使用します[/dim]")
+
+    console.print()
+
     # データベース選択
-    console.print("[bold]0. データベース選択[/bold]")
+    console.print("[bold]1. データベース選択[/bold]")
     console.print()
 
     db_table = Table(show_header=True, box=box.SIMPLE, padding=(0, 1))
@@ -576,17 +782,13 @@ def _interactive_setup_rich() -> dict:
         "2", "PostgreSQL",
         "高性能データベース、サーバー設定が必要"
     )
-    db_table.add_row(
-        "3", "DuckDB",
-        "分析向け高速DB、SQLiteと同様に設定不要"
-    )
 
     console.print(db_table)
     console.print()
 
     db_choice = Prompt.ask(
         "選択",
-        choices=["1", "2", "3"],
+        choices=["1", "2"],
         default="1"
     )
 
@@ -710,36 +912,96 @@ def _interactive_setup_rich() -> dict:
                     break
                 # retry_choice == "1" の場合はループ継続
     else:
-        # DuckDB
-        settings['db_type'] = 'duckdb'
-        settings['db_path'] = 'data/keiba.duckdb'
-        console.print("[dim]DuckDBを使用します (data/keiba.duckdb)[/dim]")
+        # DuckDB は32-bit Python非対応のため削除されました
+        # PostgreSQLをデフォルトにフォールバック
+        settings['db_type'] = 'postgresql'
+        console.print("[dim]PostgreSQLを使用します[/dim]")
 
     console.print()
 
-    # サービスキーの確認（JV-Link APIで実際にチェック）
-    console.print("[bold]1. JV-Link サービスキー確認[/bold]")
-    console.print()
-
-    is_valid, message = _check_jvlink_service_key()
-
-    if is_valid:
-        console.print(f"  [green]OK[/green] {message}")
-        console.print()
+    # サービスキーの確認（データソースに応じてJV-Link/NV-Linkをチェック）
+    data_source = settings.get('data_source', 'jra')
+    if data_source == 'nar':
+        console.print("[bold]2. NV-Link（UmaConn）サービスキー確認[/bold]")
+    elif data_source == 'all':
+        console.print("[bold]2. JV-Link & NV-Link サービスキー確認[/bold]")
     else:
-        console.print(f"  [red]NG[/red] {message}")
+        console.print("[bold]2. JV-Link サービスキー確認[/bold]")
+    console.print()
+
+    # 詳細チェックを実行
+    check_result = _check_service_key_detailed(data_source)
+
+    if data_source == 'all':
+        # 両方選択時は部分成功を許可
+        if check_result['jra_valid']:
+            console.print(f"  [green]OK[/green] JRA: {check_result['jra_msg']}")
+        else:
+            console.print(f"  [red]NG[/red] JRA: {check_result['jra_msg']}")
+
+        if check_result['nar_valid']:
+            console.print(f"  [green]OK[/green] NAR: {check_result['nar_msg']}")
+        else:
+            console.print(f"  [red]NG[/red] NAR: {check_result['nar_msg']}")
+
         console.print()
-        console.print("[yellow]JRA-VAN DataLabソフトウェアでサービスキーを設定してください[/yellow]")
-        console.print("[dim]https://jra-van.jp/dlb/[/dim]")
-        console.print()
-        console.print("[red]セットアップを中止します。[/red]")
-        sys.exit(1)
+
+        # 少なくとも1つ利用可能ならば続行を提案
+        if check_result['available_sources']:
+            if not check_result['all_valid']:
+                # 部分成功の場合
+                available_names = []
+                if 'jra' in check_result['available_sources']:
+                    available_names.append('中央競馬（JRA）')
+                if 'nar' in check_result['available_sources']:
+                    available_names.append('地方競馬（NAR）')
+
+                console.print(f"[yellow]⚠️  {' と '.join(available_names)} のみ利用可能です[/yellow]")
+                console.print()
+
+                if Confirm.ask("利用可能なソースのみで続行しますか？", default=True):
+                    # 利用可能なソースのみに変更
+                    if len(check_result['available_sources']) == 1:
+                        settings['data_source'] = check_result['available_sources'][0]
+                        source_name = '中央競馬（JRA）' if settings['data_source'] == 'jra' else '地方競馬（NAR）'
+                        console.print(f"[dim]{source_name} のみで続行します[/dim]")
+                    # 両方利用可能な場合はそのまま（このケースは発生しないはずだがフォールバック）
+                else:
+                    console.print("[red]セットアップを中止します。[/red]")
+                    sys.exit(1)
+        else:
+            # 両方とも利用不可
+            console.print("[yellow]JRA-VAN DataLab と UmaConn のサービスキーを設定してください[/yellow]")
+            console.print("[dim]JRA: https://jra-van.jp/dlb/[/dim]")
+            console.print("[dim]NAR: https://www.umaconn.com/[/dim]")
+            console.print()
+            console.print("[red]セットアップを中止します。[/red]")
+            sys.exit(1)
+    else:
+        # jra または nar の単独選択時
+        if check_result['all_valid']:
+            message = check_result['jra_msg'] if data_source == 'jra' else check_result['nar_msg']
+            console.print(f"  [green]OK[/green] {message}")
+            console.print()
+        else:
+            message = check_result['jra_msg'] if data_source == 'jra' else check_result['nar_msg']
+            console.print(f"  [red]NG[/red] {message}")
+            console.print()
+            if data_source == 'nar':
+                console.print("[yellow]UmaConn（地方競馬DATA）ソフトウェアでサービスキーを設定してください[/yellow]")
+                console.print("[dim]https://www.umaconn.com/[/dim]")
+            else:
+                console.print("[yellow]JRA-VAN DataLabソフトウェアでサービスキーを設定してください[/yellow]")
+                console.print("[dim]https://jra-van.jp/dlb/[/dim]")
+            console.print()
+            console.print("[red]セットアップを中止します。[/red]")
+            sys.exit(1)
 
     # 前回セットアップ履歴を確認
     last_setup = _load_setup_history()
 
     # セットアップモードの選択
-    console.print("[bold]2. セットアップモード[/bold]")
+    console.print("[bold]3. セットアップモード[/bold]")
     console.print()
 
     mode_table = Table(show_header=True, box=box.SIMPLE, padding=(0, 1))
@@ -929,7 +1191,8 @@ def _interactive_setup_rich() -> dict:
         if settings['db_type'] == 'postgresql':
             db_info = f"PostgreSQL ({settings['pg_user']}@{settings['pg_host']}:{settings['pg_port']}/{settings['pg_database']})"
         elif settings['db_type'] == 'duckdb':
-            db_info = f"DuckDB ({settings['db_path']})"
+            # DuckDB は削除されました
+            db_info = "DuckDB (非対応)"
         else:
             db_info = f"SQLite ({settings['db_path']})"
         update_info.add_row("データベース", db_info)
@@ -941,17 +1204,27 @@ def _interactive_setup_rich() -> dict:
     # 時系列オッズ取得オプション
     console.print("[bold]3. 時系列オッズ（オッズ変動履歴）[/bold]")
     console.print()
+
+    data_source = settings.get('data_source', 'jra')
+    if data_source == 'nar':
+        table_name = "NL_RA_NAR"
+        source_name = "地方競馬（NAR）"
+    else:
+        table_name = "NL_RA"
+        source_name = "中央競馬（JRA）"
+
     console.print(Panel(
         "[bold]時系列オッズ（オッズ変動履歴）について[/bold]\n\n"
         "発売開始から締切までのオッズ推移を記録するデータです。\n"
         "例: 発売開始時10倍 → 締切時3倍 のような変化を追跡できます。\n\n"
         "[cyan]取得条件:[/cyan]\n"
+        f"  - データソース: {source_name}\n"
         "  - 公式サポート期間: 過去1年間\n"
-        "  - TS_O1〜O6テーブルに保存されます\n\n"
+        "  - TS_O1〜O6テーブルに保存\n\n"
         "[yellow]注: 1年以上前のデータも保存されている場合がありますが、\n"
         "公式サポート外のため取得できない可能性があります。[/yellow]\n\n"
-        "[dim]時系列オッズ取得には回次・日次情報（NL_RA）が必要です。\n"
-        "NL_RAが不足している場合は、必要な期間のRACEデータを自動取得します。[/dim]",
+        f"[dim]時系列オッズ取得には回次・日次情報（{table_name}）が必要です。\n"
+        f"{table_name}が不足している場合は、必要な期間のRACEデータを自動取得します。[/dim]",
         border_style="blue",
     ))
     console.print()
@@ -1137,11 +1410,20 @@ def _interactive_setup_rich() -> dict:
     confirm_table.add_column("Key", style="dim")
     confirm_table.add_column("Value", style="white")
 
+    # データソース情報
+    data_source = settings.get('data_source', 'jra')
+    if data_source == 'nar':
+        source_info = "[cyan]地方競馬（NAR/UmaConn）[/cyan]"
+    else:
+        source_info = "中央競馬（JRA）"
+    confirm_table.add_row("データソース", source_info)
+
     # データベース情報
     if settings.get('db_type') == 'postgresql':
         db_info = f"PostgreSQL ({settings['pg_user']}@{settings['pg_host']}:{settings['pg_port']}/{settings['pg_database']})"
     elif settings.get('db_type') == 'duckdb':
-        db_info = f"DuckDB ({settings.get('db_path', 'data/keiba.duckdb')})"
+        # DuckDB は削除されました
+        db_info = "DuckDB (非対応)"
     else:
         db_info = f"SQLite ({settings.get('db_path', 'data/keiba.db')})"
     confirm_table.add_row("データベース", db_info)
@@ -1163,6 +1445,7 @@ def _interactive_setup_rich() -> dict:
         console.print("[yellow]キャンセルしました[/yellow]")
         sys.exit(0)
 
+    # data_sourceはステップ0で設定済み
     return settings
 
 
@@ -1175,12 +1458,32 @@ def _interactive_setup_simple() -> dict:
 
     settings = {}
 
+    # データソース選択
+    print("0. データソース選択")
+    print()
+    print("   1) 中央競馬 (デフォルト) - JRA-VAN DataLab (JV-Link)")
+    print("   2) 地方競馬 - 地方競馬DATA (UmaConn/NV-Link)")
+    print("   3) 両方 - 中央競馬と地方競馬の両方を同時に取得")
+    print()
+
+    source_choice = input("選択 [1]: ").strip() or "1"
+
+    if source_choice == "2":
+        settings['data_source'] = 'nar'
+        print("地方競馬（NAR）を使用します")
+    elif source_choice == "3":
+        settings['data_source'] = 'all'
+        print("中央競馬（JRA）と地方競馬（NAR）の両方を使用します")
+    else:
+        settings['data_source'] = 'jra'
+        print("中央競馬（JRA）を使用します")
+    print()
+
     # データベース選択
-    print("0. データベース選択")
+    print("1. データベース選択")
     print()
     print("   1) SQLite (デフォルト) - ファイルベースのデータベース、設定不要")
     print("   2) PostgreSQL - 高性能データベース、サーバー設定が必要")
-    print("   3) DuckDB - 分析向け高速DB、SQLiteと同様に設定不要")
     print()
 
     db_choice = input("選択 [1]: ").strip() or "1"
@@ -1274,11 +1577,6 @@ def _interactive_setup_simple() -> dict:
                     settings['db_type'] = 'sqlite'
                     settings['db_path'] = 'data/keiba.db'
                     break
-    elif db_choice == "3":
-        # DuckDB
-        settings['db_type'] = 'duckdb'
-        settings['db_path'] = 'data/keiba.duckdb'
-        print("DuckDBを使用します (data/keiba.duckdb)")
     else:
         # SQLite (デフォルト)
         settings['db_type'] = 'sqlite'
@@ -1287,22 +1585,83 @@ def _interactive_setup_simple() -> dict:
 
     print()
 
-    # サービスキーの確認（JV-Link APIで実際にチェック）
-    print("1. JV-Link サービスキー確認")
+    # サービスキーの確認（データソースに応じてJV-Link/NV-Linkをチェック）
+    data_source = settings.get('data_source', 'jra')
+    if data_source == 'nar':
+        print("2. NV-Link（UmaConn）サービスキー確認")
+    elif data_source == 'all':
+        print("2. JV-Link & NV-Link サービスキー確認")
+    else:
+        print("2. JV-Link サービスキー確認")
     print()
 
-    is_valid, message = _check_jvlink_service_key()
+    # 詳細チェックを実行
+    check_result = _check_service_key_detailed(data_source)
 
-    if is_valid:
-        print(f"  [OK] {message}")
+    if data_source == 'all':
+        # 両方選択時は部分成功を許可
+        if check_result['jra_valid']:
+            print(f"  [OK] JRA: {check_result['jra_msg']}")
+        else:
+            print(f"  [NG] JRA: {check_result['jra_msg']}")
+
+        if check_result['nar_valid']:
+            print(f"  [OK] NAR: {check_result['nar_msg']}")
+        else:
+            print(f"  [NG] NAR: {check_result['nar_msg']}")
+
+        print()
+
+        # 少なくとも1つ利用可能ならば続行を提案
+        if check_result['available_sources']:
+            if not check_result['all_valid']:
+                # 部分成功の場合
+                available_names = []
+                if 'jra' in check_result['available_sources']:
+                    available_names.append('中央競馬（JRA）')
+                if 'nar' in check_result['available_sources']:
+                    available_names.append('地方競馬（NAR）')
+
+                print(f"⚠️  {' と '.join(available_names)} のみ利用可能です")
+                print()
+
+                response = input("利用可能なソースのみで続行しますか？ (y/n) [y]: ").strip().lower() or "y"
+                if response == "y":
+                    # 利用可能なソースのみに変更
+                    if len(check_result['available_sources']) == 1:
+                        settings['data_source'] = check_result['available_sources'][0]
+                        source_name = '中央競馬（JRA）' if settings['data_source'] == 'jra' else '地方競馬（NAR）'
+                        print(f"{source_name} のみで続行します")
+                    # 両方利用可能な場合はそのまま（このケースは発生しないはずだがフォールバック）
+                else:
+                    print("[NG] セットアップを中止します。")
+                    sys.exit(1)
+        else:
+            # 両方とも利用不可
+            print("  JRA-VAN DataLab と UmaConn のサービスキーを設定してください")
+            print("  JRA: https://jra-van.jp/dlb/")
+            print("  NAR: https://www.umaconn.com/")
+            print()
+            print("[NG] セットアップを中止します。")
+            sys.exit(1)
     else:
-        print(f"  [NG] {message}")
-        print()
-        print("  JRA-VAN DataLabソフトウェアでサービスキーを設定してください")
-        print("  https://jra-van.jp/dlb/")
-        print()
-        print("[NG] セットアップを中止します。")
-        sys.exit(1)
+        # jra または nar の単独選択時
+        if check_result['all_valid']:
+            message = check_result['jra_msg'] if data_source == 'jra' else check_result['nar_msg']
+            print(f"  [OK] {message}")
+        else:
+            message = check_result['jra_msg'] if data_source == 'jra' else check_result['nar_msg']
+            print(f"  [NG] {message}")
+            print()
+            if data_source == 'nar':
+                print("  UmaConn（地方競馬DATA）ソフトウェアでサービスキーを設定してください")
+                print("  https://www.umaconn.com/")
+            else:
+                print("  JRA-VAN DataLabソフトウェアでサービスキーを設定してください")
+                print("  https://jra-van.jp/dlb/")
+            print()
+            print("[NG] セットアップを中止します。")
+            sys.exit(1)
 
     print()
 
@@ -1310,7 +1669,7 @@ def _interactive_setup_simple() -> dict:
     last_setup = _load_setup_history()
 
     # セットアップモード
-    print("2. セットアップモードを選択してください:")
+    print("3. セットアップモードを選択してください:")
     print()
     print("   No  モード  対象データ                                期間")
     print("   ──────────────────────────────────────────────────────────────")
@@ -1454,7 +1813,8 @@ def _interactive_setup_simple() -> dict:
         if settings['db_type'] == 'postgresql':
             db_info = f"PostgreSQL ({settings['pg_user']}@{settings['pg_host']}:{settings['pg_port']}/{settings['pg_database']})"
         elif settings['db_type'] == 'duckdb':
-            db_info = f"DuckDB ({settings['db_path']})"
+            # DuckDB は削除されました
+            db_info = "DuckDB (非対応)"
         else:
             db_info = f"SQLite ({settings['db_path']})"
         print(f"  データベース: {db_info}")
@@ -1464,6 +1824,15 @@ def _interactive_setup_simple() -> dict:
     # 時系列オッズ取得オプション
     print("3. 時系列オッズ（オッズ変動履歴）")
     print()
+
+    data_source = settings.get('data_source', 'jra')
+    if data_source == 'nar':
+        table_name = "NL_RA_NAR"
+        source_name = "地方競馬（NAR）"
+    else:
+        table_name = "NL_RA"
+        source_name = "中央競馬（JRA）"
+
     print("   ┌────────────────────────────────────────────────────────┐")
     print("   │ 時系列オッズ（オッズ変動履歴）について                 │")
     print("   │                                                        │")
@@ -1471,9 +1840,10 @@ def _interactive_setup_simple() -> dict:
     print("   │ 例: 発売開始時10倍 → 締切時3倍 のような変化を追跡     │")
     print("   │                                                        │")
     print("   │ 取得条件:                                              │")
+    print(f"   │   - データソース: {source_name:<33}│")
     print("   │   - 公式サポート期間: 過去1年間                        │")
-    print("   │   - TS_O1〜O6テーブルに保存されます                    │")
-    print("   │   - NL_RA不足時は自動でRACEデータを取得します          │")
+    print("   │   - TS_O1〜O6テーブルに保存                            │")
+    print(f"   │   - {table_name}不足時は自動でRACEデータを取得{' ' * (22 - len(table_name))}│")
     print("   │                                                        │")
     print("   │ 注: 1年以上前のデータも保存されている場合がありますが、│")
     print("   │     公式サポート外のため取得できない可能性があります。 │")
@@ -1663,7 +2033,8 @@ def _interactive_setup_simple() -> dict:
     if settings.get('db_type') == 'postgresql':
         db_info = f"PostgreSQL ({settings['pg_user']}@{settings['pg_host']}:{settings['pg_port']}/{settings['pg_database']})"
     elif settings.get('db_type') == 'duckdb':
-        db_info = f"DuckDB ({settings.get('db_path', 'data/keiba.duckdb')})"
+        # DuckDB は削除されました
+        db_info = "DuckDB (非対応)"
     else:
         db_info = f"SQLite ({settings.get('db_path', 'data/keiba.db')})"
     print(f"  データベース:     {db_info}")
@@ -1684,6 +2055,7 @@ def _interactive_setup_simple() -> dict:
         print("キャンセルしました")
         sys.exit(0)
 
+    # data_sourceはステップ0で設定済み
     return settings
 
 
@@ -1799,11 +2171,10 @@ class QuickstartRunner:
         """設定に基づいてデータベースハンドラを作成
 
         Returns:
-            BaseDatabase: SQLiteDatabase, PostgreSQLDatabase, または DuckDBDatabaseのインスタンス
+            BaseDatabase: SQLiteDatabase または PostgreSQLDatabaseのインスタンス
         """
         from src.database.sqlite_handler import SQLiteDatabase
         from src.database.postgresql_handler import PostgreSQLDatabase
-        from src.database.duckdb_handler import DuckDBDatabase
         from src.database.base import DatabaseError
 
         db_type = self.settings.get('db_type', 'sqlite')
@@ -1822,9 +2193,8 @@ class QuickstartRunner:
             except Exception as e:
                 raise DatabaseError(f"PostgreSQL接続に失敗しました: {e}")
         elif db_type == 'duckdb':
-            # DuckDB設定
-            db_config = {"path": str(self.db_path)}
-            return DuckDBDatabase(db_config)
+            # DuckDB は32-bit Python非対応のため削除されました
+            raise DatabaseError("DuckDBは非対応です。SQLiteまたはPostgreSQLを使用してください。")
         else:
             # SQLite設定（デフォルト）
             db_config = {"path": str(self.db_path)}
@@ -1991,33 +2361,43 @@ class QuickstartRunner:
         races = []
         try:
             db = self._create_database()
+
+            # データソースに応じてテーブルを選択
+            data_source_str = self.settings.get('data_source', 'jra')
+            if data_source_str == 'nar':
+                table_name = 'nl_ra_nar'
+                table_name_upper = 'NL_RA_NAR'
+            else:
+                table_name = 'nl_ra'
+                table_name_upper = 'NL_RA'
+
             with db:
-                # NL_RAテーブルから開催情報を取得（Kaiji/Nichiji含む）
+                # NL_RA/NL_RA_NARテーブルから開催情報を取得（Kaiji/Nichiji含む）
                 # Year + MonthDay で日付を構成
                 # PostgreSQLでは printf の代わりに lpad を使用
                 # pg8000では :name 形式のプレースホルダーを使用
                 if db.get_db_type() == 'postgresql':
-                    query = """
+                    query = f"""
                         SELECT DISTINCT
                             year || lpad(monthday::text, 4, '0') as race_date,
                             jyocd,
                             kaiji,
                             nichiji,
                             racenum
-                        FROM nl_ra
+                        FROM {table_name}
                         WHERE (year || lpad(monthday::text, 4, '0')) >= :from_date
                           AND (year || lpad(monthday::text, 4, '0')) <= :to_date
                         ORDER BY race_date, jyocd, racenum
                     """
                 else:
-                    query = """
+                    query = f"""
                         SELECT DISTINCT
                             Year || printf('%04d', CAST(MonthDay AS INTEGER)) as race_date,
                             JyoCD,
                             Kaiji,
                             Nichiji,
                             RaceNum
-                        FROM NL_RA
+                        FROM {table_name_upper}
                         WHERE (Year || printf('%04d', CAST(MonthDay AS INTEGER))) >= ?
                           AND (Year || printf('%04d', CAST(MonthDay AS INTEGER))) <= ?
                         ORDER BY race_date, JyoCD, RaceNum
@@ -2060,8 +2440,10 @@ class QuickstartRunner:
         """時系列オッズ取得（Rich UI）
 
         時系列オッズをTS_O1-O6テーブルに保存。
-        NL_RAから実際の開催情報を取得して、開催があるレースのみを対象に取得。
+        NL_RA/NL_RA_NARから実際の開催情報を取得して、開催があるレースのみを対象に取得。
         蓄積系データ取得（_run_fetch_all_rich）と同じUIデザイン（JVLinkProgressDisplay）を使用。
+
+        Note: JRA（中央競馬）とNAR（地方競馬）の両方に対応。
         """
         from datetime import datetime, timedelta
         from src.utils.progress import JVLinkProgressDisplay
@@ -2170,6 +2552,19 @@ class QuickstartRunner:
             from src.fetcher.realtime import RealtimeFetcher
             from src.realtime.updater import RealtimeUpdater
             from src.jvlink.constants import JYO_CODES, generate_time_series_full_key
+            from src.nvlink.constants import NAR_JYO_CODES, generate_nar_time_series_full_key
+            from src.utils.data_source import DataSource
+
+            # データソースを取得
+            data_source_str = self.settings.get('data_source', 'jra')
+            if data_source_str == 'nar':
+                data_source = DataSource.NAR
+                jyo_codes = NAR_JYO_CODES
+                generate_key = generate_nar_time_series_full_key
+            else:
+                data_source = DataSource.JRA
+                jyo_codes = JYO_CODES
+                generate_key = generate_time_series_full_key
 
             db = self._create_database()
 
@@ -2182,7 +2577,7 @@ class QuickstartRunner:
             cumulative_records = 0  # 累計レコード数（リアルタイム表示用）
 
             with db:
-                fetcher = RealtimeFetcher(sid="JLTSQL")
+                fetcher = RealtimeFetcher(sid="JLTSQL", data_source=data_source)
                 updater = RealtimeUpdater(db)
 
                 # JVLinkProgressDisplayを使用してリッチな進捗表示
@@ -2215,7 +2610,7 @@ class QuickstartRunner:
                                 global_processed += 1
 
                                 # 進捗表示を更新
-                                track_name = JYO_CODES.get(jyo_code, jyo_code)
+                                track_name = jyo_codes.get(jyo_code, jyo_code)
                                 progress.update_download(
                                     download_task,
                                     completed=global_processed,
@@ -2229,7 +2624,7 @@ class QuickstartRunner:
 
                                 try:
                                     # 16桁フルキーを生成して取得
-                                    full_key = generate_time_series_full_key(
+                                    full_key = generate_key(
                                         race_date, jyo_code, kaiji, nichiji, race_num
                                     )
                                     for record in fetcher.fetch(
@@ -2793,6 +3188,14 @@ class QuickstartRunner:
         try:
             from src.fetcher.realtime import RealtimeFetcher
             from src.importer.importer import DataImporter
+            from src.utils.data_source import DataSource
+
+            # データソースを取得
+            data_source_str = self.settings.get('data_source', 'jra')
+            if data_source_str == 'nar':
+                data_source = DataSource.NAR
+            else:
+                data_source = DataSource.JRA
 
             # データベース接続
             db = self._create_database()
@@ -2806,7 +3209,7 @@ class QuickstartRunner:
             total_records = 0
 
             with db:
-                fetcher = RealtimeFetcher(sid="JLTSQL")
+                fetcher = RealtimeFetcher(sid="JLTSQL", data_source=data_source)
                 importer = DataImporter(db, batch_size=1000)
 
                 for date_str in race_dates:
@@ -3039,6 +3442,8 @@ class QuickstartRunner:
         from src.database.schema import create_all_tables
         from src.importer.batch import BatchProcessor
         from src.jvlink.wrapper import JVLinkError
+        from src.nvlink.wrapper import NVLinkError
+        from src.fetcher.base import FetcherError
 
         details = {
             'download_count': 0,
@@ -3082,8 +3487,17 @@ class QuickstartRunner:
         # option=1（差分データ）はJV-Link側の「最終取得時刻」以降のデータのみ返す
         # 初回セットアップや全データ取得にはoption=4（セットアップモード）を使用
         # ただし、option=4非対応スペックはoption=1のまま維持
-        if option == 1 and spec in OPTION_4_SUPPORTED_SPECS:
-            option = 4  # 分割セットアップモード（全データ取得）
+        data_source_str = self.settings.get('data_source', 'jra')
+
+        # NAR (NV-Link) では option 1 が正常動作しない（NVStatusが-203を返す既知の問題）
+        # 原因: NVDTLabのセットアップ不完全、またはキャッシュの問題
+        # 対策: NAR では常に option 4 (セットアップモード) を使用することで回避
+        # 参考: docs/reference/error-codes.md#nvlink--203-エラー-地方競馬data
+        if data_source_str == 'nar':
+            if option == 1 or option == 2:
+                option = 4  # NAR: 強制的にセットアップモード（-203エラー回避）
+        elif option == 1 and spec in OPTION_4_SUPPORTED_SPECS:
+            option = 4  # JRA: 分割セットアップモード（全データ取得）
         # option=4非対応スペックはoption=1で実行（差分データ）
 
         try:
@@ -3096,27 +3510,95 @@ class QuickstartRunner:
 
             with database:
                 # テーブル作成（必要に応じて）
+                data_source_str = self.settings.get('data_source', 'jra')
                 try:
-                    create_all_tables(database)
+                    if data_source_str == 'nar':
+                        # NAR用テーブルを作成
+                        from src.database.schema_nar import get_nar_schemas
+                        nar_schemas = get_nar_schemas()
+                        for table_name, schema_sql in nar_schemas.items():
+                            try:
+                                database.execute(schema_sql)
+                            except Exception:
+                                pass  # Table might already exist
+                    elif data_source_str == 'all':
+                        # 両方のテーブルを作成
+                        create_all_tables(database)  # JRA tables
+                        from src.database.schema_nar import get_nar_schemas
+                        nar_schemas = get_nar_schemas()
+                        for table_name, schema_sql in nar_schemas.items():
+                            try:
+                                database.execute(schema_sql)
+                            except Exception:
+                                pass  # Table might already exist
+                    else:
+                        create_all_tables(database)
                 except Exception:
                     pass  # 既存テーブルがあってもOK
 
-                # BatchProcessorを直接呼び出し（show_progress=Trueでリッチ進捗表示）
-                processor = BatchProcessor(
-                    database=database,
-                    sid=config.get("jvlink.sid", "JLTSQL"),
-                    batch_size=1000,
-                    service_key=config.get("jvlink.service_key"),
-                    show_progress=True,  # JVLinkProgressDisplayを有効化
-                )
+                # DataSource enumに変換
+                from src.utils.data_source import DataSource
 
-                # データ取得実行
-                result = processor.process_date_range(
-                    data_spec=spec,
-                    from_date=self.settings['from_date'],
-                    to_date=self.settings['to_date'],
-                    option=option,
-                )
+                if data_source_str == 'all':
+                    # 両方のソースからデータ取得
+                    # JRAデータ取得
+                    jra_processor = BatchProcessor(
+                        database=database,
+                        sid=config.get("jvlink.sid", "JLTSQL"),
+                        batch_size=1000,
+                        service_key=config.get("jvlink.service_key"),
+                        show_progress=True,
+                        data_source=DataSource.JRA,
+                    )
+                    jra_result = jra_processor.process_date_range(
+                        data_spec=spec,
+                        from_date=self.settings['from_date'],
+                        to_date=self.settings['to_date'],
+                        option=option,
+                    )
+
+                    # NARデータ取得
+                    nar_processor = BatchProcessor(
+                        database=database,
+                        sid=config.get("jvlink.sid", "JLTSQL"),
+                        batch_size=1000,
+                        service_key=config.get("jvlink.service_key"),
+                        show_progress=True,
+                        data_source=DataSource.NAR,
+                    )
+                    nar_result = nar_processor.process_date_range(
+                        data_spec=spec,
+                        from_date=self.settings['from_date'],
+                        to_date=self.settings['to_date'],
+                        option=option,
+                    )
+
+                    # 結果を統合
+                    result = {
+                        'records_fetched': jra_result.get('records_fetched', 0) + nar_result.get('records_fetched', 0),
+                        'records_parsed': jra_result.get('records_parsed', 0) + nar_result.get('records_parsed', 0),
+                        'records_imported': jra_result.get('records_imported', 0) + nar_result.get('records_imported', 0),
+                    }
+                else:
+                    data_source = DataSource.NAR if data_source_str == 'nar' else DataSource.JRA
+
+                    # BatchProcessorを直接呼び出し（show_progress=Trueでリッチ進捗表示）
+                    processor = BatchProcessor(
+                        database=database,
+                        sid=config.get("jvlink.sid", "JLTSQL"),
+                        batch_size=1000,
+                        service_key=config.get("jvlink.service_key"),
+                        show_progress=True,  # JVLinkProgressDisplayを有効化
+                        data_source=data_source,
+                    )
+
+                    # データ取得実行
+                    result = processor.process_date_range(
+                        data_spec=spec,
+                        from_date=self.settings['from_date'],
+                        to_date=self.settings['to_date'],
+                        option=option,
+                    )
 
                 # 結果をdetailsに反映
                 details['records_fetched'] = result.get('records_fetched', 0)
@@ -3152,6 +3634,58 @@ class QuickstartRunner:
             else:
                 details['error_type'] = 'connection'
                 details['error_message'] = f'JV-Linkエラー: {error_str}'
+
+            self.errors.append({
+                'spec': spec,
+                'type': details['error_type'],
+                'message': details['error_message'],
+            })
+            return ("failed", details)
+
+        except NVLinkError as e:
+            error_code = getattr(e, 'error_code', None)
+            error_str = str(e)
+
+            # NV-Link (NAR) 固有のエラー処理
+            if error_code == -111 or error_code == -114 or '契約' in error_str:
+                details['error_type'] = 'contract'
+                details['error_message'] = '地方競馬DATAの契約対象外です'
+                self.warnings.append(f"{spec}: {details['error_message']}")
+                return ("skipped", details)
+            elif error_code in (-100, -101, -102, -103):
+                details['error_type'] = 'auth'
+                details['error_message'] = f'NV-Link認証エラー: NVDTLab設定ツールでサービスキーを確認してください'
+            elif error_code == -2:
+                return ("nodata", details)
+            else:
+                details['error_type'] = 'nvlink'
+                details['error_message'] = f'NV-Linkエラー: {error_str}'
+
+            self.errors.append({
+                'spec': spec,
+                'type': details['error_type'],
+                'message': details['error_message'],
+            })
+            return ("failed", details)
+
+        except FetcherError as e:
+            error_str = str(e)
+
+            # FetcherError の内容からエラー種別を判定
+            if '-203' in error_str or 'キャッシュ' in error_str:
+                details['error_type'] = 'cache'
+                details['error_message'] = 'NV-Linkキャッシュエラー: NVDTLab設定ツールでキャッシュをクリアしてください'
+            elif '-3' in error_str or 'ファイル' in error_str:
+                details['error_type'] = 'file'
+                details['error_message'] = 'データファイルが見つかりません: NVDTLab設定ツールでデータを再取得してください'
+            elif '契約' in error_str:
+                details['error_type'] = 'contract'
+                details['error_message'] = 'データ提供サービス契約外です'
+                self.warnings.append(f"{spec}: {details['error_message']}")
+                return ("skipped", details)
+            else:
+                details['error_type'] = 'fetch'
+                details['error_message'] = f'データ取得エラー: {error_str[:100]}'
 
             self.errors.append({
                 'spec': spec,
@@ -3263,6 +3797,8 @@ def main():
                         help="バックグラウンド監視を無効化")
     parser.add_argument("--log-file", type=str, default=None,
                         help="ログファイルパス（指定するとログ出力有効。デフォルト: 無効）")
+    parser.add_argument("--source", type=str, choices=["jra", "nar", "all"], default="jra",
+                        help="データソース: jra(中央競馬), nar(地方競馬), all(両方)。デフォルト: jra")
 
     args = parser.parse_args()
 
@@ -3355,6 +3891,27 @@ def main():
 
         # オッズ除外
         settings['no_odds'] = args.no_odds
+
+        # データソース（JRA/NAR）
+        settings['data_source'] = args.source
+
+        # 非対話モードではサービスキーを自動チェック
+        is_valid, message = _check_service_key(args.source)
+        if not is_valid:
+            if args.source == "all":
+                source_name = "中央競馬（JRA）& 地方競馬（NAR/UmaConn）"
+            elif args.source == "nar":
+                source_name = "地方競馬（NAR/UmaConn）"
+            else:
+                source_name = "中央競馬（JRA）"
+            print(f"[NG] {source_name}サービス認証エラー: {message}")
+            if args.source == "jra":
+                print("JRA-VAN DataLabソフトウェアでサービスキーを設定してください")
+            elif args.source == "all":
+                print("JRA-VAN DataLab と UmaConn のサービスキーを設定してください")
+            else:
+                print("UmaConnソフトウェアでサービスキーを設定してください")
+            sys.exit(1)
 
     # 実行
     try:

@@ -16,6 +16,7 @@ from src.jvlink.constants import (
     generate_time_series_full_key,
     JYO_CODES,
 )
+from src.utils.data_source import DataSource
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -44,13 +45,18 @@ class RealtimeFetcher(BaseFetcher):
         ...         break  # Stop fetching
     """
 
-    def __init__(self, sid: str = "JLTSQL"):
+    def __init__(
+        self,
+        sid: str = "JLTSQL",
+        data_source: DataSource = DataSource.JRA,
+    ):
         """Initialize realtime fetcher.
 
         Args:
             sid: Session ID for JV-Link API (default: "JLTSQL")
+            data_source: Data source (DataSource.JRA or DataSource.NAR, default: JRA)
         """
-        super().__init__(sid)
+        super().__init__(sid, data_source=data_source)
         self._stream_open = False
 
     def fetch(
@@ -121,6 +127,10 @@ class RealtimeFetcher(BaseFetcher):
             # Open realtime stream
             ret, read_count = self.jvlink.jv_rt_open(data_spec, key)
 
+            # Mark stream as potentially open (will be closed in finally block)
+            # This ensures jv_close() is called even if an error occurs
+            self._stream_open = True
+
             # -1は「該当データなし」（正常系）- 空のジェネレータとして返す
             if ret == -1:
                 logger.debug("No data available for this key", data_spec=data_spec, key=key)
@@ -128,8 +138,6 @@ class RealtimeFetcher(BaseFetcher):
 
             if ret != JV_RT_SUCCESS:
                 raise FetcherError(f"JVRTOpen failed: {ret}")
-
-            self._stream_open = True
             logger.info(
                 "Realtime stream opened",
                 read_count=read_count,

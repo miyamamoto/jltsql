@@ -5,11 +5,12 @@ This module provides the base class for fetching JV-Data from JV-Link.
 
 import time
 from abc import ABC, abstractmethod
-from typing import Iterator, Optional
+from typing import Iterator, Optional, Union
 
 from src.jvlink.constants import JV_READ_NO_MORE_DATA, JV_READ_SUCCESS
 from src.jvlink.wrapper import JVLinkWrapper
 from src.parser.factory import ParserFactory
+from src.utils.data_source import DataSource
 from src.utils.logger import get_logger
 from src.utils.progress import JVLinkProgressDisplay
 
@@ -42,6 +43,7 @@ class BaseFetcher(ABC):
         sid: str = "UNKNOWN",
         service_key: Optional[str] = None,
         show_progress: bool = True,
+        data_source: DataSource = DataSource.JRA,
     ):
         """Initialize base fetcher.
 
@@ -52,8 +54,17 @@ class BaseFetcher(ABC):
                         If not provided, the service key must be configured in
                         JRA-VAN DataLab application or registry.
             show_progress: Show stylish progress display (default: True)
+            data_source: Data source (DataSource.JRA or DataSource.NAR)
         """
-        self.jvlink = JVLinkWrapper(sid)
+        self.data_source = data_source
+
+        # Select wrapper based on data source
+        if data_source == DataSource.NAR:
+            from src.nvlink.wrapper import NVLinkWrapper
+            self.jvlink = NVLinkWrapper(sid)
+        else:
+            self.jvlink = JVLinkWrapper(sid)
+
         self.parser_factory = ParserFactory()
         self._records_fetched = 0
         self._records_parsed = 0
@@ -66,7 +77,8 @@ class BaseFetcher(ABC):
         self._start_time = None
 
         logger.info(f"{self.__class__.__name__} initialized", sid=sid,
-                   has_service_key=service_key is not None)
+                   has_service_key=service_key is not None,
+                   data_source=data_source.value)
 
     @abstractmethod
     def fetch(self, **kwargs) -> Iterator[dict]:

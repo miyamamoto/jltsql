@@ -13,11 +13,12 @@ from src.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-# All supported record types (38 official parsers)
+# All supported record types (39 parsers: 38 official JRA + 1 NAR)
 ALL_RECORD_TYPES = [
     'AV', 'BN', 'BR', 'BT', 'CC', 'CH', 'CK', 'CS', 'DM',
     'H1', 'H6', 'HC', 'HN', 'HR', 'HS', 'HY',
     'JC', 'JG', 'KS',
+    'NU',  # NAR (地方競馬) 競走馬登録データ
     'O1', 'O2', 'O3', 'O4', 'O5', 'O6',
     'RA', 'RC', 'SE', 'SK', 'TC', 'TK', 'TM',
     'UM', 'WC', 'WE', 'WF', 'WH', 'YS'

@@ -15,6 +15,7 @@ from src.jvlink.constants import (
     DATA_KUBUN_ERASE,
 )
 from src.parser.factory import ParserFactory
+from src.utils.data_source import DataSource
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -108,16 +109,18 @@ class RealtimeUpdater:
     # - YS, BT, CS (Change data) - Updated via YSCH, SLOP, etc.
     # - WF (WIN5), JG (重賞), WC (天候) - Not in real-time stream
 
-    def __init__(self, database: BaseDatabase):
+    def __init__(self, database: BaseDatabase, data_source: DataSource = DataSource.JRA):
         """Initialize real-time updater.
 
         Args:
             database: Database handler instance
+            data_source: Data source (DataSource.JRA or DataSource.NAR, default: JRA)
         """
         self.database = database
+        self.data_source = data_source
         self.parser_factory = ParserFactory()
 
-        logger.info("RealtimeUpdater initialized")
+        logger.info("RealtimeUpdater initialized", data_source=data_source.value)
 
     def process_record(self, buff: str, timeseries: bool = False) -> Optional[Dict]:
         """Process real-time data record.
@@ -156,6 +159,10 @@ class RealtimeUpdater:
             if not table_name:
                 logger.warning(f"Unknown record type: {record_type}")
                 return None
+
+            # Add _NAR suffix for NAR data source
+            if self.data_source == DataSource.NAR:
+                table_name = f"{table_name}_NAR"
 
             # Get headDataKubun with fallback to DataKubun
             head_data_kubun = (

@@ -10,6 +10,7 @@ from src.database.base import BaseDatabase
 from src.database.schema import create_all_tables
 from src.fetcher.historical import HistoricalFetcher
 from src.importer.importer import DataImporter
+from src.utils.data_source import DataSource
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -46,23 +47,36 @@ class BatchProcessor:
         sid: str = "UNKNOWN",
         service_key: Optional[str] = None,
         show_progress: bool = True,
+        data_source: DataSource = DataSource.JRA,
     ):
         """Initialize batch processor.
 
         Args:
             database: Database handler instance
             batch_size: Records per batch
-            sid: Session ID for JV-Link API (default: "UNKNOWN")
-            service_key: Optional JV-Link service key. If provided, it will be set
+            sid: Session ID for JV-Link/NV-Link API (default: "UNKNOWN")
+            service_key: Optional service key. If provided, it will be set
                         programmatically without requiring registry configuration.
             show_progress: Show stylish progress display (default: True)
+            data_source: Data source selection (JRA or NAR, default: JRA)
         """
-        self.fetcher = HistoricalFetcher(sid, service_key=service_key, show_progress=show_progress)
-        self.importer = DataImporter(database, batch_size)
+        self.data_source = data_source
+        self.fetcher = HistoricalFetcher(
+            sid,
+            service_key=service_key,
+            show_progress=show_progress,
+            data_source=data_source,
+        )
+        self.importer = DataImporter(database, batch_size, data_source=data_source)
         self.database = database
 
-        logger.info("BatchProcessor initialized", sid=sid,
-                   has_service_key=service_key is not None, show_progress=show_progress)
+        logger.info(
+            "BatchProcessor initialized",
+            sid=sid,
+            has_service_key=service_key is not None,
+            show_progress=show_progress,
+            data_source=data_source.value,
+        )
 
     def process_date_range(
         self,
@@ -109,9 +123,20 @@ class BatchProcessor:
 
         # Ensure tables exist
         if ensure_tables:
-            logger.info("Ensuring all tables exist")
+            logger.info("Ensuring all tables exist", data_source=self.data_source.value)
             try:
-                create_all_tables(self.database)
+                if self.data_source == DataSource.NAR:
+                    # Create NAR tables
+                    from src.database.schema_nar import get_nar_schemas
+                    nar_schemas = get_nar_schemas()
+                    for table_name, schema_sql in nar_schemas.items():
+                        try:
+                            self.database.execute(schema_sql)
+                        except Exception:
+                            pass  # Table might already exist
+                else:
+                    # Create JRA tables (default)
+                    create_all_tables(self.database)
             except Exception as e:
                 logger.debug(f"Tables might already exist: {e}")
 

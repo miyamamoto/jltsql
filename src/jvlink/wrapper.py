@@ -20,6 +20,38 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# CP1252 to byte mapping for 0x80-0x9F range
+# Moved to module level for performance (避けたい: ホットループ内での辞書再作成)
+CP1252_TO_BYTE = {
+    0x20AC: 0x80,  # €
+    0x201A: 0x82,  # ‚
+    0x0192: 0x83,  # ƒ
+    0x201E: 0x84,  # „
+    0x2026: 0x85,  # …
+    0x2020: 0x86,  # †
+    0x2021: 0x87,  # ‡
+    0x02C6: 0x88,  # ˆ
+    0x2030: 0x89,  # ‰
+    0x0160: 0x8A,  # Š
+    0x2039: 0x8B,  # ‹
+    0x0152: 0x8C,  # Œ
+    0x017D: 0x8E,  # Ž
+    0x2018: 0x91,  # '
+    0x2019: 0x92,  # '
+    0x201C: 0x93,  # "
+    0x201D: 0x94,  # "
+    0x2022: 0x95,  # •
+    0x2013: 0x96,  # –
+    0x2014: 0x97,  # —
+    0x02DC: 0x98,  # ˜
+    0x2122: 0x99,  # ™
+    0x0161: 0x9A,  # š
+    0x203A: 0x9B,  # ›
+    0x0153: 0x9C,  # œ
+    0x017E: 0x9E,  # ž
+    0x0178: 0x9F,  # Ÿ
+}
+
 
 class JVLinkError(Exception):
     """JV-Link related error."""
@@ -78,6 +110,10 @@ class JVLinkWrapper:
         self._is_open = False
 
         try:
+            import sys
+            # Set COM threading model to Apartment Threaded (STA)
+            sys.coinit_flags = 2
+            
             import win32com.client
 
             self._jvlink = win32com.client.Dispatch("JVDTLab.JVLink")
@@ -408,40 +444,10 @@ class JVLinkWrapper:
                     # 2. Some bytes interpreted as CP1252 by Windows/pywin32
                     #    -> Bytes 0x80-0x9F become Unicode chars like U+201C
                     #    -> Need to convert these back to original bytes
+                    #    -> Use module-level CP1252_TO_BYTE mapping
                     #
                     # 3. Proper Unicode (Japanese chars as U+3000+)
                     #    -> Encode to cp932 for parsers
-                    #
-                    # CP1252 to byte mapping for 0x80-0x9F range:
-                    CP1252_TO_BYTE = {
-                        0x20AC: 0x80,  # €
-                        0x201A: 0x82,  # ‚
-                        0x0192: 0x83,  # ƒ
-                        0x201E: 0x84,  # „
-                        0x2026: 0x85,  # …
-                        0x2020: 0x86,  # †
-                        0x2021: 0x87,  # ‡
-                        0x02C6: 0x88,  # ˆ
-                        0x2030: 0x89,  # ‰
-                        0x0160: 0x8A,  # Š
-                        0x2039: 0x8B,  # ‹
-                        0x0152: 0x8C,  # Œ
-                        0x017D: 0x8E,  # Ž
-                        0x2018: 0x91,  # '
-                        0x2019: 0x92,  # '
-                        0x201C: 0x93,  # "
-                        0x201D: 0x94,  # "
-                        0x2022: 0x95,  # •
-                        0x2013: 0x96,  # –
-                        0x2014: 0x97,  # —
-                        0x02DC: 0x98,  # ˜
-                        0x2122: 0x99,  # ™
-                        0x0161: 0x9A,  # š
-                        0x203A: 0x9B,  # ›
-                        0x0153: 0x9C,  # œ
-                        0x017E: 0x9E,  # ž
-                        0x0178: 0x9F,  # Ÿ
-                    }
 
                     # 高速変換: 3段階のエンコード戦略
                     # 1. Latin-1（ASCII + 拡張ASCII）- 最速
@@ -562,6 +568,10 @@ class JVLinkWrapper:
                     # Convert string to Shift-JIS bytes
                     # JVGets stores Shift-JIS bytes in a BSTR, similar to JVRead
                     # Use latin-1 encoding to extract raw bytes (1:1 mapping for 0x00-0xFF)
+                    # 高速変換: 3段階のエンコード戦略
+                    # 1. Latin-1（ASCII + 拡張ASCII）- 最速
+                    # 2. CP932（日本語）- 高速
+                    # 3. 個別処理（CP1252変換が必要な場合）- 低速だが稀
                     try:
                         data_bytes = buff_str.encode('latin-1')
                     except UnicodeEncodeError:
@@ -569,12 +579,18 @@ class JVLinkWrapper:
                         try:
                             data_bytes = buff_str.encode('cp932')
                         except UnicodeEncodeError:
-                            # Fallback: character-by-character conversion
+                            # Fallback: character-by-character conversion with CP1252 handling
                             result_bytes = bytearray()
                             for c in buff_str:
                                 cp = ord(c)
                                 if cp <= 0xFF:
                                     result_bytes.append(cp)
+                                elif cp in CP1252_TO_BYTE:
+                                    result_bytes.append(CP1252_TO_BYTE[cp])
+                                elif cp == 0xFFFD:
+                                    # Unicode replacement character - データ破損
+                                    # 数値フィールドでエラーを避けるため'0'に置換
+                                    result_bytes.append(0x30)  # '0'
                                 else:
                                     try:
                                         result_bytes.extend(c.encode('cp932'))
