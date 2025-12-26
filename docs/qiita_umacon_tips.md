@@ -37,33 +37,7 @@ nv = win32com.client.Dispatch("NVDTLabLib.NVLink")
 | JV-Link (JRA) | `JVDTLab.JVLink` |
 | NV-Link (NAR) | `NVDTLabLib.NVLink` |
 
-## 注意点2: 初回データは取得できない
-
-### 問題
-
-API経由で初回データダウンロードを試みると、`NVStatus` が `-203`（Not Opened）を返し続ける。
-
-```python
-nv.NVInit("UNKNOWN")
-result = nv.NVOpen("RACE", "20241201000000", 4, 0, 0)  # option=4: セットアップモード
-# -> (-301, 0, 1, '')  # download_count=1 でダウンロード開始のはず
-
-status = nv.NVStatus()
-# -> -203  # Not Opened?!
-```
-
-### 原因
-
-UmaConn は、**過去データの一括ダウンロード機能を提供していません**。APIでもGUIアプリでも、過去の蓄積データを取得する方法はありません。
-
-### 現実的な対処法
-
-1. **サービス契約開始後のデータのみ取得可能** - 契約後に配信されるデータから蓄積を始める
-2. **差分データを継続取得** - 毎日APIでデータを取得し、自前でデータベースに蓄積する
-
-JV-Link（JRA）のようにセットアップモードで過去データを一括取得する機能はありません。
-
-## 注意点3: COM メモリリークへの対処
+## 注意点2: COM メモリリークへの対処
 
 ### 問題
 
@@ -152,7 +126,7 @@ for i in range(7):
     print(f"{date}: {result['count']} records")
 ```
 
-## 注意点4: NVStatus の解釈
+## 注意点3: NVStatus の解釈
 
 ### NVStatus の戻り値
 
@@ -179,7 +153,7 @@ else:
     # NVStatus でダウンロード完了を待機
 ```
 
-## 注意点5: 64bit Python での使用
+## 注意点4: 64bit Python での使用
 
 ### 問題
 
@@ -200,7 +174,7 @@ NV-Link は `RunAs` レジストリ値が設定されており、DLL Surrogate �
 "RunAs"=-
 ```
 
-## 注意点6: データファイル名の形式
+## 注意点5: データファイル名の形式
 
 ### JV-Link との違い
 
@@ -216,7 +190,7 @@ RACERA2024120108010512.jvd
 
 ファイル名からレース情報を抽出する場合は、形式の違いに注意してください。
 
-## 注意点7: レコード仕様の違い
+## 注意点6: レコード仕様の違い
 
 ### フィールド定義
 
@@ -238,7 +212,6 @@ NAR（地方競馬）のレコード仕様は JRA とは異なります。同じ
 | 注意点 | 対策 |
 |-------|------|
 | ProgID が違う | `NVDTLabLib.NVLink` を使う |
-| 過去データ取得不可 | 契約後から差分データを蓄積 |
 | メモリリーク | サブプロセスで日単位に分割 |
 | NVStatus の解釈 | download_count も確認 |
 | 64bit Python | DLL Surrogate + RunAs削除 |
